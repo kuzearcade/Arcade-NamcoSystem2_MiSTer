@@ -35,8 +35,17 @@ def main():
         name, _, tag = spec.partition(':')
         tag = tag or 'attract'
         out = os.path.join(ROOT, 'sim/oracle/traces', f'{name}_{tag}')
-        shutil.rmtree(out, ignore_errors=True)
-        os.makedirs(out)
+        # a fresh directory: a MAME still exiting in the old one writes its
+        # nvram/ and cfg/ back after a delete, so retry until it is gone
+        for _ in range(10):
+            shutil.rmtree(out, ignore_errors=True)
+            try:
+                os.makedirs(out)
+                break
+            except FileExistsError:
+                import time; time.sleep(1)
+        else:
+            sys.exit(f'{out}: cannot recreate (is a MAME still running there?)')
         env = dict(os.environ, MP_OUT='.', MP_FROM=str(a.frm), MP_FRAMES=str(a.frames), MP_EVERY=str(a.every),
                    MP_BOARD=BOARD[gm[name]['config']], MP_PLAY=os.path.abspath(a.play))
         log = open(os.path.join(out, 'mame.log'), 'w')
