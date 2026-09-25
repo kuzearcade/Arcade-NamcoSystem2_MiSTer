@@ -9,7 +9,7 @@
 // IRQ: MAME's periodic 120 Hz (irq0_line_hold) from power-on, held until
 // the 6809 fetches its vector; FIRQ: the C140's INT1. The YM2151's IRQ is not
 // wired (MAME comments it out).
-module ns2_sound (
+module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	input             clk,
 	input             reset,
 	input             run,            // the master's C148 ext1 bit 0
@@ -25,6 +25,16 @@ module ns2_sound (
 	output signed [15:0] ym_left,
 	output signed [15:0] ym_right,
 	output            ym_sample,
+	// the C140 and its voice ROM (the "c140" region's words)
+	output            vrom_req,
+	output     [19:0] vrom_addr,
+	input             vrom_valid,
+	input      [15:0] vrom_data,
+	output signed [15:0] c140_left,
+	output signed [15:0] c140_right,
+	output signed [15:0] c140_raw_l,
+	output signed [15:0] c140_raw_r,
+	output            c140_sample,
 	// debug
 	output     [15:0] dbg_addr,
 	output            dbg_wr,
@@ -89,8 +99,10 @@ module ns2_sound (
 		.rst(reset), .clk(clk), .cen(ycen), .cen_p1(ycen_p1),
 		.cs_n(!(wr_e && sel_ym)), .wr_n(1'b0), .a0(a[0]), .din(cpu_do), .dout(ym_q),
 		.ct1(), .ct2(), .irq_n(), .sample(ym_sample), .left(), .right(), .xleft(ym_left), .xright(ym_right));
-	ns2_c140 u_c140 (.clk(clk), .reset(reset), .cs(wr_e && sel_c140), .we(1'b1), .addr(a[8:0]), .din(cpu_do),
-	                 .dout(c140_q), .int1(int1));
+	ns2_c140 #(.MAME_RATE(C140_MAME_RATE)) u_c140 (.clk(clk), .reset(reset), .cs(wr_e && sel_c140), .we(1'b1),
+		.addr(a[8:0]), .din(cpu_do), .dout(c140_q), .int1(int1),
+		.rom_req(vrom_req), .rom_addr(vrom_addr), .rom_valid(vrom_valid), .rom_data(vrom_data),
+		.left(c140_left), .right(c140_right), .raw_l(c140_raw_l), .raw_r(c140_raw_r), .sample(c140_sample));
 
 	always @(posedge clk) begin
 		ram_q <= ram[a[12:0]];

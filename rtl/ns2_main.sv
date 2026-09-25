@@ -90,12 +90,16 @@ module ns2_main (
 	reg [7:0] sci_h [0:8191], sci_l [0:8191];
 	reg [15:0] sci_q;
 
-	// the arbiter: grant, then two clocks (address, then data)
-	reg        busy, who;           // who: 0 master, 1 slave
+	// the arbiter: the grant with the address, then the devices' read
+	// latency, then the capture (three clocks, the master first): the 68000
+	// gets DTACK in time for no wait state, as in MAME
+	reg        busy, who_r;         // who: 0 master, 1 slave
 	reg  [1:0] step;
 	reg [3:0]  dev;
 	wire       fl = board == 3'd1;
 	localparam D_NONE = 0, D_DROM = 1, D_VID = 2, D_DP = 3, D_SCI = 4, D_KEY = 5, D_PROT = 6;
+	wire       grant_m = m_req && !m_done, grant_s = s_req && !s_done;
+	wire       who = busy ? who_r : !grant_m;
 	wire [23:0] ga = {who ? s_sa : m_sa, 1'b0};
 	function [3:0] decode(input [23:0] x);
 		if (x[23:21] == 3'b001)                 decode = D_DROM;   // 200000-3fffff
@@ -122,13 +126,10 @@ module ns2_main (
 		key_rd <= 1'b0; key_we <= 1'b0; dp_we <= 1'b0;
 		{cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl} <= 7'd0;
 		if (reset) begin busy <= 1'b0; step <= 2'd0; end
-		else if (!busy) begin
-			// a new request, the master first
-			if (m_req && !m_done) begin busy <= 1'b1; who <= 1'b0; step <= 2'd0; end
-			else if (s_req && !s_done) begin busy <= 1'b1; who <= 1'b1; step <= 2'd0; end
-		end else case (step)
-			2'd0: begin
-				// the address: select the device (its select is active next clock)
+		else case (busy ? step : 2'd0)
+			2'd0: if (grant_m || grant_s) begin
+				// a new request: select the device (its select is active next clock)
+				busy <= 1'b1; who_r <= who;
 				dev <= decode(ga);
 				v_addr <= ga[20:1]; v_dout <= who ? s_sd : m_sd; v_rnw <= !(who ? s_we : m_we);
 				v_uds <= who ? s_uds : m_uds; v_lds <= who ? s_lds : m_lds;

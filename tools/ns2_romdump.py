@@ -6,7 +6,8 @@ board wiring applied, NS2-1), for the RTL testbenches:
 
 tiles.bin (c123tmap), tmask.bin (c123tmap:mask), roz.bin (s2roz),
 sprite.bin, c169.bin, c169mask.bin, c355.bin, clut.bin, mcu_int.bin (the C65's
-or C68's internal ROM), mcu_ext.bin (its EPROM): whichever the set has. ROM-derived: the output
+or C68's internal ROM), mcu_ext.bin (its EPROM), the CPUs' ROMs, nvram.bin and
+c140.bin (the voices, big-endian words): whichever the set has. ROM-derived: the output
 directory is git-ignored and never committed.
 """
 import os, sys
@@ -19,7 +20,7 @@ FILES = {'c123tmap': 'tiles.bin', 'c123tmap:mask': 'tmask.bin', 's2roz': 'roz.bi
          'c355spr': 'c355.bin', 'c45_road:clut': 'clut.bin',
          'mcu_int': 'mcu_int.bin', 'c65mcu:external': 'mcu_ext.bin', 'c68mcu:external': 'mcu_ext.bin',
          'maincpu': 'maincpu.bin', 'slave': 'slave.bin', 'data_rom': 'data.bin', 'audiocpu': 'audio.bin',
-         'nvram': 'nvram.bin'}
+         'nvram': 'nvram.bin', 'c140': 'c140.bin'}
 
 
 def main():

@@ -582,6 +582,10 @@ on 68,000+ frames and on flip through the model. For M3:
   slave's start at its release in frame 55 and run to frame 121.
 - A byte-wide device (C116, DPRAM, EEPROM, C148) reads 0x00 on the other
   lane, matching what MAME's `umask16` handlers return.
+- The master's timing matches too: its clock is MAME's + 24 at every
+  access over 1,500,000 accesses.
+- The 6809's first 60,000 writes match, and so do all 65,817 of the MCU's
+  DPRAM writes (to frame 1184). NS2-8 has the details.
 
 `sim/rtl/ns2_frames`:
 - both 68000s, the 6809, the MCU (D2), the sound, the video; the ROMs as

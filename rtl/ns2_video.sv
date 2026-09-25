@@ -97,7 +97,8 @@ module ns2_video (
 	reg [2:0] div;
 	assign ce_pix = div == 3'd7;
 	always @(posedge clk) begin
-		if (reset) begin div <= 0; hcnt <= 0; vcnt <= 0; end
+		// MAME's screen starts at the top of VBLANK (vpos 224)
+		if (reset) begin div <= 0; hcnt <= 0; vcnt <= 9'd224; end
 		else begin
 			div <= div + 1'd1;
 			if (ce_pix) begin

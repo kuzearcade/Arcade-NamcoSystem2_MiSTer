@@ -75,10 +75,16 @@ module ns2_cpu #(parameter MASTER = 1) (
 	wire sel_c148 = a[23:18] == 6'h07;                          // 1c0000-1fffff
 	wire sel_loc  = sel_rom || sel_ram || sel_eep || sel_c148;
 
-	// the bus cycle: an access starts when AS falls
-	reg  as_d, busy;
+	// the bus cycle: an access starts when AS and a data strobe are low (a
+	// write's strobes fall a state after AS, with its data). DTACK for a
+	// local device or any write counts from AS alone, or every write would
+	// wait a clock: a shared write completes after DTACK (its request goes
+	// out with the strobes, and is done long before the next bus cycle)
+	reg  as_d, asl_d, busy;
 	wire start = (as || iack) && !as_d;
-	always @(posedge clk) as_d <= as || iack;
+	wire as_loc = !ASn && !iack && (sel_loc || !eRWn);
+	wire start_loc = as_loc && !asl_d;
+	always @(posedge clk) begin as_d <= as || iack; asl_d <= as_loc; end
 
 	// work RAM (two byte lanes) and the EEPROM (bytes on the low lane)
 	reg  [7:0] ram_h [0:32767], ram_l [0:32767];
@@ -105,31 +111,32 @@ module ns2_cpu #(parameter MASTER = 1) (
 
 	// DTACK: local devices two clocks after the start (the RAM and ROM have
 	// answered), shared ones when the grant completes
-	reg [1:0] lat;
+	reg [2:0] lat;
 	always @(posedge clk) begin
 		if (cpu_reset) begin dtack <= 1'b0; sh_req <= 1'b0; busy <= 1'b0; lat <= 0; end
 		else begin
-			if (!(as || iack)) begin dtack <= 1'b0; busy <= 1'b0; end
+			if (ASn) begin dtack <= 1'b0; busy <= 1'b0; end
+			if (start_loc) begin busy <= 1'b1; lat <= 3'd2; end
 			if (start) begin
 				busy <= 1'b1;
 				if (iack) begin
 					iEdb <= {8'h00, 8'd24 + {5'd0, eab[3:1]}};
-					lat <= 2'd2;
-				end else if (sel_loc) lat <= 2'd2;
-				else begin
+					lat <= 3'd2;
+				end else if (!sel_loc) begin
 					sh_req <= 1'b1; sh_addr <= eab; sh_we <= !eRWn; sh_uds <= !UDSn; sh_lds <= !LDSn; sh_dout <= oEdb;
 				end
 			end
 			if (lat != 0) begin
 				lat <= lat - 1'd1;
-				if (lat == 2'd1) begin
+				if (lat == 3'd1) begin
 					dtack <= 1'b1;
 					if (!iack) iEdb <= sel_rom ? rom_data : sel_ram ? ram_q : sel_eep ? {8'h00, eep_q} :
 					                   {8'h00, c148_q};       // (umask16: the other lane 0)
 				end
 			end
 			if (sh_req && sh_done) begin
-				sh_req <= 1'b0; dtack <= 1'b1; iEdb <= sh_din;
+				sh_req <= 1'b0;
+				if (!sh_we) begin dtack <= 1'b1; iEdb <= sh_din; end
 			end
 		end
 	end

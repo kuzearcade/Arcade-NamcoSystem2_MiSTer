@@ -5,7 +5,7 @@
 // testbench's, as in M1. M3 replaces the arrays with the SDRAM path.
 // Line events, at the start of the line (MAME's scanline timer):
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
-module ns2_board (
+module ns2_board #(parameter C140_MAME_RATE = 0) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -31,6 +31,8 @@ module ns2_board (
 	output            spr_req,   output [19:0] spr_addr,   input spr_ack,   input spr_valid,   input [63:0] spr_data,
 	// audio
 	output signed [15:0] ym_left, ym_right,
+	output signed [15:0] c140_left, c140_right, c140_raw_l, c140_raw_r,
+	output            c140_sample,
 	// debug
 	output            m_as, s_as,
 	output     [23:1] m_addr, s_addr,
@@ -49,6 +51,7 @@ module ns2_board (
 	reg [15:0] srom [0:131071] /*verilator public_flat_rw*/;
 	reg [15:0] drom [0:1048575] /*verilator public_flat_rw*/;
 	reg [7:0]  arom [0:262143] /*verilator public_flat_rw*/;     // the sound ROM
+	reg [15:0] vrom [0:1048575] /*verilator public_flat_rw*/;    // the C140's voices (the region's words)
 	reg [7:0]  irom [0:8191]   /*verilator public_flat_rw*/;     // the MCU's internal ROM
 	reg [7:0]  erom [0:32767]  /*verilator public_flat_rw*/;     // its EPROM
 	wire [17:1] mra, sra;
@@ -129,17 +132,27 @@ module ns2_board (
 
 	// the I/O MCU
 	ns2_c65 u_mcu (
-		.clk(clk), .reset(reset || !sub_run), .irq_line200(ev_mcu),
+		.clk(clk), .por(reset), .reset(reset || !sub_run), .irq_line200(ev_mcu),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
 		.dp_addr(dpa_u), .dp_dout(dpd_u), .dp_we(dpw_u), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(mcu_addr), .dbg_wr(mcu_wr), .dbg_dout(mcu_dout));
 
 	// the sound board
-	ns2_sound u_sound (
+	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
 		.clk(clk), .reset(reset), .run(sound_run),
 		.rom_addr(ara), .rom_data(arq),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(),
+		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),
+		.c140_left(c140_left), .c140_right(c140_right), .c140_raw_l(c140_raw_l), .c140_raw_r(c140_raw_r),
+		.c140_sample(c140_sample),
 		.dbg_addr(snd_addr), .dbg_wr(snd_wr), .dbg_dout(snd_dout));
+
+	// the voice ROM: one clock
+	wire        vr_req;
+	wire [19:0] vr_addr;
+	reg         vr_valid;
+	reg  [15:0] vr_q;
+	always @(posedge clk) begin vr_valid <= vr_req; vr_q <= vrom[vr_addr]; end
 endmodule

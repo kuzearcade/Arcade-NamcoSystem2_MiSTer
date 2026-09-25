@@ -307,3 +307,73 @@ rest. The generator then reports every opcode cycle-exact.
 clocks between two IRQ1s should be one frame: 8,448 E cycles, 33,792
 clocks. Measured over 63 frames of Assault: mean 33,792.6, range 33,780 to
 33,820 (the instruction MAME was in when line 200 came).
+
+## NS2-8 — M2: the whole board against MAME's bus traces (open: the C140, the C68)
+
+`sim/rtl/ns2_frames` runs the board from power-on and compares each CPU with
+MAME's trace (`sim/oracle/ns2_bustrace.lua`). With `MP_TIME=1` the trace
+has MAME's clock for every access, so timing is compared too.
+
+**Assault, the results:**
+- **Master 68000:** its first 3,000,000 accesses match MAME's, data
+  included. Over the first 1,500,000 its clock is MAME's + 24 at every
+  access, with no drift. The 24 is fx68k's reset sequence.
+- **Slave 68000:** its first 3,000,000 accesses match, from its release in
+  frame 55.
+- **6809:** its first 60,000 writes match (to frame 245).
+- **MCU:** all of its 65,817 DPRAM writes match (to frame 1184), including
+  the boot script's Start press.
+
+- **C140 alone** (`sim/rtl/ns2_c140`): replaying MAME's 6809 writes at
+  MAME's clocks, all 419,849 samples (19.7 s) equal MAME's mixer sums
+  (`NS2_C140_DUMP`). That includes the voices, compressed and linear, loops
+  and ends.
+
+**What it took:**
+- **The unused byte lane reads 0.** A byte device (C116, DPRAM, EEPROM,
+  C148) returns 0x00 on the other lane, as MAME's `umask16` handlers do. It
+  was 0xff before.
+- **No wait states.** MAME's 68000 never waits, and three RTL paths cost
+  one clock (4 clocks of `clk`) per access:
+  - a local device's DTACK waited for a data strobe, which a write asserts
+    a state after AS. It now counts from AS: fx68k takes DTACK up to 4
+    clocks after AS without a wait state, and 5 costs one;
+  - the arbiter's grant took a clock of its own; it now selects the device
+    in the same clock;
+  - a shared write waited for its request to finish. It now gets DTACK from
+    AS, and its request goes out with the data strobes and completes long
+    before the next bus cycle.
+- **MAME's screen starts at the top of VBLANK.** Time 0 is vpos 224, so
+  the video's counter resets to 224. The 68000s mask their interrupts
+  while they boot, so the master's trace could not show this. The MCU's
+  IRQ1 did.
+- **MAME's IRQ1 input is held (`HOLD_LINE`).** The HD63705 core latches
+  IRQ1 only when that input changes, and the input stays held until the
+  core enters any interrupt. The MCU's reset clears neither. So the first
+  line 200 after the master releases the MCU is lost unless an interrupt
+  came first. `ns2_c65` models the held input; only the board's reset
+  clears it.
+
+**Where the MCU parts from MAME.** From its first opcode, every
+instruction takes MAME's time. It starts 11 cycles later than MAME
+stamps it: jt6805's reset takes 8 cycles to fetch the vector, and MAME
+stamps its first instructions 48 clocks before the release, because a
+CPU resumed mid-timeslice runs from the slice's base. So an interrupt can
+land one instruction apart. That is the gate's allowance: bus traces
+agree until an interrupt lands apart (MS1-22). The MCU's DPRAM writes are
+the contract with the 68000s, and they all match.
+
+**The C140's timing, as MAME's stream.** A MAME stream update at time t
+computes the samples whose clock edge is at or before t. So a register
+write never reaches a sample whose edge has passed.
+- The RTL computes each sample at its edge, and the voice-register writes
+  wait in a queue while it runs. The CPU's own view (register reads, the
+  key status) changes at once.
+- MAME's C140 clock is the XTAL's 21333.33 Hz truncated to 21333 Hz, so
+  its edges fall every 2304.03 clocks. `MAME_RATE = 1` (the testbenches)
+  places the edges as MAME does; the board uses the exact 2304.
+
+**The boot script's Start press.** `ns2_boot.lua` sets the button in
+frames 300-305, but MAME's ports read it from the next frame's input
+update. The testbench presses it from frame 301 (`ports.txt` records the
+port, mask and frame).

@@ -10,7 +10,7 @@ SRCS := $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)
 obj_dir/Vns2_board: tb.cpp $(SRCS) Makefile
 	verilator --cc --exe --build -O3 -j 8 -CFLAGS -O2 --x-assign fast --x-initial fast -Wno-fatal -Wno-WIDTH \
 		-Wno-BLKANDNBLK -Wno-MULTIDRIVEN -Wno-UNOPTFLAT -Wno-CASEINCOMPLETE -Wno-LATCH -I$(R) -I$(T)/fx68k \
-		--top-module ns2_board $(SRCS) tb.cpp -o Vns2_board
+		-GC140_MAME_RATE=1 --top-module ns2_board $(SRCS) tb.cpp -o Vns2_board
 	ln -sf $(R)/63705.uc 63705.uc
 	ln -sf $(T)/fx68k/microrom.mem microrom.mem
 	ln -sf $(T)/fx68k/nanorom.mem nanorom.mem

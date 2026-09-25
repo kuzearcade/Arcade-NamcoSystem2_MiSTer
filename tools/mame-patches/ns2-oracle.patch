@@ -1,3 +1,30 @@
+diff --git a/src/devices/sound/c140.cpp b/src/devices/sound/c140.cpp
+index 4c28f675d26..ede78cf85af 100644
+--- a/src/devices/sound/c140.cpp
++++ b/src/devices/sound/c140.cpp
+@@ -51,6 +51,8 @@ Finally, the 219 only has 16 voices.
+ #include "c140.h"
+ 
+ #include <algorithm>
++#include <cstdio>
++#include <cstdlib>
+ 
+ struct voice_registers
+ {
+@@ -317,6 +319,13 @@ void c140_device::sound_stream_update(sound_stream &stream)
+ 	/* render to MAME's stream buffer */
+ 	lmix = m_mixer_buffer_left.get();
+ 	rmix = m_mixer_buffer_right.get();
++
++	// NS2 oracle (Arcade-NamcoSystem2_MiSTer, tools/mame-patches): with
++	// NS2_C140_DUMP=file, every sample's mixer sums (s16 left, s16 right),
++	// in order from power-on
++	static FILE *dump = nullptr; static bool dump_init = false;
++	if (!dump_init) { dump_init = true; if (const char *fn = getenv("NS2_C140_DUMP")) dump = fopen(fn, "wb"); }
++	if (dump) for (int i = 0; i < samples; i++) { s16 lr[2] = { lmix[i], rmix[i] }; fwrite(lr, 2, 2, dump); }
+ 	{
+ 		for (int i = 0; i < samples; i++)
+ 		{
 diff --git a/src/mame/namco/namcos2.cpp b/src/mame/namco/namcos2.cpp
 index 8c6da7a0425..ef3e75ab52a 100644
 --- a/src/mame/namco/namcos2.cpp

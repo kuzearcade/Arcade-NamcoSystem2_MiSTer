@@ -11,9 +11,15 @@
 // (channel bits 4-2), sets the complete flag (bit 7 of the control read,
 // cleared by a control read then a data read) and, with bit 5, interrupts.
 // IRQ1 (line 200) and the A/D interrupt are latched until the core fetches
-// their vectors (0x1ff8, 0x1fea), as MAME's pending interrupts.
+// their vectors (0x1ff8, 0x1fea), as MAME's pending interrupts. MAME holds
+// the IRQ1 input (HOLD_LINE) until the core enters any interrupt, and the
+// core latches IRQ1 only when that input changes: a line-200 event while the
+// input is still held is lost. The input survives the MCU's reset (only
+// power-on clears it), so the first line 200 after the master releases the
+// MCU is lost unless an interrupt was taken first.
 module ns2_c65 (
 	input             clk,
+	input             por,            // the board's reset
 	input             reset,          // held while the master's C148 keeps the MCU in reset
 	input             irq_line200,    // one clock pulse
 	// ROMs: data one clock after the address (internal 8 KB, external 32 KB)
@@ -45,6 +51,7 @@ module ns2_c65 (
 	wire [7:0]  dout;
 	reg  [7:0]  din;
 	reg         irq_p, adc_p;
+	reg         irq_in;               // MAME's IRQ1 input: held until an interrupt is taken
 	wire        rd;
 	ns2_hd63705 u_cpu (.rst(reset), .clk(clk), .cen(cen), .irq(irq_p), .adc(adc_p), .wr(wr), .rd(rd), .tstop(),
 	                   .addr(a), .din(din), .dout(dout));
@@ -93,10 +100,15 @@ module ns2_c65 (
 	// the core's reads that change state: the fetch strobe of the microcode
 	wire fetch = cen && rd;
 	always @(posedge clk) begin
+		if (por) irq_in <= 1'b0;
+		else if (irq_line200) irq_in <= 1'b1;
+		else if (!reset && fetch && (a == 16'h1ff8 || a == 16'h1fea)) irq_in <= 1'b0;
+	end
+	always @(posedge clk) begin
 		if (reset) begin
 			irq_p <= 1'b0; adc_p <= 1'b0; an_ctrl <= 0; an_data <= 8'haa; an_done <= 0;
 		end else begin
-			if (irq_line200) irq_p <= 1'b1;
+			if (irq_line200 && !irq_in) irq_p <= 1'b1;
 			// the vector fetch takes the interrupt
 			if (fetch && a == 16'h1ff8) irq_p <= 1'b0;
 			if (fetch && a == 16'h1fea) adc_p <= 1'b0;
