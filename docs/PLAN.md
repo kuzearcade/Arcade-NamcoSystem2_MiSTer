@@ -567,6 +567,15 @@ on 68,000+ frames and on flip through the model. For M3:
 
 ### M2 — Whole board from reset (ROMs as arrays)
 
+**Order (decided in M2):**
+1. The C65 core first (done, NS2-7: MAME's trace and timing).
+2. The whole board on the C65 sets (44 of 61).
+3. The C68, whose 740 core is jt65c02's microcode extended to a 512-entry
+   table (T mode as a ninth opcode bit). Its cycles come from MAME's own
+   instruction lists (`om6502.lst`, `om740.lst`: one cycle per bus call).
+   Counting cycles from its bus trace does not work: MAME's taps miss the
+   dummy `read_pc` cycles.
+
 `sim/rtl/ns2_frames`:
 - both 68000s, the 6809, the MCU (D2), the sound, the video; the ROMs as
   arrays;

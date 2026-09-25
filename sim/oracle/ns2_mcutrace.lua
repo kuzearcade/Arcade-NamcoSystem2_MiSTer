@@ -38,7 +38,7 @@ _G.ns2_mcu_w = sp:install_write_tap(0, 0xffff, "mcuw", function(o, d)
 end)
 end
 local dbg = manager.machine.debugger
-if PC then dbg:command("trace " .. OUT .. "/mcu_pc.txt," .. mcu.tag) end
+if PC then dbg:command("trace " .. OUT .. "/mcu_pc.txt," .. mcu.tag .. ",noloop") end   -- noloop: every instruction, loops not collapsed
 _G.ns2_mcu_f = emu.add_machine_frame_notifier(function()
   F = F + 1
   if F >= FRAMES and not done then
