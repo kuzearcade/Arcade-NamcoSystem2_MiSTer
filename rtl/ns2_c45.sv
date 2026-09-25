@@ -58,7 +58,8 @@ module ns2_c45 (
 	wire [15:0] w    = px[3] ? w1 : w0;
 	wire [2:0]  b    = px[2:0];
 	wire [1:0]  pix  = {w[15 - b], w[7 - b]};
-	wire        more = srcx + {1'b0, step} <= (28'd704 << 16);
+	wire [28:0] nsrc = {1'b0, srcx} + {2'b0, step};      // 29 bits: a saturated crop must not wrap
+	wire        more = nsrc <= (29'd704 << 16);
 	wire [9:0]  tnum = rd_data[9:0] >= 10'd1000 ? rd_data[9:0] - 10'd1000 : rd_data[9:0];
 	wire [40:0] crop = $unsigned(-sx) * step;
 

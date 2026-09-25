@@ -72,14 +72,12 @@ measured:
 | finehour | 3598 / 3599 |
 | assault | 3578 / 3599 |
 
-The frames that are not exact are all explained by MAME, not by the model:
+The frames that are not exact:
 - `assault` frames 1-20 are MAME's boot screen before its first draw (all
-  0x00ffff);
-- `assault` 2022 is 167 pixels of line 0;
-- `finehour` 3580 is 161 pixels of one sprite. The game rewrites the sprite
-  bank mid-frame. The model takes VRAM from state F for every band (only the
-  registers are logged per line), so a VRAM change between bands is outside
-  what it models.
+  0x00ffff). This is a MAME artifact.
+- `assault` 2022 (167 pixels of line 0) and `finehour` 3580 (one sprite)
+  were VRAM rewrites between MAME's bands. NS2-5 logs them, and both are
+  exact since.
 
 ## NS2-3 — D3: the SDRAM bandwidth gate (closed, measured)
 
@@ -144,3 +142,93 @@ at their real port shapes.
   use.
 - Result: 401 blocks. With the CPUs, jt51 and everything outside the core,
   that is 527 of 553. The consequences are in docs/PLAN.md Appendix F.
+
+## NS2-5 — The other boards, and the VRAM MAME draws a band with (closed, measured)
+
+The model and M1's RTL cover every board. Each item below was measured
+against MAME's pictures.
+
+**Metal Hawk** (`metlhawk_state`):
+- **Sprites:** 8 words a sprite, and no bank.
+  - `scalex` always divides by 0x20, so a 16-wide sprite is (sizex + 1) / 2
+    pixels.
+  - A smaller 32 x 32 sprite moves by (32 - w) / 8 and (32 - h) / 12.
+  - The rot90 bit selects an xy-swapped decode. The core keeps a transposed
+    copy of the sprite ROM (the testbench builds it).
+- **C169:** two layers of 16 x 16 tiles on a 4096 x 4096 map. Layer 1 takes
+  per-line parameters from video RAM when control word 0 is 0x8000 (not
+  seen in attract).
+- **Priorities** run 0..15: the C123 planes at 2p, then the C169 layers 1
+  and 0, then 4-bit sprites.
+
+**Final Lap:**
+- The `finallap` config (5 sets) uses `namcos2_sprite_finallap_device`:
+  the sprite number is w1[12:2] and the 32/16 select is w1 bit 13.
+  - Before this, a Final Lap sprite drew a 32 x 32 tile where MAME drew a
+    16 x 16 quarter: 41 frames with 5-6 pixels each.
+- Its sprite priority is 4 bits (`metlhawk_state`'s callback).
+- `finalap2` and `finalap3` use `TilemapCB_finalap2`.
+- The games use 3 KB at most of the 64 KB sprite window.
+
+**The C45 road** (Final Lap, Suzuka, Lucky & Wild):
+- a 64 x 512 map of 16 x 16 2 bpp tiles in RAM;
+- per-line priority, screen x, source line and zoom;
+- a 256-byte CLUT;
+- no transparent pen on System 2.
+
+**The C355** (Steel Gunner, Suzuka, Lucky & Wild):
+- **Buffering:** Suzuka and Lucky & Wild build the list at vblank
+  (`set_buffer(1)`), so the picture shows state F-1's sprites. That made
+  Suzuka's frames exact.
+- **The shadow pen** sets 0x800 whatever the colour (sgunner's mix).
+- **Steel Gunner** uses priorities 0..7.
+- **The split has a closed form.** MAME splits a sprite of V pixels into n
+  rows by repeated division, which gives q = V // n, rem = V % n: the first
+  n - rem rows are q high, the last rem rows q + 1. Row r's zoom is
+  q * 4096 + (min(rem, n-r) * 4096) // (n-r), a 16 x 16 table. Columns work
+  the same way.
+  - `tools/ns2_c355hw.py` computes this line by line, as the RTL does, and
+    equals MAME's frame algorithm on every sampled frame.
+- **Line load:** busy lines are heavy. Lucky & Wild's line 131 of frame 1296
+  has 48 sprites, 302 tile columns and 3,626 pixels (12 x overdraw).
+  - The RTL's C355 walks a column a clock, fetches through an 8-deep job
+    queue, and draws two pixels a clock (the sprite line buffer is split by
+    x & 1).
+  - Its SDRAM load, about 600 bursts on that line (9.7 M/s), is M3's
+    problem for the NB bitstream.
+
+**The VRAM MAME draws a band with.** MAME draws a band at its POSIRQ line
+with the VRAM of that moment, but the model took every band's VRAM from state
+F. Games rewrite text and sprite banks mid-frame, which caused:
+- `finehour` 3580;
+- `finallap` 811;
+- 26 `luckywld` frames;
+- `suzuka8h` 39;
+- `assault` 2022.
+
+The capture now logs every write to the tilemap RAM and the sprite RAM with
+its line (`vram.txt`). State F-1 plus frame F's logged writes equals state F,
+word for word, on every frame checked. The model and the testbench rebuild
+each band's VRAM from it, and all five cases are exact.
+
+**Flip.** The games set the C123's flip from their service menus, so attract
+and play almost never show it (1 frame in all the captures). The "Video
+Display" DIP is not it. `tools/ns2_flipref.py` forces the flip into 200
+states per board, and in every band's registers, and writes the model's
+pictures. The model's flip matches MAME on sws93's flipped frame. The RTL
+equals those pictures on all eight boards.
+
+**The RTL's bugs the comparisons found**, as patterns to check in any new
+RTL:
+- a `{}` concatenation is unsigned, so it turned a signed window test
+  unsigned (C355);
+- a product inside a concatenation is self-determined: `rr * nc` at 5 bits
+  wrapped (C355), and `k * 13'd4096` at 13 bits overflowed (C355);
+- a saturated 28-bit value plus a step wrapped (C45);
+- a state encoded as `F_ADDR + 7` overflowed a 3-bit state register (C123);
+- two line-buffer writers, or two drivers of one RAM address, where a mux
+  belongs.
+
+**Line time.** The C123 now fetches a plane's slots while drawing the plane
+before it (two slot banks). With stall injection, the busiest line on any
+board takes about 2,000 of its 3,072 clocks.

@@ -22,12 +22,14 @@ module ns2_sprite_a (
 	input      [15:0] gfx_ctrl,
 	input             pri4,          // the priority callback: 4 bits (finallap), else & 7
 	input             spr_fl,        // Final Lap's older board: sprite w1[12:2], 32 wide = w1[13]
+	input             mh,            // Metal Hawk: 8 words a sprite, raw 8 bpp rows, rot90
 	// sprite RAM, video port: data one clock after the address
 	output reg [12:0] sr_addr,
 	input      [15:0] sr_data,
-	// sprite ROM: 64-bit bursts, burst = sprite * 128 + row * 4 + group pair
+	// sprite ROM: 64-bit bursts, burst = sprite * 128 + row * 4 + group pair;
+	// bit 19: Metal Hawk's xy-swapped decode (a transposed copy of the ROM)
 	output reg        s_req,
-	output reg [18:0] s_addr,
+	output reg [19:0] s_addr,
 	input             s_ack,
 	input             s_valid,
 	input      [63:0] s_data,
@@ -48,12 +50,12 @@ module ns2_sprite_a (
 	endfunction
 
 	localparam S_IDLE = 0, S_W0 = 1, S_W0D = 2, S_W0C = 3, S_W1 = 4, S_W2 = 5, S_W3 = 6, S_W3D = 7,
-	           S_CHK = 8, S_ROW = 9, S_FETCH = 10, S_WAIT = 11, S_DRAW = 12, S_NEXT = 13;
+	           S_CHK = 8, S_ROW = 9, S_FETCH = 10, S_WAIT = 11, S_DRAW = 12, S_NEXT = 13, S_W4 = 14, S_W4D = 15;
 	reg [3:0]  st;
 	reg [7:0]  yl;
 	reg [6:0]  n;              // sprite index
 	reg [12:0] base;
-	reg [15:0] w0, w1, w2, w3;
+	reg [15:0] w0, w1, w2, w3, w6;     // Metal Hawk: w2 = word 3, w3 = word 7, w6 = word 6
 	reg [1:0]  wsel;
 	reg [7:0]  row_pix [0:31];
 	reg [2:0]  nreq, nrx;
@@ -61,19 +63,29 @@ module ns2_sprite_a (
 	reg [21:0] dxs, dys;
 	reg [27:0] acc;
 
-	wire        is32  = spr_fl ? w1[13] : w0[9];
+	wire        is32  = mh ? w6[3] : spr_fl ? w1[13] : w0[9];
 	wire [6:0]  sizey = {1'b0, w0[15:10]} + 7'd1;
-	wire [5:0]  sx0   = w3[15:10];
-	wire [6:0]  sw    = is32 ? {1'b0, sx0} : {2'b0, sx0[5:1]};
+	wire [5:0]  sx0   = mh ? w2[15:10] : w3[15:10];
+	// the screen width: MAME's (scalex * gw + 0x8000) >> 16; Metal Hawk's
+	// scalex always divides by 0x20, so a 16-wide sprite is (sizex + 1) / 2
+	wire [6:0]  sw    = mh ? (is32 ? {1'b0, sx0} : ({1'b0, sx0} + 7'd1) >> 1)
+	                       : (is32 ? {1'b0, sx0} : {2'b0, sx0[5:1]});
 	wire [6:0]  sh    = sizey;
-	wire signed [10:0] ypos = 11'sd433 - $signed({2'b0, w0[8:0]});     // (0x1ff - y) - 0x50 + 2
-	wire signed [12:0] xpos = $signed({2'b0, w2[10:0]}) - 13'sd80 + 13'sd7;
+	// Metal Hawk moves a smaller 32 x 32 sprite: x - (32 - w) / 8, y + (32 - h) / 12
+	wire [5:0]  gx    = 6'd32 - sx0[5:0];
+	wire [5:0]  gy    = 6'd32 - sizey[5:0];
+	wire [2:0]  adjx  = (mh && is32 && sx0 < 6'd32) ? gx[5:3] : 3'd0;
+	wire [1:0]  adjy  = (mh && is32 && sizey < 7'd32) ? (gy >= 6'd24 ? 2'd2 : gy >= 6'd12 ? 2'd1 : 2'd0) : 2'd0;
+	wire signed [10:0] ypos = 11'sd433 - $signed({2'b0, w0[8:0]}) + $signed({9'd0, adjy});   // (0x1ff - y) - 0x50 + 2
+	wire signed [12:0] xpos = (mh ? $signed({3'b0, w2[9:0]}) : $signed({2'b0, w2[10:0]})) - 13'sd73 - $signed({10'd0, adjx});
 	wire signed [11:0] yrel = $signed({4'b0, yl}) - ypos;
 	wire        gw32  = is32;
 	wire [4:0]  qy    = (!is32 && w1[1]) ? 5'd16 : 5'd0;
 	wire [4:0]  qx    = (!is32 && w1[0]) ? 5'd16 : 5'd0;
-	wire        flipx = w1[14], flipy = w1[15];
+	wire        flipx = mh ? w6[1] : w1[14], flipy = mh ? w6[2] : w1[15];
 	wire [11:0] sprn  = spr_fl ? {1'b0, w1[12:2]} : w1[13:2];
+	wire [3:0]  spri  = mh ? w3[3:0] : {pri4 && w3[3], w3[2:0]};
+	wire [3:0]  scol  = w3[7:4];
 
 	// the row this line shows, and the drawn pixel's source column
 	wire [6:0]  ii    = flipy ? sh - 7'd1 - yrel[6:0] : yrel[6:0];
@@ -95,21 +107,30 @@ module ns2_sprite_a (
 				yl <= y; n <= 0; base <= {gfx_ctrl[3:0], 9'd0}; busy <= 1'b1; st <= S_W0;
 			end
 			// w0 first: most sprites are not on this line
-			S_W0:  begin sr_addr <= base + {4'd0, n, 2'd0}; st <= S_W0D; end
+			S_W0:  begin sr_addr <= mh ? {n, 3'd0} : base + {4'd0, n, 2'd0}; st <= S_W0D; end
 			S_W0D: st <= S_W0C;
 			S_W0C: begin
 				w0 <= sr_data;
-				sr_addr <= base + {4'd0, n, 2'd1}; st <= S_W1;
+				sr_addr <= mh ? {n, 3'd1} : base + {4'd0, n, 2'd1}; st <= S_W1;
 			end
 			S_W1: begin
-				// w0 is in: the line test (sh >= 2 is MAME's sizey - 1 != 0)
-				if ($signed({4'b0, yl}) < ypos || $signed({4'b0, yl}) >= ypos + $signed({4'b0, sh}) || sh < 7'd2)
+				// w0 is in: the line test (sh >= 2 is MAME's sizey - 1 != 0);
+				// Metal Hawk's position also depends on word 6, so it tests later
+				if (!mh && ($signed({4'b0, yl}) < ypos || $signed({4'b0, yl}) >= ypos + $signed({4'b0, sh}) || sh < 7'd2))
 					st <= S_NEXT;
-				else begin sr_addr <= base + {4'd0, n, 2'd2}; st <= S_W2; end
+				else begin sr_addr <= mh ? {n, 3'd3} : base + {4'd0, n, 2'd2}; st <= S_W2; end
 			end
-			S_W2: begin w1 <= sr_data; sr_addr <= base + {4'd0, n, 2'd3}; st <= S_W3; end
-			S_W3: begin w2 <= sr_data; st <= S_W3D; end
-			S_W3D: begin w3 <= sr_data; st <= S_CHK; end
+			S_W2: begin w1 <= sr_data; sr_addr <= mh ? {n, 3'd6} : base + {4'd0, n, 2'd3}; st <= S_W3; end
+			S_W3: begin w2 <= sr_data; if (mh) sr_addr <= {n, 3'd7}; st <= S_W3D; end
+			S_W3D: begin
+				if (mh) begin w6 <= sr_data; st <= S_W4; end
+				else begin w3 <= sr_data; st <= S_CHK; end
+			end
+			S_W4: begin w3 <= sr_data; st <= S_W4D; end
+			S_W4D: begin
+				if ($signed({4'b0, yl}) < ypos || $signed({4'b0, yl}) >= ypos + $signed({4'b0, sh}) || sh < 7'd2) st <= S_NEXT;
+				else st <= S_CHK;
+			end
 			S_CHK: begin
 				if (sw == 0 || xpos + $signed({6'd0, sw}) <= 0 || xpos >= 13'sd288) st <= S_NEXT;
 				else begin
@@ -120,7 +141,7 @@ module ns2_sprite_a (
 			S_ROW: begin
 				// the row's bursts: 4 for 32 wide, 2 for a 16-wide quarter
 				nreq <= 0; nrx <= 0;
-				s_req <= 1'b1; s_addr <= {sprn, row, qx[4:3]};
+				s_req <= 1'b1; s_addr <= {mh && w6[0], sprn, row, qx[4:3]};
 				st <= S_FETCH;
 			end
 			S_FETCH: if (s_ack) begin
@@ -132,7 +153,7 @@ module ns2_sprite_a (
 			S_DRAW: begin
 				if (xs >= 0 && xs < 14'sd288 && pen != 8'hff) begin
 					lb_we <= 1'b1; lb_x <= xs[8:0];
-					lb_d  <= {1'b1, pri4 ? w3[3] : 1'b0, w3[2:0], w3[7:4], pen};
+					lb_d  <= {1'b1, spri, scol, pen};
 				end
 				if (j + 1'd1 == sw) st <= S_NEXT;
 				j <= j + 1'd1;
@@ -143,14 +164,10 @@ module ns2_sprite_a (
 			end
 			default: st <= S_IDLE;
 		endcase
-		// the row's bursts, in order: 8 pixels each
+		// the row's bursts, in order: 8 pixels each (obj_layout, or raw bytes)
 		if (!reset && s_valid) begin
-			for (b = 0; b < 2; b = b + 1) begin
-				row_pix[{nrx[1:0], b[0], 2'd0}] <= opix(s_data[32 * b +: 32], 2'd0);
-				row_pix[{nrx[1:0], b[0], 2'd1}] <= opix(s_data[32 * b +: 32], 2'd1);
-				row_pix[{nrx[1:0], b[0], 2'd2}] <= opix(s_data[32 * b +: 32], 2'd2);
-				row_pix[{nrx[1:0], b[0], 2'd3}] <= opix(s_data[32 * b +: 32], 2'd3);
-			end
+			for (b = 0; b < 8; b = b + 1)
+				row_pix[{nrx[1:0], b[2:0]}] <= mh ? s_data[8 * b +: 8] : opix(s_data[32 * b[2] +: 32], b[1:0]);
 			nrx <= nrx + 1'd1;
 		end
 	end

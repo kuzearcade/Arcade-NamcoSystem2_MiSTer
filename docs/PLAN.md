@@ -557,6 +557,14 @@ SDRAM probe passing its bandwidth gate.
 across attract, play and flip), or each residue named as a MAME defect with
 evidence.
 
+**Status (NS2-5, NS2-6):** the RTL covers every board and matches MAME on the
+captures, and on flip through the model. For M3:
+- **Metal Hawk and Lucky & Wild:** the C169's two layers make 576 random
+  fetches a line, each a burst plus a mask byte, twice ROZ A's load.
+- **NB boards:** the C355's busy lines reach about 600 sprite bursts (9.7
+  M/s). D3's layout was sized for the standard board, and the MH and NB
+  bitstreams need their own probe run (tile-row caches, a second copy).
+
 ### M2 — Whole board from reset (ROMs as arrays)
 
 `sim/rtl/ns2_frames`:

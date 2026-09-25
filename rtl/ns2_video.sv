@@ -14,7 +14,10 @@ module ns2_video (
 	input             clk,
 	input             reset,
 	// the board: 0 standard (ROZ A, sprites A), 1 Final Lap (C45 road,
-	// sprites A with 4-bit priority, priorities 0..15)
+	// sprites A with 4-bit priority, priorities 0..15), 2 Metal Hawk (C169
+	// and its sprites, priorities 0..15), 3 Steel Gunner (C355 sprites,
+	// priorities 0..7), 4 Suzuka 8 Hours (C45 road, C355, 0..15), 5 Lucky &
+	// Wild (C45, C169, C355, 0..15)
 	input      [2:0]  board,
 	input             tile_fl2,     // finalap2 / finalap3 tile callback
 	input             spr_fl,       // finallap: namcos2_sprite_finallap_device
@@ -47,6 +50,10 @@ module ns2_video (
 	input             cs_gfx,       // c40000 (gfx_ctrl)
 	input             cs_roz,       // c80000-c9ffff
 	input             cs_rozctl,    // cc0000-cc000f
+	input             cs_c169ctl,   // d00000-d0001f (Metal Hawk, Lucky & Wild)
+	input             cs_c169,      // c40000-c4ffff / c00000-c0ffff: the C169 RAM
+	input             cs_c355,      // 800000-8141ff: the C355 RAM
+	input             cs_c355pos,   // 900000-900007: its position registers
 	output reg [15:0] cpu_din,
 	// graphics ROMs: 64-bit bursts (byte n of a burst at [8n +: 8]); a request
 	// holds until ack; data returns in request order with valid
@@ -65,13 +72,26 @@ module ns2_video (
 	input             roz_ack,
 	input             roz_valid,
 	input      [63:0] roz_data,
+	output            c169_req,
+	output     [20:0] c169_addr,
+	input             c169_ack,
+	input             c169_valid,
+	input      [63:0] c169_data,
+	output            c169m_req,
+	output     [18:0] c169m_addr,   // byte address
+	input             c169m_ack,
+	input             c169m_valid,
+	input      [7:0]  c169m_data,
 	output            spr_req,
-	output     [18:0] spr_addr,
+	output     [19:0] spr_addr,     // bit 19: Metal Hawk's rot90 (the transposed copy)
 	input             spr_ack,
 	input             spr_valid,
 	input      [63:0] spr_data,
-	// a line was not rendered in time (the testbenches fail on it)
-	output reg        overrun
+	// a line was not rendered in time (the testbenches fail on it), and which
+	// renderers were still busy: {c355, sprites A, C169, road, ROZ, C123}
+	output reg        overrun,
+	output reg [5:0]  overrun_src,
+	output reg [11:0] line_busy_max   // the most clocks a line kept the renderers busy (of 3072)
 );
 	// ------------------------------------------------------------ raster
 	reg [2:0] div;
@@ -99,6 +119,9 @@ module ns2_video (
 	reg [15:0] c116 [0:7]  /*verilator public_flat_rw*/;
 	reg [15:0] gfx_ctrl    /*verilator public_flat_rw*/;
 	reg [15:0] rozctl [0:7] /*verilator public_flat_rw*/;
+	reg [15:0] c169ctl [0:15] /*verilator public_flat_rw*/;
+	reg [15:0] c355pos [0:3] /*verilator public_flat_rw*/;
+	wire [255:0] c169ctl_flat;
 	wire [511:0] tctl_flat;
 	wire [127:0] rozctl_flat;
 	genvar gi;
@@ -108,6 +131,9 @@ module ns2_video (
 		end
 		for (gi = 0; gi < 8; gi = gi + 1) begin : g_rozctl
 			assign rozctl_flat[16 * gi +: 16] = rozctl[gi];
+		end
+		for (gi = 0; gi < 16; gi = gi + 1) begin : g_c169ctl
+			assign c169ctl_flat[16 * gi +: 16] = c169ctl[gi];
 		end
 	endgenerate
 	assign posirq_line = vcnt[7:0] == c116[5][7:0];
@@ -119,11 +145,13 @@ module ns2_video (
 	reg [7:0]  spr_h  [0:8191]  /*verilator public_flat_rw*/, spr_l  [0:8191]  /*verilator public_flat_rw*/;
 	reg [7:0]  roz_h  [0:65535] /*verilator public_flat_rw*/, roz_l  [0:65535] /*verilator public_flat_rw*/;
 	reg [7:0]  clut   [0:255]   /*verilator public_flat_rw*/;   // C45 road CLUT (ROM)
+	reg [7:0]  c169_h [0:32767] /*verilator public_flat_rw*/, c169_l [0:32767] /*verilator public_flat_rw*/;
+	reg [7:0]  c355_h [0:41215] /*verilator public_flat_rw*/, c355_l [0:41215] /*verilator public_flat_rw*/;  // 0xa100 words
 	reg [7:0]  pal_r  [0:8191]  /*verilator public_flat_rw*/, pal_g  [0:8191]  /*verilator public_flat_rw*/,
 	           pal_b  [0:8191]  /*verilator public_flat_rw*/;
 
 	wire cw = !cpu_rnw;
-	reg [15:0] tmap_q, spr_q, roz_q;
+	reg [15:0] tmap_q, spr_q, roz_q, c169_q, c355_q;
 	reg [7:0]  pal_q;
 	reg [2:0]  rsel;
 	// the C116's space: word o, plane (o >> 11) & 3 (R, G, B, registers),
@@ -147,6 +175,20 @@ module ns2_video (
 			if (cw && cpu_lds) roz_l[cpu_addr[16:1]] <= cpu_dout[7:0];
 			roz_q <= {roz_h[cpu_addr[16:1]], roz_l[cpu_addr[16:1]]};
 		end
+		if (cs_c169) begin
+			if (cw && cpu_uds) c169_h[cpu_addr[15:1]] <= cpu_dout[15:8];
+			if (cw && cpu_lds) c169_l[cpu_addr[15:1]] <= cpu_dout[7:0];
+			c169_q <= {c169_h[cpu_addr[15:1]], c169_l[cpu_addr[15:1]]};
+		end
+		if (cs_c355 && cpu_addr[16:1] < 17'h0a100) begin
+			if (cw && cpu_uds) c355_h[cpu_addr[16:1]] <= cpu_dout[15:8];
+			if (cw && cpu_lds) c355_l[cpu_addr[16:1]] <= cpu_dout[7:0];
+			c355_q <= {c355_h[cpu_addr[16:1]], c355_l[cpu_addr[16:1]]};
+		end
+		if (cs_c355pos && cw) begin
+			if (cpu_uds) c355pos[cpu_addr[2:1]][15:8] <= cpu_dout[15:8];
+			if (cpu_lds) c355pos[cpu_addr[2:1]][7:0]  <= cpu_dout[7:0];
+		end
 		if (cs_pal) begin
 			if (cw && cpu_lds && pplane == 2'd0) pal_r[pcol] <= cpu_dout[7:0];
 			if (cw && cpu_lds && pplane == 2'd1) pal_g[pcol] <= cpu_dout[7:0];
@@ -166,36 +208,54 @@ module ns2_video (
 			if (cpu_uds) gfx_ctrl[15:8] <= cpu_dout[15:8];
 			if (cpu_lds) gfx_ctrl[7:0]  <= cpu_dout[7:0];
 		end
+		if (cs_c169ctl && cw) begin
+			if (cpu_uds) c169ctl[cpu_addr[4:1]][15:8] <= cpu_dout[15:8];
+			if (cpu_lds) c169ctl[cpu_addr[4:1]][7:0]  <= cpu_dout[7:0];
+		end
 		if (cs_rozctl && cw) begin
 			if (cpu_uds) rozctl[cpu_addr[3:1]][15:8] <= cpu_dout[15:8];
 			if (cpu_lds) rozctl[cpu_addr[3:1]][7:0]  <= cpu_dout[7:0];
 		end
 		rsel <= cs_tmap ? 3'd0 : cs_spr ? 3'd1 : cs_roz ? 3'd2 : cs_pal ? 3'd3 :
-		        cs_tctl ? 3'd4 : cs_gfx ? 3'd5 : 3'd6;
+		        cs_c169 ? 3'd4 : cs_c355 ? 3'd5 : 3'd6;
 	end
 	reg [15:0] reg_q;
-	always @(posedge clk) reg_q <= cs_tctl ? tctl[cpu_addr[5:1]] : cs_gfx ? gfx_ctrl : rozctl[cpu_addr[3:1]];
+	always @(posedge clk) reg_q <= cs_tctl ? tctl[cpu_addr[5:1]] : cs_gfx ? gfx_ctrl :
+	                               cs_c169ctl ? c169ctl[cpu_addr[4:1]] : cs_c355pos ? c355pos[cpu_addr[2:1]] :
+	                               rozctl[cpu_addr[3:1]];
 	always @(*) case (rsel)
 		3'd0: cpu_din = tmap_q;
 		3'd1: cpu_din = spr_q;
 		3'd2: cpu_din = roz_q;
 		3'd3: cpu_din = {8'hff, pal_q};
+		3'd4: cpu_din = c169_q;
+		3'd5: cpu_din = c355_q;
 		default: cpu_din = reg_q;
 	endcase
 
 	// video ports (the ROZ RAM is the road RAM on Final Lap)
 	wire        fl = board == 3'd1;
+	wire        mh = board == 3'd2;
+	wire        sg = board == 3'd3;
+	wire        road_b = fl || board == 3'd4 || board == 3'd5;   // the C45 road
+	wire        c169_b = mh || board == 3'd5;                      // the C169
+	wire        c355_b = board >= 3'd3;                            // the C355
+	wire        lw = board == 3'd5;
 	wire [14:0] vt_addr;
 	wire [12:0] vs_addr;
 	wire [15:0] vr_addr_roz, vr_addr_road;
-	wire [15:0] vr_addr = fl ? vr_addr_road : vr_addr_roz;
+	wire [14:0] vr_addr_c169;
+	wire [15:0] vr_addr = road_b ? vr_addr_road : vr_addr_roz;
+	wire [15:0] vc_addr;
 	wire [7:0]  clut_addr;
-	reg  [15:0] vt_q, vs_q, vr_q;
+	reg  [15:0] vt_q, vs_q, vr_q, v169_q, vc_q;
 	reg  [7:0]  clut_q;
 	always @(posedge clk) begin
 		vt_q <= {tmap_h[vt_addr], tmap_l[vt_addr]};
 		vs_q <= {spr_h[vs_addr], spr_l[vs_addr]};
 		vr_q <= {roz_h[vr_addr], roz_l[vr_addr]};
+		v169_q <= {c169_h[vr_addr_c169], c169_l[vr_addr_c169]};
+		vc_q <= vc_addr < 16'ha100 ? {c355_h[vc_addr], c355_l[vc_addr]} : 16'h0000;
 		clut_q <= clut[clut_addr];
 	end
 
@@ -204,24 +264,34 @@ module ns2_video (
 	wire [8:0] vnext = vcnt == 9'd263 ? 9'd0 : vcnt + 1'd1;
 	reg        go;
 	reg  [7:0] ry;
-	wire       c123_busy, roz_busy, road_busy, spr_busy;
+	reg [11:0] busy_cnt;
+	initial begin line_busy_max = 0; overrun_src = 0; end
+	wire       c123_busy, roz_busy, road_busy, c169_busy, spr_busy_a, c355_busy;
+	wire       spr_busy = spr_busy_a || c355_busy;
 	always @(posedge clk) begin
 		go <= 1'b0;
 		overrun <= 1'b0;
 		if (!reset && ce_pix && hcnt == 9'd0 && vnext < 9'd224) begin
-			if (c123_busy || roz_busy || road_busy || spr_busy) overrun <= 1'b1;
+			if (c123_busy || roz_busy || road_busy || c169_busy || spr_busy) overrun <= 1'b1;
+			overrun_src <= overrun_src | {c355_busy, spr_busy_a, c169_busy, road_busy, roz_busy, c123_busy};
+			busy_cnt <= 0;
 			go <= 1'b1; ry <= vnext[7:0];
+		end else if (c123_busy || roz_busy || road_busy || c169_busy || spr_busy) begin
+			busy_cnt <= busy_cnt + 1'd1;
+			if (busy_cnt >= line_busy_max) line_busy_max <= busy_cnt + 1'd1;
 		end
 	end
 
-	wire        c_we, r_we_roz, r_we_road, s_we;
+	wire        c_we, r_we_roz, r_we_road, s_we, s_we2;
+	wire [8:0]  s_x2;
+	wire [16:0] s_d2;
 	wire [8:0]  c_x, r_x_roz, r_x_road, s_x;
 	wire [16:0] c_d;
 	wire [8:0]  r_d_roz, r_d_road;
 	wire [16:0] s_d;
-	wire        r_we = fl ? r_we_road : r_we_roz;
-	wire [8:0]  r_x  = fl ? r_x_road  : r_x_roz;
-	wire [8:0]  r_d  = fl ? r_d_road  : r_d_roz;
+	wire        r_we = road_b ? r_we_road : r_we_roz;
+	wire [8:0]  r_x  = road_b ? r_x_road  : r_x_roz;
+	wire [8:0]  r_d  = road_b ? r_d_road  : r_d_roz;
 	wire        road_attr_we;
 	wire [3:0]  road_pri;
 
@@ -233,28 +303,62 @@ module ns2_video (
 		.lb_we(c_we), .lb_x(c_x), .lb_d(c_d));
 
 	ns2_roz u_roz (
-		.clk(clk), .reset(reset), .start(go && !fl), .y(ry), .busy(roz_busy), .ctl(rozctl_flat),
+		.clk(clk), .reset(reset), .start(go && board == 3'd0), .y(ry), .busy(roz_busy), .ctl(rozctl_flat),
 		.rr_addr(vr_addr_roz), .rr_data(vr_q),
 		.r_req(roz_req), .r_addr(roz_addr), .r_ack(roz_ack), .r_valid(roz_valid), .r_data(roz_data),
 		.lb_we(r_we_roz), .lb_x(r_x_roz), .lb_d(r_d_roz));
 
+	wire        l_we, l_layer;
+	wire [8:0]  l_x;
+	wire [16:0] l_d;
+	ns2_c169 u_c169 (
+		.clk(clk), .reset(reset), .start(go && c169_b), .y(ry), .busy(c169_busy), .lw(lw), .ctl(c169ctl_flat),
+		.vr_addr(vr_addr_c169), .vr_data(v169_q),
+		.r_req(c169_req), .r_addr(c169_addr), .r_ack(c169_ack), .r_valid(c169_valid), .r_data(c169_data),
+		.m_req(c169m_req), .m_addr(c169m_addr), .m_ack(c169m_ack), .m_valid(c169m_valid), .m_data(c169m_data),
+		.lb_we(l_we), .lb_layer(l_layer), .lb_x(l_x), .lb_d(l_d));
+
 	ns2_c45 u_road (
-		.clk(clk), .reset(reset), .start(go && fl), .y(ry), .busy(road_busy),
+		.clk(clk), .reset(reset), .start(go && road_b), .y(ry), .busy(road_busy),
 		.rd_addr(vr_addr_road), .rd_data(vr_q), .clut_addr(clut_addr), .clut_data(clut_q),
 		.attr_we(road_attr_we), .attr_pri(road_pri),
 		.lb_we(r_we_road), .lb_x(r_x_road), .lb_d(r_d_road));
 
+	wire        sa_req, sc_req, sa_we, sc_we, sc_we2;
+	wire [8:0]  sc_x2;
+	wire [16:0] sc_d2;
+	wire [19:0] sa_addr;
+	wire [18:0] sc_addr;
+	wire [8:0]  sa_x, sc_x;
+	wire [16:0] sa_d, sc_d;
 	ns2_sprite_a u_spr (
-		.clk(clk), .reset(reset), .start(go), .y(ry), .busy(spr_busy), .gfx_ctrl(gfx_ctrl), .pri4(fl), .spr_fl(spr_fl),
+		.clk(clk), .reset(reset), .start(go && !c355_b), .y(ry), .busy(spr_busy_a), .gfx_ctrl(gfx_ctrl), .pri4(fl), .spr_fl(spr_fl), .mh(mh),
 		.sr_addr(vs_addr), .sr_data(vs_q),
-		.s_req(spr_req), .s_addr(spr_addr), .s_ack(spr_ack), .s_valid(spr_valid), .s_data(spr_data),
-		.lb_we(s_we), .lb_x(s_x), .lb_d(s_d));
+		.s_req(sa_req), .s_addr(sa_addr), .s_ack(spr_ack && !c355_b), .s_valid(spr_valid && !c355_b), .s_data(spr_data),
+		.lb_we(sa_we), .lb_x(sa_x), .lb_d(sa_d));
+
+	// the C355 builds its records in vblank, from line 225
+	wire        prep = c355_b && ce_pix && hcnt == 9'd0 && vcnt == 9'd225;
+	ns2_c355 u_c355 (
+		.clk(clk), .reset(reset), .prep(prep), .start(go && c355_b), .y(ry), .busy(c355_busy),
+		.pos0(c355pos[0]), .pos1(c355pos[1]),
+		.cr_addr(vc_addr), .cr_data(vc_q),
+		.s_req(sc_req), .s_addr(sc_addr), .s_ack(spr_ack && c355_b), .s_valid(spr_valid && c355_b), .s_data(spr_data),
+		.lb_we(sc_we), .lb_x(sc_x), .lb_d(sc_d), .lb_we2(sc_we2), .lb_x2(sc_x2), .lb_d2(sc_d2));
+	assign spr_req  = c355_b ? sc_req : sa_req;
+	assign spr_addr = c355_b ? {1'b0, sc_addr} : sa_addr;
+	assign s_we = c355_b ? sc_we : sa_we;
+	assign s_x  = c355_b ? sc_x  : sa_x;
+	assign s_d  = c355_b ? sc_d  : sa_d;
+	assign s_we2 = c355_b && sc_we2;
+	assign s_x2  = sc_x2;
+	assign s_d2  = sc_d2;
 
 	// the ROZ plane's (or the road line's) attributes, with its buffer:
 	// {priority 0..15, colour bank}
 	reg [7:0] roz_attr [0:1];
 	always @(posedge clk) begin
-		if (go && !fl) roz_attr[ry[0]] <= {1'b0, gfx_ctrl[14:12], gfx_ctrl[11:8]};
+		if (go && board == 3'd0) roz_attr[ry[0]] <= {1'b0, gfx_ctrl[14:12], gfx_ctrl[11:8]};
 		if (road_attr_we) roz_attr[ry[0]] <= {road_pri, 4'hf};
 	end
 
@@ -263,7 +367,10 @@ module ns2_video (
 	// reads the current line's and clears each pixel after reading it
 	reg [16:0] lb_c [0:1023];
 	reg [8:0]  lb_r [0:1023];
-	reg [16:0] lb_s [0:1023];
+	// sprites: even and odd x in two arrays, two adjacent pixels a clock
+	reg [16:0] lb_s0 [0:511], lb_s1 [0:511];
+	reg [16:0] lb_a [0:1023], lb_b [0:1023];   // C169 layer 1, layer 0
+	reg [16:0] qa, qb;
 	reg [16:0] qc;
 	reg [8:0]  qr;
 	reg [16:0] qs;
@@ -273,11 +380,21 @@ module ns2_video (
 	always @(posedge clk) begin
 		if (c_we) lb_c[{wb, c_x}] <= c_d;
 		if (r_we) lb_r[{wb, r_x}] <= r_d;
-		if (s_we) lb_s[{wb, s_x}] <= s_d;
+		if (s_we  && !s_x[0])  lb_s0[{wb, s_x[8:1]}]  <= s_d;
+		if (s_we  &&  s_x[0])  lb_s1[{wb, s_x[8:1]}]  <= s_d;
+		if (s_we2 && !s_x2[0]) lb_s0[{wb, s_x2[8:1]}] <= s_d2;
+		if (s_we2 &&  s_x2[0]) lb_s1[{wb, s_x2[8:1]}] <= s_d2;
+		if (l_we &&  l_layer) lb_a[{wb, l_x}] <= l_d;
+		if (l_we && !l_layer) lb_b[{wb, l_x}] <= l_d;
 	end
 	always @(posedge clk) begin
-		if (div == 3'd1 && dvis) begin lb_c[da] <= 17'd0; lb_r[da] <= 9'd0; lb_s[da] <= 17'd0; end
-		qc <= lb_c[da]; qr <= lb_r[da]; qs <= lb_s[da];
+		if (div == 3'd1 && dvis) begin
+			lb_c[da] <= 17'd0; lb_r[da] <= 9'd0; lb_a[da] <= 17'd0; lb_b[da] <= 17'd0;
+			if (hcnt[0]) lb_s1[{vcnt[0], hcnt[8:1]}] <= 17'd0;
+			else         lb_s0[{vcnt[0], hcnt[8:1]}] <= 17'd0;
+		end
+		qc <= lb_c[da]; qr <= lb_r[da]; qa <= lb_a[da]; qb <= lb_b[da];
+		qs <= hcnt[0] ? lb_s1[{vcnt[0], hcnt[8:1]}] : lb_s0[{vcnt[0], hcnt[8:1]}];
 	end
 
 	// ------------------------------------------------------------ mix
@@ -298,13 +415,23 @@ module ns2_video (
 	                     $signed({3'b0, my}) >= y0 && $signed({3'b0, my}) <= y1;
 	wire [7:0]  rattr  = roz_attr[my[0]];
 	// priorities on the board's scale: standard 0..7 (ROZ after the planes
-	// of its priority); Final Lap 0..15 with plane p at 2p (road after them)
-	wire [3:0]  c_pv   = fl ? {qc[15:13], 1'b0} : {1'b0, qc[15:13]};
+	// of its priority); the others 0..15 with plane p at 2p. At equal
+	// priority MAME draws planes, then ROZ or road, then C169 layer 1, then
+	// layer 0: the pixel shows the last drawn, the largest {priority, order}
+	wire [3:0]  c_pv   = (board == 3'd0 || sg) ? {1'b0, qc[15:13]} : {qc[15:13], 1'b0};
 	wire [3:0]  r_pv   = rattr[7:4];
-	wire        r_win  = qr[8] && (!qc[16] || c_pv <= r_pv);
-	wire        b_v    = inclip && (r_win || qc[16]);
-	wire [12:0] b_col  = r_win ? {1'b0, rattr[3:0], qr[7:0]} : qc[12:0];
-	wire [3:0]  b_pri  = !b_v ? 4'd0 : r_win ? r_pv : c_pv;
+	wire [5:0]  k_c    = qc[16] ? {c_pv, 2'd0} : 6'd0;
+	wire [5:0]  k_r    = qr[8]  ? {r_pv, 2'd1} : 6'd0;
+	wire [5:0]  k_a    = qa[16] ? {qa[15:12], 2'd2} : 6'd0;
+	wire [5:0]  k_b    = qb[16] ? {qb[15:12], 2'd3} : 6'd0;
+	wire [5:0]  k_cr   = k_r > k_c ? k_r : k_c;
+	wire [5:0]  k_ab   = k_b > k_a ? k_b : k_a;
+	wire [5:0]  k_w    = k_ab > k_cr ? k_ab : k_cr;
+	wire        any    = qc[16] || qr[8] || qa[16] || qb[16];
+	wire        b_v    = inclip && any;
+	wire [12:0] b_col  = k_w[1:0] == 2'd3 ? {1'b0, qb[11:0]} : k_w[1:0] == 2'd2 ? {1'b0, qa[11:0]} :
+	                     k_w[1:0] == 2'd1 ? {1'b0, rattr[3:0], qr[7:0]} : qc[12:0];
+	wire [3:0]  b_pri  = b_v ? k_w[5:2] : 4'd0;
 	// sprites
 	wire        s_on   = qs[16] && inclip && b_pri <= qs[15:12];
 	wire        shadow = qs[11:0] == 12'hffe;
@@ -312,7 +439,9 @@ module ns2_video (
 		if (div == 3'd1) begin mx <= hcnt; my <= vcnt[7:0]; mvis <= dvis; end
 		if (div == 3'd2) begin
 			if (s_on && !shadow)            begin dest_v <= 1'b1; dest <= {1'b0, qs[11:0]}; end
-			else if (s_on && shadow)        begin dest_v <= b_v && b_col[12]; dest <= b_col | 13'h0800; end
+			// the shadow pen: +0x800 over the upper palette half, else black;
+			// the C355's mix sets 0x800 whatever the colour
+			else if (s_on && shadow)        begin dest_v <= b_v && (c355_b || b_col[12]); dest <= b_col | 13'h0800; end
 			else                            begin dest_v <= b_v; dest <= b_col; end
 			o_vis <= mvis; o_x <= mx; o_y <= my;
 		end

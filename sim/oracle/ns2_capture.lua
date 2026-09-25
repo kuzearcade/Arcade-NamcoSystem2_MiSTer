@@ -13,6 +13,10 @@
 --                        "F line addr data mask cpu" (cpu m = master, s = slave).
 --                        MAME splits its picture at the POSIRQ line (partial
 --                        update), so the model needs the registers per line.
+--   <MP_OUT>/vram.txt    every write to the tilemap RAM and the sprite RAM (A,
+--                        Final Lap, Metal Hawk) by either 68000, as regs.txt:
+--                        MAME draws a band with the VRAM of that moment, so
+--                        the model rebuilds it per band (NS2-5)
 --   <MP_OUT>/blocks.txt  the block table of this board (name, address, words)
 --   <MP_OUT>/frames.txt  "F frame_time_s"
 --
@@ -93,6 +97,20 @@ for i, r in ipairs(regranges) do
   end
 end
 
+-- VRAM writes: the tilemap RAM and the sprite RAM a band reads
+local vramf = io.open(OUT .. "/vram.txt", "w")
+local vranges = { {0x400000, 0x40ffff} }
+for _, b in ipairs(boards[BOARD]) do
+  if b[1] == "spr" then vranges[#vranges + 1] = {b[2], b[2] + 0x3fff} end
+end
+for i, r in ipairs(vranges) do
+  for k, sp in ipairs({mem, slave}) do
+    _G.ns2_cap_taps[#_G.ns2_cap_taps + 1] = sp:install_write_tap(r[1], r[2], "ns2vram" .. i .. "_" .. k, guard(function(off, data, mask)
+      vramf:write(string.format("%d %d %06x %04x %04x %s\n", F, line_now(), off, data, mask, k == 1 and "m" or "s"))
+    end))
+  end
+end
+
 local ftxt = io.open(OUT .. "/frames.txt", "w")
 _G.ns2_cap_sub = emu.add_machine_frame_notifier(guard(function()
   if F >= FROM and F < FROM + FRAMES and (F - FROM) % EVERY == 0 then
@@ -104,6 +122,7 @@ _G.ns2_cap_sub = emu.add_machine_frame_notifier(guard(function()
   end
   ftxt:write(string.format("%d %.9f\n", F, manager.machine.time:as_double())); ftxt:flush()
   regf:flush()
+  vramf:flush()
   t0 = manager.machine.time:as_double()
   F = F + 1
   if F >= FROM + FRAMES then manager.machine:exit() end

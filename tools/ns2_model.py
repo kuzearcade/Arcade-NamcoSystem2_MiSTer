@@ -689,6 +689,37 @@ def read_regs(trace):
     return out
 
 
+VRAMBLOCKS = ('tmap', 'spr')
+
+
+def read_vram(trace):
+    """vram.txt: the tilemap and sprite RAM writes, per frame (NS2-5)"""
+    out = {}
+    p = os.path.join(trace, 'vram.txt')
+    if os.path.exists(p):
+        for line in open(p):
+            F, ln, a, d, m = line.split()[:5]
+            out.setdefault(int(F), []).append((int(ln), int(a, 16), int(d, 16), int(m, 16)))
+    return out
+
+
+def apply_vram(st_prev, blocks, writes):
+    """state F-1's VRAM blocks plus the given writes"""
+    addr = {name: (a, c) for name, a, c in blocks}
+    out = {}
+    for name in VRAMBLOCKS:
+        if name not in st_prev.b:
+            continue
+        v = st_prev.b[name].copy()
+        a0, n = addr[name]
+        for ln, a, d, m in writes:
+            if a0 <= a < a0 + 2 * n:
+                i = (a - a0) // 2
+                v[i] = (int(v[i]) & ~m) | (d & m)
+        out[name] = v
+    return out
+
+
 def order(line):
     """time order of a line within a frame period (frame_done is at line 224)"""
     return (line - 224) % 264
@@ -712,18 +743,22 @@ def apply_writes(st, blocks, writes):
     return n
 
 
-def render_banded(r, st_prev, st, pal, writes, blocks, before=False):
-    """picture F+1 from state F-1 (st_prev), state F (st) and frame F's register writes"""
+def render_banded(r, st_prev, st, pal, writes, blocks, before=False, vram=None):
+    """picture F+1 from state F-1 (st_prev), state F (st) and frame F's
+    register writes (and, when logged, its VRAM writes: NS2-5)"""
     writes = sorted(writes, key=lambda w: order(w[0]))
+    vram = sorted(vram or [], key=lambda w: order(w[0]))
     out = np.zeros((H, W), np.uint32)
     top = 0
     for s in range(H):
         at = apply_writes(st_prev, blocks, [w for w in writes if order(w[0]) < order(s)])
-        at.b.update({k: v for k, v in st.b.items() if k not in REGBLOCKS})
         P = (at.c116[5] - 32) & 0xff
         if s == P:
             last = P - 1 if before else P
             if last >= top:
+                at.b.update({k: v for k, v in st.b.items() if k not in REGBLOCKS})
+                if vram:
+                    at.b.update(apply_vram(st_prev, blocks, [w for w in vram if order(w[0]) < order(s)]))
                 band = render(r, at, pal=pal)
                 out[top:last + 1] = band[top:last + 1]
                 top = last + 1
@@ -744,6 +779,7 @@ def main():
     r = Roms(a.set)
     blocks = read_blocks(a.trace)
     regs = read_regs(a.trace)
+    vram = read_vram(a.trace)
     # NS2-2: MAME's picture F is the composition of state F-1 (as MP-1, MS1Z-5)
     have = set(int(f[1:6]) for f in os.listdir(a.trace) if f.startswith('s') and f.endswith('.bin'))
     frames = a.frames or sorted(F for F in have if F + 1 <= max(have) and os.path.exists(os.path.join(a.trace, f'p{F + 1:05d}.raw')))
@@ -761,7 +797,7 @@ def main():
         prv = os.path.join(a.trace, f's{F - 1:05d}.bin')
         if regs.get(F) and os.path.exists(prv):
             out = render_banded(r, State(prv, blocks), st, pal, regs[F], blocks,
-                                R.games()[a.set]['init'] in BEFORE_POSIRQ)
+                                R.games()[a.set]['init'] in BEFORE_POSIRQ, vram.get(F))
         else:
             out = render(r, st, pal=pal)
         pic = picture(a.trace, F + 1)

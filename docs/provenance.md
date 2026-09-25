@@ -29,3 +29,8 @@ Where every file came from. Third-party files keep their own licence notices.
 | `sim/rtl/sdram_probe/` | the D3 bandwidth probe (NS2-3) |
 | `sim/oracle/ns2_ramuse.lua` | Q2: work RAM pages touched per 68000 (NS2-4) |
 | `sim/quartus/m10k_probe/` | Appendix F's M10K probe (NS2-4) |
+| `rtl/ns2_video.sv`, `ns2_c123.sv`, `ns2_roz.sv`, `ns2_c45.sv`, `ns2_c169.sv`, `ns2_c355.sv`, `ns2_sprite_a.sv` | the video (M1), from the model line for line (NS2-2, NS2-5) |
+| `sim/rtl/video_state/` | M1's testbench: state injection, MAME's bands, stall injection, the comparison with MAME's pictures |
+| `tools/ns2_c355hw.py` | the C355 as the RTL computes it, proven equal to MAME's algorithm (NS2-5) |
+| `tools/ns2_romdump.py` | the graphics ROMs for the testbenches (git-ignored output) |
+| `sim/oracle/ns2_play.lua` | scripted play for any set (coin, start, a fixed input pattern) |
