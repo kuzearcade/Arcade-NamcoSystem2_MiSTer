@@ -233,7 +233,7 @@ RTL:
 before it (two slot banks). With stall injection, the busiest line on any
 board takes about 2,000 of its 3,072 clocks.
 
-## NS2-7 — The C65: jt6805 widened to MAME's HD63705Z0 (open: timing)
+## NS2-7 — The C65: jt6805 widened to MAME's HD63705Z0 (closed, measured)
 
 `rtl/ns2_hd63705*.v` is jt6805 changed to match MAME's HD63705Z0
 (`hd6305.cpp`):
@@ -261,6 +261,20 @@ RAM or ROM:
 - the opcode fetch jt6805 makes before it checks for an interrupt, which it
   then discards (it pushes the right PC).
 
-**Open:** the cycles. The microcode keeps the 68705's counts, about 3.46 E
-cycles an instruction on this firmware against MAME's 3.37 (its HD63705
-table). The board's timing (M2) depends on them.
+**The cycles.** The microcode first kept the 68705's counts. 39 opcodes
+differ from MAME's HD63705 table:
+- inherent A/X operations take 2 cycles, not 3;
+- stores take one fewer;
+- JSR takes one more;
+- CLC, SEC and NOP take 1;
+- SWI takes 11.
+
+`rtl/63705.yaml` is jt6805's YAML with MAME's counts. JSR ext, JSR idx and
+SWI need more steps than a 16-step microcode entry allows, so they call a
+4-step idle procedure (at the unused opcode 0x31) and the generator pads the
+rest. The generator then reports every opcode cycle-exact.
+
+**The check.** MAME raises IRQ1 at line 200 every frame, so the core's
+clocks between two IRQ1s should be one frame: 8,448 E cycles, 33,792
+clocks. Measured over 63 frames of Assault: mean 33,792.6, range 33,780 to
+33,820 (the instruction MAME was in when line 200 came).

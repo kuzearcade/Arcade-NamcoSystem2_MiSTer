@@ -18,6 +18,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 struct Acc { char rw; unsigned addr, data; };
 
@@ -60,6 +61,8 @@ int main(int argc, char **argv) {
 		return 0xff;
 	};
 	size_t mi = 0, bad = 0, insts = 0, extra = 0, resets = 0;
+	uint64_t last_irq = 0;
+	std::vector<uint64_t> irq_gaps;
 	uint64_t cyc = 0;
 	t->rst = 1; t->cen = 1; t->irq = 0; t->adc = 0;
 	for (int i = 0; i < 8; i++) { t->clk = 0; t->eval(); t->clk = 1; t->eval(); }
@@ -82,6 +85,10 @@ int main(int argc, char **argv) {
 			}
 			t->irq = irq; t->adc = adc;
 			t->eval();
+			// the timing check: MAME raises IRQ1 at line 200 every frame, so with
+			// MAME's cycle counts the clocks between two IRQ1s are one frame
+			// (8448 E cycles = 33792 clocks), within an instruction
+			if (irq) { if (last_irq) irq_gaps.push_back(cyc - last_irq); last_irq = cyc; }
 			if (getenv("TRACE_NI") && mi > 2660 && mi < 2680)
 				printf("ni at access %zu: this clock wr%d fetch%d addr %04x, k %zu mame[k] %c%04x, i=%d irq%d adc%d\n", mi, t->wr,
 				       r->ns2_hd63705__DOT__u_ctrl__DOT__fetch, t->addr, k, mame[k].rw, mame[k].addr, r->ns2_hd63705__DOT__i, irq, adc);
@@ -124,6 +131,12 @@ int main(int argc, char **argv) {
 	}
 	printf("%zu of %zu MAME accesses matched (%zu instructions, %llu clocks; %zu extra reads, %zu resets)%s\n", mi, maxn, insts,
 	       (unsigned long long)cyc, extra, resets, (!bad && mi == maxn) ? ": ALL MATCH" : "");
+	if (!irq_gaps.empty()) {
+		uint64_t lo = ~0ULL, hi = 0, sum = 0;
+		for (auto g : irq_gaps) { lo = std::min(lo, g); hi = std::max(hi, g); sum += g; }
+		printf("clocks between IRQ1s (one frame, 33792 expected): min %llu max %llu mean %.1f over %zu\n",
+		       (unsigned long long)lo, (unsigned long long)hi, (double)sum / irq_gaps.size(), irq_gaps.size());
+	}
 	delete t;
 	return bad ? 1 : 0;
 }

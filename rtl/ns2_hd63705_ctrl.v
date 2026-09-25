@@ -37,8 +37,8 @@ module ns2_hd63705_ctrl(
     output [3:0] rmux_sel
 );
 
-`include "6805_param.vh"
-`include "6805.vh"
+`include "63705_param.vh"
+`include "63705.vh"
 
 wire [4:0] jsr_sel;
 reg  [3:0] iv_sel;

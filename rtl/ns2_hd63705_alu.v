@@ -23,7 +23,7 @@ module ns2_hd63705_alu(
     output     [ 2:0] rslt_cc
 );
 
-`include "6805_param.vh"
+`include "63705_param.vh"
 
 wire [3:0] bsel;
 reg  c8, cx, n8, z8;

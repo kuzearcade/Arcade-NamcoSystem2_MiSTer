@@ -42,7 +42,7 @@ module ns2_hd63705_regs(
     output reg [ 7:0] dout
 );
 
-`include "6805_param.vh"
+`include "63705_param.vh"
 
 reg  [ 7:0] a, x;
 reg  [ 6:0] s;
