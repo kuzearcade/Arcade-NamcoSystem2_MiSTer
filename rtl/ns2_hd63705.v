@@ -20,6 +20,7 @@ module ns2_hd63705(
     input             irq,  // IRQ1 (latched: cleared by irq_ack)
     input             adc,  // the A/D conversion interrupt (latched)
     output            wr,
+    output            rd,   // the microcode's data load this clock (a read of addr)
     output            tstop,// timer stop
     output     [15:0] addr, // always valid
     input      [ 7:0] din,
@@ -47,6 +48,7 @@ wire       op0inv;
 wire       inc_pc;
 wire       md_shift;
 wire       swi;
+assign rd = fetch;
 
 ns2_hd63705_ctrl u_ctrl(
     .rst        ( rst       ),

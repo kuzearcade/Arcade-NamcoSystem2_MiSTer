@@ -576,6 +576,13 @@ on 68,000+ frames and on flip through the model. For M3:
    Counting cycles from its bus trace does not work: MAME's taps miss the
    dummy `read_pc` cycles.
 
+**Progress (step 2, Assault):**
+- Each 68000's first 3,000,000 bus accesses match MAME's, data included
+  (`sim/oracle/ns2_bustrace.lua`). The master's run to frame 69; the
+  slave's start at its release in frame 55 and run to frame 121.
+- A byte-wide device (C116, DPRAM, EEPROM, C148) reads 0x00 on the other
+  lane, matching what MAME's `umask16` handlers return.
+
 `sim/rtl/ns2_frames`:
 - both 68000s, the 6809, the MCU (D2), the sound, the video; the ROMs as
   arrays;

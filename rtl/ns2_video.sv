@@ -36,7 +36,7 @@ module ns2_video (
 	output reg [8:0]  out_x,
 	output reg [7:0]  out_y,
 	output reg        out_valid,
-	output            posirq_line,  // the C116 raster line (reg 5) is here
+	output            posirq_line,  // this line is the C116's POSIRQ line
 	// CPU (68000 word bus; byte strobes). Reads return one clock later.
 	input      [20:1] cpu_addr,     // within the selected device
 	input      [15:0] cpu_dout,
@@ -136,7 +136,9 @@ module ns2_video (
 			assign c169ctl_flat[16 * gi +: 16] = c169ctl[gi];
 		end
 	endgenerate
-	assign posirq_line = vcnt[7:0] == c116[5][7:0];
+	// MAME's POSIRQ line: (C116 register 5 - 32) & 0xff (namcos2 get_pos_irq_scanline)
+	wire [7:0] pos_line = c116[5][7:0] - 8'd32;
+	assign posirq_line = vcnt[7:0] == pos_line && vcnt < 9'd256;
 
 	// ------------------------------------------------------------ RAMs
 	// two ports each: the CPU's and the video's (Intel's true dual port
@@ -227,7 +229,7 @@ module ns2_video (
 		3'd0: cpu_din = tmap_q;
 		3'd1: cpu_din = spr_q;
 		3'd2: cpu_din = roz_q;
-		3'd3: cpu_din = {8'hff, pal_q};
+		3'd3: cpu_din = {8'h00, pal_q};      // MAME's umask16 reads fill the other lane with 0
 		3'd4: cpu_din = c169_q;
 		3'd5: cpu_din = c355_q;
 		default: cpu_din = reg_q;

@@ -17,7 +17,9 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 FILES = {'c123tmap': 'tiles.bin', 'c123tmap:mask': 'tmask.bin', 's2roz': 'roz.bin',
          'sprite': 'sprite.bin', 'c169roz:mask': 'c169mask.bin', 'c169roz': 'c169.bin',
          'c355spr': 'c355.bin', 'c45_road:clut': 'clut.bin',
-         'mcu_int': 'mcu_int.bin', 'c65mcu:external': 'mcu_ext.bin', 'c68mcu:external': 'mcu_ext.bin'}
+         'mcu_int': 'mcu_int.bin', 'c65mcu:external': 'mcu_ext.bin', 'c68mcu:external': 'mcu_ext.bin',
+         'maincpu': 'maincpu.bin', 'slave': 'slave.bin', 'data_rom': 'data.bin', 'audiocpu': 'audio.bin',
+         'nvram': 'nvram.bin'}
 
 
 def main():
