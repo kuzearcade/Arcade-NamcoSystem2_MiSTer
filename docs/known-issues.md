@@ -233,6 +233,35 @@ RTL:
 before it (two slot banks). With stall injection, the busiest line on any
 board takes about 2,000 of its 3,072 clocks.
 
+## NS2-6 — M1's gate: the video RTL against MAME, every board (closed, measured)
+
+`sim/rtl/video_state` checks the RTL against MAME's pictures:
+- captured state is injected, with state F+1's palette and MAME's bands;
+- each band's registers and VRAM are rebuilt (NS2-2, NS2-5);
+- every ROM stream is served with random stalls (up to 24 clocks, a quarter
+  of requests refused).
+
+| board | sets and captures | frames | exact | busiest line |
+|---|---|---|---|---|
+| standard | assault, burnforc, dsaber, phelios, rthun2, sws93 attract (3,599 each); finehour attract with VRAM log | 25,193 | all but assault's 21 | 2,783 |
+| standard | play: assault, burnforc, dsaber, finehour, phelios, rthun2, sws93 (2,398 each) | 16,786 | all | 2,435 |
+| Final Lap | finallap (VRAM log), finalap2, finalap3 attract | 10,797 | all | 2,010 |
+| Final Lap | fourtrax, VRAM log | 1,999 | all | 2,010 |
+| Metal Hawk | attract and play | 5,997 | all | 2,360 |
+| Steel Gunner | sgunner2 attract | 3,599 | all | 2,010 |
+| Suzuka | suzuka8h attract | 3,599 | all but frame 39 | 2,013 |
+| Lucky & Wild | luckywld, VRAM log | 3,599 | all | 2,254 |
+| flip, forced | 200 per board, eight sets, against the model | 1,600 | all | |
+
+The residues:
+- **assault 1-20** are MAME's boot screen before its first draw.
+- **assault 2022, suzuka8h 39, and fourtrax's 30** are on captures taken
+  before the VRAM log. With the log, all are exact: model and RTL on
+  fourtrax (1,999/1,999); the model on the other two frames.
+
+No line overran. The busiest line on any board, with stalls, took 2,783 of
+its 3,072 clocks.
+
 ## NS2-7 — The C65: jt6805 widened to MAME's HD63705Z0 (closed, measured)
 
 `rtl/ns2_hd63705*.v` is jt6805 changed to match MAME's HD63705Z0
