@@ -64,3 +64,6 @@ sim/oracle/ymfm_y8950/ymfm_y8950
 /cfg/
 /diff/
 /inp/
+# the microcode ROM linked beside a testbench
+sim/rtl/*/6805.uc
+sim/rtl/*/65c02.uc

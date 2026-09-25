@@ -232,3 +232,35 @@ RTL:
 **Line time.** The C123 now fetches a plane's slots while drawing the plane
 before it (two slot banks). With stall injection, the busiest line on any
 board takes about 2,000 of its 3,072 clocks.
+
+## NS2-7 — The C65: jt6805 widened to MAME's HD63705Z0 (open: timing)
+
+`rtl/ns2_hd63705*.v` is jt6805 changed to match MAME's HD63705Z0
+(`hd6305.cpp`):
+- 16-bit addresses;
+- the stack at 0x100-0x17f;
+- vectors at 0x1fe0 + 2 x a 4-bit number: reset 0x1ffe, SWI 0x1ffc, IRQ1
+  0x1ff8, A/D 0x1fea;
+- IRQ1 ahead of the A/D interrupt.
+
+MAME does not implement the chip's own peripherals. The C65's ports, DIPs,
+dials, A/D and DPRAM are the board's handlers (`namco65.cpp`). The firmware
+uses only the plain 6805 set (Assault's C65: no MUL, no STOP or WAIT).
+
+`sim/rtl/mcu` checks the core against MAME's own traces
+(`sim/oracle/ns2_mcutrace.lua`: bus accesses, instructions, interrupts).
+- I/O reads return MAME's values in order.
+- Interrupts and resets are applied where MAME's stream shows them.
+- Every access is compared.
+
+**Assault, 120 frames from power-on:** all 444,147 accesses match
+(161,949 instructions, every IRQ1 and A/D interrupt, one reset by the
+68000). The core also makes 1,061 reads MAME's does not, all harmless on
+RAM or ROM:
+- the read before a read-modify-write (CLR, BSET);
+- the opcode fetch jt6805 makes before it checks for an interrupt, which it
+  then discards (it pushes the right PC).
+
+**Open:** the cycles. The microcode keeps the 68705's counts, about 3.46 E
+cycles an instruction on this firmware against MAME's 3.37 (its HD63705
+table). The board's timing (M2) depends on them.

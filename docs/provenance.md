@@ -13,6 +13,8 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/savestate/*` | Arcade-GingaNin_MiSTer | as there (ss_m68k_park with GN-10's `stall`, ss_m6809_park new there) |
 | `rtl/sdram.sv`, `sdram_arb.sv`, `sdram_req.sv`, `crt_chain.sv`, `cheats.sv`, `video_retime.sv` | Arcade-GingaNin_MiSTer | verbatim |
 | `sim/models/sdram_model.sv` | Arcade-GingaNin_MiSTer (from Arcade-NMKBP964_MiSTer) | verbatim |
+| `rtl/third_party/jt680x/jt6805*.v`, `jt65c02*.v`, `6805.yaml`, `65c02.yaml` | jotego/jtcores `modules/jt680x` @ 3eb8fec | GPL-3.0-or-later, verbatim: the C65 (HD63705) and C68 (M37450) bases, extended in M2 |
+| `rtl/third_party/jt680x/6805.{uc,vh}`, `6805_param.vh`, `65c02.*` | generated from the YAML by jtframe's `ucode` at the same pin (`tools/gen_ucode.sh`) | generated |
 | `rtl/third_party/jtframe_sdram64/*.v` | jotego/jtcores `modules/jtframe/hdl/sdram/` @ 3eb8fec | GPL-3.0-or-later. Verbatim except one line of `jtframe_sdram64_bank.v`: PRE_RD advances on `do_read`, not `bg && !all_dqm`. The original could skip a READ while another bank held the data bus (NS2-3) |
 
 ## New
@@ -32,5 +34,8 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/ns2_video.sv`, `ns2_c123.sv`, `ns2_roz.sv`, `ns2_c45.sv`, `ns2_c169.sv`, `ns2_c355.sv`, `ns2_sprite_a.sv` | the video (M1), from the model line for line (NS2-2, NS2-5) |
 | `sim/rtl/video_state/` | M1's testbench: state injection, MAME's bands, stall injection, the comparison with MAME's pictures |
 | `tools/ns2_c355hw.py` | the C355 as the RTL computes it, proven equal to MAME's algorithm (NS2-5) |
+| `rtl/ns2_hd63705*.v` | derived from jt6805 (GPL-3.0-or-later): the C65's HD63705Z0 as MAME implements it (16-bit addresses, page-1 stack, 4-bit vectors, IRQ1 and the A/D interrupt) |
+| `sim/rtl/mcu/`, `sim/oracle/ns2_mcutrace.lua` | the MCU harness against MAME's own MCU traces |
+| `tools/gen_ucode.sh` | rebuilds jt680x's microcode with jtframe's generator |
 | `tools/ns2_romdump.py` | the graphics ROMs for the testbenches (git-ignored output) |
 | `sim/oracle/ns2_play.lua` | scripted play for any set (coin, start, a fixed input pattern) |
