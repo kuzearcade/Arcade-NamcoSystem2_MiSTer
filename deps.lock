@@ -4,4 +4,5 @@
 Template_MiSTer (sys/, via Arcade-GingaNin_MiSTer)      24cdb917776970b317bbccbaf643058919d6c61d
 Arcade-GingaNin_MiSTer (fx68k, mc6809is GN-4, savestate, parks, sdram, video_retime, crt_chain, cheats, hiscore, crt_adjust, sdram_model)   24cdb917776970b317bbccbaf643058919d6c61d
 Arcade-JalecoMS1BCD_MiSTer (jt51, pin 985a573dcfc1ff135553a39f7eae21d18ba57cbe)   f858ada95bc10fede3bed818ab10b2903d625abd
+jotego/jtcores (jtframe_sdram64, one local fix: NS2-3)   3eb8fec6ec7db210e952921865a18a66ded8a996
 MAME (reference only)                                   017b8670f0ad3be2f64911bf587eb137e53f08bd

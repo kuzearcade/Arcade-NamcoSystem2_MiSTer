@@ -13,6 +13,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/savestate/*` | Arcade-GingaNin_MiSTer | as there (ss_m68k_park with GN-10's `stall`, ss_m6809_park new there) |
 | `rtl/sdram.sv`, `sdram_arb.sv`, `sdram_req.sv`, `crt_chain.sv`, `cheats.sv`, `video_retime.sv` | Arcade-GingaNin_MiSTer | verbatim |
 | `sim/models/sdram_model.sv` | Arcade-GingaNin_MiSTer (from Arcade-NMKBP964_MiSTer) | verbatim |
+| `rtl/third_party/jtframe_sdram64/*.v` | jotego/jtcores `modules/jtframe/hdl/sdram/` @ 3eb8fec | GPL-3.0-or-later. Verbatim except one line of `jtframe_sdram64_bank.v`: PRE_RD advances on `do_read`, not `bg && !all_dqm`. The original could skip a READ while another bank held the data bus (NS2-3) |
 
 ## New
 
@@ -20,3 +21,11 @@ Where every file came from. Third-party files keep their own licence notices.
 |---|---|
 | `tools/ns2_romdata.py` | the ROM table, parsed from MAME's driver; the board-wiring transforms (NS2-1) |
 | `tools/ns2_regions.py`, `sim/oracle/ns2_regions.lua` | the region proof against MAME (NS2-1) |
+| `tools/mame-patches/ns2-oracle.patch` | MAME 0.289: the key custom's `rand()` reads replaced by a seeded LFSR (D5); `NS2_MUTE_YM` / `NS2_MUTE_C140` |
+| `sim/oracle/ns2_capture.lua`, `ns2_boot.lua`, `tools/ns2_capture.py` | the oracle capture: state, pictures, per-line register writes of both 68000s (NS2-2) |
+| `tools/ns2_model.py` | the reference renderer, exact against MAME (NS2-2) |
+| `tools/ns2_load.py` | Q3: the graphics fetch load per line, the caches, the replay streams (NS2-3) |
+| `sim/models/sdram_model_burst.sv` | a burst SDRAM model with a mode register and timing checks (NS2-3) |
+| `sim/rtl/sdram_probe/` | the D3 bandwidth probe (NS2-3) |
+| `sim/oracle/ns2_ramuse.lua` | Q2: work RAM pages touched per 68000 (NS2-4) |
+| `sim/quartus/m10k_probe/` | Appendix F's M10K probe (NS2-4) |

@@ -1,0 +1,10 @@
+# Appendix F's M10K probe: ./build.sh (docs/PLAN.md, M0)
+set_global_assignment -name FAMILY "Cyclone V"
+set_global_assignment -name DEVICE 5CSEBA6U23I7
+set_global_assignment -name TOP_LEVEL_ENTITY m10k_probe
+set_global_assignment -name SYSTEMVERILOG_FILE m10k_probe.sv
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
+set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
+
+set_global_assignment -name LAST_QUARTUS_VERSION "17.0.0 Lite Edition"

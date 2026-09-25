@@ -290,6 +290,42 @@ So the plan replaces it for the graphics streams:
 - **C:** DDR3 for ROZ. Its latency is higher still (MP-8, MP-14); rejected
   for random reads, kept for bulk RAM (below).
 
+**M0 result (NS2-3): A passes its gate with three additions.**
+- The controller is `jtframe_sdram64` with randomised bank arbitration
+  (`BAPRIO=0`) and one local fix: the probe found a lost READ, now fixed.
+- The load per line (Q3, `tools/ns2_load.py`) in 64-bit bursts. Each figure is
+  the worst sampled line of seven attract captures:
+
+  | stream | worst line | where |
+  |---|---|---|
+  | ROZ | 288 (4.61 M/s) | Assault, zoomed out: one new burst per pixel, and no cache helps |
+  | tiles | 220 (3.52 M/s) | Finest Hour: six planes of 36-37 tile rows |
+  | masks | 220 (3.52 M/s) | as tiles |
+  | sprites | 92 (1.47 M/s) | SWS '93 |
+
+- The additions:
+  - the ROZ ROM is stored twice, in banks 0 and 1, and the ROZ fetcher
+    alternates between them;
+  - the core keeps a 2-bit class per tile in BRAM (transparent, opaque or
+    mixed: 128 Kbit, taken from the mask ROM while it loads). It fetches a
+    mask only for a mixed tile, through a 256-entry cache: worst line 0.54 M/s;
+  - a 256-entry tile-row cache: worst line 2.90 M/s.
+- The bank layout: ROZ copies in banks 0 and 1, tiles in bank 2, and masks
+  plus sprites in bank 3. It fits the 32 MB module, 8 MB per bank:
+
+  | bank | contents | size |
+  |---|---|---|
+  | 0 | ROZ + the CPU programs + data ROM | 4 + 0.75 + 2 MB |
+  | 1 | ROZ + C140 | 4 + 2 MB |
+  | 2 | tiles + C123 and C169 masks | 4 + 1 MB |
+  | 3 | sprites | 4 MB |
+- **The gate:** each stream replays its worst frames at 1.5x its worst line,
+  all four at once. The load is stacked from different games, which is
+  stricter than any one game. Result: every backlog stays at 12 requests or
+  fewer, with 0 bad words and 0 timing violations. The ceiling is about 1.6x.
+- The CPU caches and C140 traffic are not in this load. They share the banks'
+  spare time, and M2/M3 re-measure them on the real core.
+
 On-chip RAM (M10K, 553 blocks) holds what the video reads every pixel:
 - tilemap RAM (64 KB);
 - sprite RAM (16 KB, or C355 about 82 KB);
@@ -794,25 +830,50 @@ one, and the mode byte and key-custom index in `<switches>`.
 | savestate, savestate_ui, ss_m68k_park, ss_m6809_park | Arcade-GingaNin_MiSTer | GPL-3 (ours) |
 | sdram.sv, sdram_arb, crt_chain, cheats, video_retime, hiscore, crt_adjust, sys/ | siblings | as recorded there |
 
-## Appendix F — M10K budget (estimate; the `quartus_map` probe decides)
+## Appendix F — M10K budget (measured in M0: NS2-4)
 
-553 blocks of 10 Kbit, about 1 KB each at 8-bit width.
+553 blocks of 10 Kbit. `sim/quartus/m10k_probe` fits the standard board's
+arrays at their real shapes and port use, and reports each one's count.
+Everything outside the core comes from the siblings' fitted builds.
 
-| array | standard | NB (L&W) |
+| array | port use | M10K (fitted) |
 |---|---|---|
-| master RAM 64 KB | 64 | 64 |
-| slave RAM 64 KB (Q2; SDRAM if larger) | 64 | 64 |
-| tilemap RAM 64 KB | 64 | 64 |
-| ROZ RAM | 128 | 64 (C169) |
-| sprite RAM | 16 | 82 (C355) |
-| C45 road RAM | -- | 128 |
-| palette 24 KB | 24 | 24 |
-| DPRAM, sound RAM, EEPROM, MCU | 20 | 20 |
-| line buffers (6 tilemaps, sprites, ROZ, road), double | ~20 | ~24 |
-| CPU caches (2 programs, data ROM, audio) | ~40 | ~40 |
-| sys/ (scaler, OSD, rotation, audio) | ~60 | ~60 |
-| **total** | **~500** | **~634 (over)** |
+| master RAM 64 KB | CPU | 64 |
+| slave RAM 64 KB (Q2: 64 KB mirrored, NS2-4) | CPU | 64 |
+| C123 tilemap RAM 64 KB (all of it used after boot, NS2-4) | CPU + video | 64 |
+| ROZ RAM 128 KB (the C45 road RAM on Final Lap) | CPU + video | 128 |
+| sprite RAM 16 KB | CPU + video | 16 |
+| palette, 3 x 8 KB | CPU + video | 24 |
+| DPRAM 2 KB | two sides | 2 |
+| sound RAM 8 KB | 6809 | 8 |
+| EEPROM 8 KB | CPU + NVRAM ioctl | 8 |
+| tile class table 64K x 2 (D3) | load + video | 16 |
+| tile-row cache, mask cache, their tags (D3) | fill + video | 5 |
+| sprite line buffers, double | | 2 |
+| **the probe's total** | | **401** |
+| two fx68k (microcode ROMs), jt51 | | 12 + 7 |
+| outside the core: sys/ 56; crt_chain 28, video_mixer 14, hiscore 6, video_retime 3 (GingaNin and MS1BCD fits) | | 107 |
+| **subtotal** | | **527** |
 
-The NB bitstream moves the master and slave work RAMs to SDRAM behind
-caches: -128, to ~506. The standard bitstream is near the limit, so Q2 and
-the probe come first.
+That leaves **26 blocks** for everything else:
+- the program caches: master, slave, audio, data ROM;
+- the MCU's ROMs;
+- the tile and ROZ line work;
+- the C140.
+
+So:
+- **The MCU's ROMs go to SDRAM behind small caches.** That is the 32 KB
+  external EPROM and the C68's 32 KB internal ROM, 64 blocks in BRAM. The
+  C65 runs at 2 MHz and the C68 at 8 MHz, so a miss costs less than a cycle
+  of theirs.
+- The CPU program caches are the siblings' `rom_cache_n` (MS1BCD), at 1-2
+  blocks each.
+- If the fit still fails, the next lever is the master's work RAM behind a
+  cache in SDRAM (-64 + the cache). Its cost is wait states on misses, which
+  M2's frame agreement would have to show harmless.
+
+The NB bitstreams swap:
+- ROZ RAM and sprite RAM (144) for C355 (82), C169 (64) and C45 (128),
+  which is +130;
+- so both work RAMs move to SDRAM behind caches (-128) there, as planned,
+  and the NB fit is decided at M5 with the same probe.
