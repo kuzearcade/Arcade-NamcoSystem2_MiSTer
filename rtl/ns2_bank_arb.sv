@@ -26,15 +26,21 @@ module ns2_bank_arb #(parameter N = 2) (
 	reg          vseen;
 
 	// the next client: the first requester from rr on, not acked last clock
+	// (the lowest at or above rr, else the lowest)
+	wire [N-1:0] cand = req & ~ack;
 	reg          sel_ok;
 	reg [TW-1:0] sel;
+	reg          hi_ok;
+	reg [TW-1:0] hi, lo;
 	integer k;
 	always @(*) begin
-		sel_ok = 1'b0; sel = 0;
+		hi_ok = 1'b0; hi = 0; lo = 0;
 		for (k = N - 1; k >= 0; k = k - 1) begin
-			// scan rr, rr+1, ... (the loop runs backwards, so the nearest wins)
-			if (req[(rr + k) % N] && !ack[(rr + k) % N]) begin sel_ok = 1'b1; sel = (rr + k) % N; end
+			if (cand[k]) lo = k;
+			if (cand[k] && k >= rr) begin hi_ok = 1'b1; hi = k; end
 		end
+		sel_ok = |cand;
+		sel = hi_ok ? hi : lo;
 	end
 
 	always @(posedge clk) begin

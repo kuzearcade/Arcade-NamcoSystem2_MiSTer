@@ -102,10 +102,15 @@ module ns2_cpu #(parameter MASTER = 1) (
 		if (wr && sel_ram && !UDSn) ram_h[a[15:1]] <= oEdb[15:8];
 		if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
 		ram_q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
-		if (wr && sel_eep && !LDSn) eep[a[13:1]] <= oEdb[7:0];
-		if (nv_we) eep[nv_addr] <= nv_data;            // the download: the default NVRAM
-		eep_q <= eep[a[13:1]];
 	end
+	// the EEPROM: one port, shared by the download (the default NVRAM, in
+	// reset) and the CPU; a write returns its own data (Intel's template)
+	wire        eep_we = nv_we || (wr && sel_eep && !LDSn);
+	wire [12:0] eep_a  = nv_we ? nv_addr : a[13:1];
+	wire [7:0]  eep_d  = nv_we ? nv_data : oEdb[7:0];
+	always @(posedge clk)
+		if (eep_we) begin eep[eep_a] <= eep_d; eep_q <= eep_d; end
+		else eep_q <= eep[eep_a];
 	assign rom_addr = a[17:1];
 	assign rom_rd = !ASn && !iack && sel_rom && eRWn;
 

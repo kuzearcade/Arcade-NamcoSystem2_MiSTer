@@ -8,7 +8,8 @@
 // graphics ROM streams are ports.
 // Line events, at the start of the line (MAME's scanline timer):
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
-module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
+module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
+	parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -83,6 +84,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 	wire [7:0]  arq, irq_q, erq;
 	wire        m_rd, s_rd, d_rd, a_rd, mcu_rd;
 	wire        m_ready, s_ready, d_ready, a_ready, mcu_ready;
+	wire        a_smp, smp_65, smp_68;     // the slow CPUs' ROM address phases (ns2_rom_cache SAMPLED)
+	wire        mcu_smp = mcu_c68 ? smp_68 : smp_65;
 	wire [15:0] a_65, a_68;
 	wire [15:0] mcu_a = mcu_c68 ? a_68 : a_65;       // the MCU's bus address
 	// the voice ROM
@@ -114,24 +117,27 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 		// the SDRAM words hold the image's even byte low; the 68000's ROMs and
 		// the C140's region are big-endian words
 		wire [15:0] mw, sw, dw, aw, uw;
-		ns2_rom_cache #(.AW(17)) u_mc (.clk(clk), .rst(reset), .addr(mra), .rd(m_rd), .data(mw), .ready(m_ready),
+		ns2_rom_cache #(.AW(17)) u_mc (.clk(clk), .rst(reset), .smp(1'b1), .addr_in(mra), .rd_in(m_rd), .data(mw), .ready(m_ready),
 			.m_req(mprog_req), .m_addr(mprog_addr), .m_ack(mprog_ack), .m_valid(mprog_valid), .m_data(bank0_data));
-		ns2_rom_cache #(.AW(17)) u_sc (.clk(clk), .rst(reset), .addr(sra), .rd(s_rd), .data(sw), .ready(s_ready),
+		ns2_rom_cache #(.AW(17)) u_sc (.clk(clk), .rst(reset), .smp(1'b1), .addr_in(sra), .rd_in(s_rd), .data(sw), .ready(s_ready),
 			.m_req(sprog_req), .m_addr(sprog_addr), .m_ack(sprog_ack), .m_valid(sprog_valid), .m_data(bank0_data));
-		ns2_rom_cache #(.AW(20)) u_dc (.clk(clk), .rst(reset), .addr(dra), .rd(d_rd), .data(dw), .ready(d_ready),
+		ns2_rom_cache #(.AW(20)) u_dc (.clk(clk), .rst(reset), .smp(1'b1), .addr_in(dra), .rd_in(d_rd), .data(dw), .ready(d_ready),
 			.m_req(drom_req), .m_addr(drom_addr), .m_ack(drom_ack), .m_valid(drom_valid), .m_data(bank0_data));
-		ns2_rom_cache #(.AW(17)) u_ac (.clk(clk), .rst(reset), .addr(ara[17:1]), .rd(a_rd), .data(aw), .ready(a_ready),
+		ns2_rom_cache #(.AW(17), .SAMPLED(1)) u_ac (.clk(clk), .rst(reset), .smp(a_smp), .addr_in(ara[17:1]), .rd_in(a_rd), .data(aw), .ready(a_ready),
 			.m_req(aud_req), .m_addr(aud_addr), .m_ack(aud_ack), .m_valid(aud_valid), .m_data(bank0_data));
 		// the MCU's 64 KB: its EPROM (the C65's 8000-ffff), then its internal
 		// ROM (the C65's 0000-1fff, the C68's c68.bin at 8000-ffff)
 		wire [15:0] ub = mcu_c68 ? {1'b1, mcu_a[14:0]} : mcu_a[15] ? {1'b0, mcu_a[14:0]} : {3'b100, mcu_a[12:0]};
-		ns2_rom_cache #(.AW(15)) u_uc (.clk(clk), .rst(reset), .addr(ub[15:1]), .rd(mcu_rd), .data(uw), .ready(mcu_ready),
+		ns2_rom_cache #(.AW(15), .SAMPLED(1)) u_uc (.clk(clk), .rst(reset), .smp(mcu_smp), .addr_in(ub[15:1]), .rd_in(mcu_rd), .data(uw), .ready(mcu_ready),
 			.m_req(mcu_req), .m_addr(mcu_addr_m), .m_ack(mcu_ack), .m_valid(mcu_valid), .m_data(bank0_data));
 		assign mrq = {mw[7:0], mw[15:8]};
 		assign srq = {sw[7:0], sw[15:8]};
 		assign drq = {dw[7:0], dw[15:8]};
-		assign arq = ara[0] ? aw[15:8] : aw[7:0];
-		assign irq_q = ub[0] ? uw[15:8] : uw[7:0];
+		// the byte, as the caches' address: taken on the same phase
+		reg a_b0, u_b0;
+		always @(posedge clk) begin if (a_smp) a_b0 <= ara[0]; if (mcu_smp) u_b0 <= ub[0]; end
+		assign arq = a_b0 ? aw[15:8] : aw[7:0];
+		assign irq_q = u_b0 ? uw[15:8] : uw[7:0];
 		assign erq = irq_q;
 		// the C140: its request held until the bank takes it; the word of the burst
 		reg        c_req;
@@ -170,17 +176,37 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 		end
 	end
 
-	// the DPRAM: three ports (68000s, sound, MCU)
+	// the DPRAM: three users (68000s, sound, MCU) on a true dual port RAM.
+	// Port A is the 68000s'. Port B alternates clocks between the sound CPU
+	// and the MCU: each holds its address for a whole bus cycle (dozens of
+	// clocks), so its read is at most three clocks old, and its write (a
+	// one-clock pulse) waits for its turn, at most a clock.
 	reg  [7:0] dpram [0:2047] /*verilator public_flat_rw*/;
 	wire [10:0] dpa_m, dpa_s, dpa_u;
 	wire [7:0]  dpd_m, dpd_s, dpd_u;
 	wire        dpw_m, dpw_s, dpw_u;
 	reg  [7:0]  dpq_m, dpq_s, dpq_u;
+	always @(posedge clk)
+		if (dpw_m) begin dpram[dpa_m] <= dpd_m; dpq_m <= dpd_m; end
+		else dpq_m <= dpram[dpa_m];
+	reg         dp_t, dp_td;                // port B's turn: 0 sound, 1 MCU (and last clock's)
+	reg         pw_s, pw_u;                 // a write waiting for its turn
+	reg  [10:0] pa_s, pa_u;
+	reg  [7:0]  pd_s, pd_u, dpq_b;
+	wire        b_we = dp_t ? pw_u : pw_s;
+	wire [10:0] b_a  = dp_t ? (pw_u ? pa_u : dpa_u) : (pw_s ? pa_s : dpa_s);
+	wire [7:0]  b_d  = dp_t ? pd_u : pd_s;
+	always @(posedge clk)
+		if (b_we) begin dpram[b_a] <= b_d; dpq_b <= b_d; end
+		else dpq_b <= dpram[b_a];
 	always @(posedge clk) begin
-		if (dpw_m) dpram[dpa_m] <= dpd_m;
-		if (dpw_s) dpram[dpa_s] <= dpd_s;
-		if (dpw_u) dpram[dpa_u] <= dpd_u;
-		dpq_m <= dpram[dpa_m]; dpq_s <= dpram[dpa_s]; dpq_u <= dpram[dpa_u];
+		dp_t <= ~dp_t; dp_td <= dp_t;
+		if (b_we && dp_t) pw_u <= 1'b0;
+		if (b_we && !dp_t) pw_s <= 1'b0;
+		if (dpw_s) begin pw_s <= 1'b1; pa_s <= dpa_s; pd_s <= dpd_s; end
+		if (dpw_u) begin pw_u <= 1'b1; pa_u <= dpa_u; pd_u <= dpd_u; end
+		if (dp_td) dpq_u <= dpq_b; else dpq_s <= dpq_b;
+		if (reset) begin pw_s <= 1'b0; pw_u <= 1'b0; end
 	end
 
 	// the 68000s
@@ -205,7 +231,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack));
 
 	// the video
-	ns2_video u_video (
+	ns2_video #(.HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_video (
 		.clk(clk), .reset(reset), .board(board), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.dl_clut_we(clut_we), .dl_clut_addr(clut_addr), .dl_clut_data(clut_data),
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),
@@ -232,13 +258,13 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 	wire        rd_65, rd_68;
 	assign mcu_rd = mcu_c68 ? rd_68 : rd_65;
 	ns2_c65 u_mcu (
-		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65),
+		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
 		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
 	ns2_c68 u_c68 (
-		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68),
+		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68),
 		.rom_addr(ira68), .rom_data(irq_q),
 		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -253,7 +279,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
 		.clk(clk), .reset(reset), .run(sound_run),
-		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd),
+		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),

@@ -63,14 +63,16 @@ module ns2_roz (
 	reg  [8:0]  p1_x, p2_x;
 	reg  [2:0]  p1_c, p2_c, p1_r, p2_r;
 	// FIFO A: {x, column, row, code}
-	reg  [8:0]  ax_q [0:15];
-	reg  [2:0]  ac_q [0:15], ar_q [0:15];
-	reg  [15:0] ak_q [0:15];
+	// (the small queues are logic: a whole M10K each otherwise)
+	(* ramstyle = "logic" *) reg  [8:0]  ax_q [0:15];
+	(* ramstyle = "logic" *) reg  [2:0]  ac_q [0:15];
+	(* ramstyle = "logic" *) reg  [2:0]  ar_q [0:15];
+	(* ramstyle = "logic" *) reg  [15:0] ak_q [0:15];
 	reg  [3:0]  aw, ar;
 	reg  [4:0]  acnt;
 	// FIFO B: {x, column} of the issued bursts
-	reg  [8:0]  bx_q [0:15];
-	reg  [2:0]  bc_q [0:15];
+	(* ramstyle = "logic" *) reg  [8:0]  bx_q [0:15];
+	(* ramstyle = "logic" *) reg  [2:0]  bc_q [0:15];
 	reg  [3:0]  bw, br;
 	reg  [4:0]  bcnt;
 

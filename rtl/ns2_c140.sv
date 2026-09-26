@@ -96,7 +96,7 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 
 	// the queue of the CPU's voice register writes:
 	// {key-on decision, voice[4:0], register[3:0], data[7:0]}
-	reg [17:0] q [0:31];
+	(* ramstyle = "logic" *) reg [17:0] q [0:31];
 	reg [4:0]  q_wr, q_rd, q_mark;
 	reg        tick_p;
 	wire [17:0] qe  = q[q_rd];
@@ -105,7 +105,7 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	wire [7:0]  qd  = qe[7:0];
 
 	// the engine: a step pass (positions, the end), then a sound pass
-	localparam E_IDLE = 0, E_STEP = 1, E_SND = 2, E_FETCH_H = 3, E_WAIT_H = 4, E_WAIT_L = 5, E_WORD = 6, E_MIX = 7, E_OUT = 8;
+	localparam E_IDLE = 0, E_STEP = 1, E_SND = 2, E_FETCH_H = 3, E_WAIT_H = 4, E_WAIT_L = 5, E_WORD = 6, E_MIX = 7, E_OUT = 8, E_MIX0 = 9;
 	reg [3:0]  es;
 	reg [4:0]  ev;                      // the voice
 	reg [23:0] act, stp;               // this sample: the voice sounds; it stepped (a fetch)
@@ -149,8 +149,12 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	wire signed [17:0] e_dt   = e_mul[33:16] + {{2{prevdt[ev][15]}}, prevdt[ev]};
 	wire [9:0]  e_lvol = ({2'b00, vol_l[ev]} * 10'd4) / 10'd3;
 	wire [9:0]  e_rvol = ({2'b00, vol_r[ev]} * 10'd4) / 10'd3;
-	wire signed [28:0] e_lp = e_dt * $signed({1'b0, e_lvol});
-	wire signed [28:0] e_rp = e_dt * $signed({1'b0, e_rvol});
+	// the mix in two clocks (E_MIX0 the voice's sample and volumes, E_MIX the
+	// products): one is too long a path
+	reg signed [17:0] m_dt;
+	reg [9:0]  m_lvol, m_rvol;
+	wire signed [28:0] e_lp = m_dt * $signed({1'b0, m_lvol});
+	wire signed [28:0] e_rp = m_dt * $signed({1'b0, m_rvol});
 	wire [23:0] e_word = {vbank[ev], 16'd0} + {8'd0, vst[ev]} + {{6{pos[ev][17]}}, pos[ev]};
 	wire        e_kon  = din[7] || (din[6] && key_cpu[voice]);
 
@@ -242,7 +246,7 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 				E_SND: begin
 					if (!act[ev]) es <= E_OUT;
 					else if (stp[ev]) es <= E_FETCH_H;
-					else es <= E_MIX;
+					else es <= E_MIX0;
 				end
 				E_FETCH_H: begin
 					waddr <= e_word[21:0];
@@ -261,6 +265,10 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 				E_WORD: begin
 					// the word is complete: shift the history
 					prevdt[ev] <= lastdt[ev]; lastdt[ev] <= e_new;
+					es <= E_MIX0;
+				end
+				E_MIX0: begin
+					m_dt <= e_dt; m_lvol <= e_lvol; m_rvol <= e_rvol;
 					es <= E_MIX;
 				end
 				E_MIX: begin

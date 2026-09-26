@@ -100,7 +100,7 @@ module ns2_main (
 
 	// the C139's RAM (the serial link's; games test it)
 	reg [7:0] sci_h [0:8191], sci_l [0:8191];
-	reg [15:0] sci_q;
+	reg [15:0] sci_q, sci_rq;
 
 	// the arbiter: the grant with the address, then the devices' read
 	// latency, then the capture (three clocks, the master first): the 68000
@@ -149,6 +149,15 @@ module ns2_main (
 	assign drom_addr = ga[20:1];
 	assign drom_rd = busy && step != 2'd0 && dev == D_DROM && v_rnw;
 
+	// its ports in Intel's RAM template: written with the grant, read every
+	// clock (the grant's read is taken at step 1)
+	wire sci_w = !reset && !busy && (grant_m || grant_s) && decode(ga) == D_SCI && (who ? s_we : m_we);
+	always @(posedge clk) begin
+		if (sci_w && (who ? s_uds : m_uds)) sci_h[ga[13:1]] <= (who ? s_sd : m_sd) >> 8;
+		if (sci_w && (who ? s_lds : m_lds)) sci_l[ga[13:1]] <= (who ? s_sd : m_sd) & 8'hff;
+		sci_rq <= {sci_h[ga[13:1]], sci_l[ga[13:1]]};
+	end
+
 	always @(posedge clk) begin
 		m_done <= 1'b0; s_done <= 1'b0;
 		key_rd <= 1'b0; key_we <= 1'b0; dp_we <= 1'b0;
@@ -168,18 +177,14 @@ module ns2_main (
 						dp_we <= (who ? s_we : m_we) && (who ? s_lds : m_lds);
 					end
 					D_KEY: key_off <= ga[3:1];
-					D_SCI: begin
-						if ((who ? s_we : m_we) && (who ? s_uds : m_uds)) sci_h[ga[13:1]] <= (who ? s_sd : m_sd) >> 8;
-						if ((who ? s_we : m_we) && (who ? s_lds : m_lds)) sci_l[ga[13:1]] <= (who ? s_sd : m_sd) & 8'hff;
-					end
 					default: ;
 				endcase
-				sci_q <= {sci_h[ga[13:1]], sci_l[ga[13:1]]};
 				step <= 2'd1;
 			end
 			2'd1: begin
 				// the devices latch their read data (the video's RAMs, the DPRAM);
 				// the key's strobe lands on the capture clock, after its value is taken
+				sci_q <= sci_rq;
 				if (dev == D_KEY) begin key_rd <= !(who ? s_we : m_we); key_we <= who ? s_we : m_we; end
 				step <= 2'd2;
 			end

@@ -10,12 +10,16 @@
 module ns2_rom_cache #(
 	parameter AW = 17,                // the ROM's size in 16-bit words: 2^AW
 	parameter LINES = 16,
-	parameter PREFETCH = 1
+	parameter PREFETCH = 1,
+	// a slow CPU's cache takes addr and rd only on smp, a fixed phase of its
+	// cycle after they settle (the SDC's multicycle paths from the CPU)
+	parameter SAMPLED = 0
 ) (
 	input               clk,
 	input               rst,
-	input      [AW-1:0] addr,         // a 16-bit word
-	input               rd,           // the consumer is reading (addr valid)
+	input               smp,
+	input      [AW-1:0] addr_in,      // a 16-bit word
+	input               rd_in,        // the consumer is reading (addr valid)
 	output     [15:0]   data,
 	output              ready,
 	// ns2_mem
@@ -31,6 +35,11 @@ module ns2_rom_cache #(
 	reg [LINES-1:0] vld;
 	reg [IW-1:0] wr_ptr;
 	reg          busy;                // a fill in flight (requested, not back)
+	reg [AW-1:0] addr_s;
+	reg          rd_s;
+	always @(posedge clk) if (smp) begin addr_s <= addr_in; rd_s <= rd_in; end
+	wire [AW-1:0] addr = SAMPLED ? addr_s : addr_in;
+	wire          rd   = SAMPLED ? rd_s && !(rst) : rd_in;
 	reg [AW-3:0] fill;                // its burst
 
 	wire [AW-3:0] want = addr[AW-1:2];

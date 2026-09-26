@@ -1,0 +1,105 @@
+# M4's first fit of the core: ./build.sh (map | fit)
+set_global_assignment -name FAMILY "Cyclone V"
+set_global_assignment -name DEVICE 5CSEBA6U23I7
+set_global_assignment -name TOP_LEVEL_ENTITY core_top
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
+set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
+# small RAMs (FIFOs, shift registers) in logic, not a whole M10K each
+set_global_assignment -name AUTO_RAM_TO_LCELL_CONVERSION ON
+set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF
+set_global_assignment -name OPTIMIZATION_MODE "HIGH PERFORMANCE EFFORT"
+set_global_assignment -name SEARCH_PATH ../../../rtl/third_party/fx68k
+set_global_assignment -name SEARCH_PATH ../../../rtl
+set_global_assignment -name SDC_FILE core_top.sdc
+set_global_assignment -name SYSTEMVERILOG_FILE core_top.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_board.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_main.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_cpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c148.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_key.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c123.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_roz.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c45.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c169.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c355.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_sprite_a.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c65.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c68.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_m740.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_sound.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c140.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_rom_cache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_mem.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_bank_arb.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_sdram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_tile_filter.sv
+set_global_assignment -name VERILOG_FILE ../../../rtl/ns2_hd63705.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/ns2_hd63705_ctrl.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/ns2_hd63705_alu.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/ns2_hd63705_regs.v
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/third_party/fx68k/fx68k.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/third_party/fx68k/fx68kAlu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/third_party/fx68k/uaddrPla.sv
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/mc6809/mc6809is.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_acc.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_csr_op.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_eg.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_exp2lin.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_exprom.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_kon.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_lfo.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_lin2exp.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_mmr.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_mod.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_noise_lfsr.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_noise.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_op.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_pg.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_phinc_rom.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_phrom.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_pm.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_reg_ch.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_reg.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_sh.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51_timers.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jt51/hdl/jt51.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jtframe_sdram64/jtframe_sdram64_bank.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jtframe_sdram64/jtframe_sdram64_init.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jtframe_sdram64/jtframe_sdram64_latch.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jtframe_sdram64/jtframe_sdram64_rfsh.v
+set_global_assignment -name VERILOG_FILE ../../../rtl/third_party/jtframe_sdram64/jtframe_sdram64.v
+# the probe's ports other than the clocks and the SDRAM are virtual pins (the
+# MiSTer framework drives them in the real top)
+set_instance_assignment -name VIRTUAL_PIN ON -to rst
+set_instance_assignment -name VIRTUAL_PIN ON -to reset
+set_instance_assignment -name VIRTUAL_PIN ON -to dl
+set_instance_assignment -name VIRTUAL_PIN ON -to dl_wr
+set_instance_assignment -name VIRTUAL_PIN ON -to dl_addr*
+set_instance_assignment -name VIRTUAL_PIN ON -to dl_data*
+set_instance_assignment -name VIRTUAL_PIN ON -to dl_wait
+set_instance_assignment -name VIRTUAL_PIN ON -to board*
+set_instance_assignment -name VIRTUAL_PIN ON -to mcu_c68
+set_instance_assignment -name VIRTUAL_PIN ON -to tile_fl2
+set_instance_assignment -name VIRTUAL_PIN ON -to spr_fl
+set_instance_assignment -name VIRTUAL_PIN ON -to mh_wiring
+set_instance_assignment -name VIRTUAL_PIN ON -to lw_wiring
+set_instance_assignment -name VIRTUAL_PIN ON -to key_table*
+set_instance_assignment -name VIRTUAL_PIN ON -to key_mode*
+set_instance_assignment -name VIRTUAL_PIN ON -to mcub*
+set_instance_assignment -name VIRTUAL_PIN ON -to mcuc*
+set_instance_assignment -name VIRTUAL_PIN ON -to mcuh*
+set_instance_assignment -name VIRTUAL_PIN ON -to dsw*
+set_instance_assignment -name VIRTUAL_PIN ON -to dials*
+set_instance_assignment -name VIRTUAL_PIN ON -to analog*
+set_instance_assignment -name VIRTUAL_PIN ON -to red*
+set_instance_assignment -name VIRTUAL_PIN ON -to green*
+set_instance_assignment -name VIRTUAL_PIN ON -to blue*
+set_instance_assignment -name VIRTUAL_PIN ON -to hcnt*
+set_instance_assignment -name VIRTUAL_PIN ON -to vcnt*
+set_instance_assignment -name VIRTUAL_PIN ON -to out_valid
+set_instance_assignment -name VIRTUAL_PIN ON -to ym_left*
+set_instance_assignment -name VIRTUAL_PIN ON -to ym_right*
+set_instance_assignment -name VIRTUAL_PIN ON -to c140_left*
+set_instance_assignment -name VIRTUAL_PIN ON -to c140_right*

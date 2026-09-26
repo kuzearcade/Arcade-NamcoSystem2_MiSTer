@@ -38,9 +38,14 @@ module ns2_sprite_a (
 	output reg [8:0]  lb_x,
 	output reg [16:0] lb_d
 );
-	// (gw << 16) / n for n = 1..64, gw = 16 or 32: MAME's zoom step
+	// (gw << 16) / n for n = 1..64, gw = 16 or 32: MAME's zoom step, from a
+	// table of (32 << 16) / n (a divider does not fit a clock); for gw 16 it
+	// is halved, floor(floor(x / n) / 2) being floor(x / 2n)
+	reg [21:0] ztab [0:127];
+	integer zi;
+	initial for (zi = 0; zi < 128; zi = zi + 1) ztab[zi] = zi == 0 ? 22'd0 : 22'd2097152 / zi;
 	function [21:0] zstep(input g32, input [6:0] n);
-		zstep = n == 0 ? 22'd0 : ((g32 ? 22'd32 : 22'd16) << 16) / n;
+		zstep = g32 ? ztab[n] : {1'b0, ztab[n][21:1]};
 	endfunction
 
 	// the four pixels of a 4-byte group (obj_layout): pixel k's planes

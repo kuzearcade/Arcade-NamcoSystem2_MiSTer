@@ -636,6 +636,11 @@ on 68,000+ frames and on flip through the model. For M3:
   - HDMI audio;
   - check inputs with `mister_keys.py`.
 
+**Progress (the standard bitstream's core, NS2-13):** `sim/quartus/core_fit`
+fits the core without the MiSTer framework: 26,643 ALMs (64%), 433 M10K
+(540 with Appendix F's 107 for the framework, of 553), timing met at every
+corner (clk +2.23 ns, clk_sd +1.72 ns).
+
 ### M5 — Feature parity
 
 Savestates (the SS-13 gate in attract and play, then the board), NVRAM

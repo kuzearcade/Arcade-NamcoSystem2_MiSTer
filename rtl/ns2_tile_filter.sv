@@ -44,10 +44,6 @@ module ns2_tile_filter (
 	// statistics (simulation)
 	output reg [31:0] n_t, n_t_miss, n_m, n_m_miss
 );
-	// ------------------------------------------------ the class table
-	reg [1:0]  cls [0:65535];
-	always @(posedge clk) if (class_we) cls[class_addr] <= class_data;
-
 	// TilemapCB undone: tile [15:11] = code {13, 12, 11, 15, 14} (standard),
 	// tile [14:11] = code {13, 12, 11, 14} (finalap2)
 	function [15:0] code_of(input [15:0] t);
@@ -64,13 +60,12 @@ module ns2_tile_filter (
 	reg [18:0] tq_a [0:15];
 	reg [4:0]  tq_w, tq_h;
 	wire       tq_full = (tq_w ^ tq_h) == 5'b10000;
-	reg [3:0]  ti_q [0:15];            // the misses to fetch (entry indices), in order
+	(* ramstyle = "logic" *) reg [3:0]  ti_q [0:15];            // the misses to fetch (entry indices), in order
 	reg [4:0]  ti_w, ti_r;
-	reg [3:0]  tf_q [0:15];            // the fetches in flight, in order
+	(* ramstyle = "logic" *) reg [3:0]  tf_q [0:15];            // the fetches in flight, in order
 	reg [4:0]  tf_w, tf_r;
 	reg [1:0]  ts;
 	reg [18:0] ta;
-	reg [1:0]  tcls;
 	reg [63:0] tcd;
 	reg [10:0] tct;
 	reg        tcv;
@@ -84,7 +79,6 @@ module ns2_tile_filter (
 			case (ts)
 				2'd0: if (t_req && !t_ack && !tq_full) begin ta <= t_addr; t_ack <= 1'b1; ts <= 2'd1; end
 				2'd1: begin
-					tcls <= cls[code_of(ta[18:3])];
 					tcd <= tc_d[ta[7:0]]; tct <= tc_t[ta[7:0]]; tcv <= tc_v[ta[7:0]];
 					ts <= 2'd2;
 				end
@@ -132,16 +126,27 @@ module ns2_tile_filter (
 	reg [18:0] mq_a [0:15];
 	reg [4:0]  mq_w, mq_h;
 	wire       mq_full = (mq_w ^ mq_h) == 5'b10000;
-	reg [3:0]  mi_q [0:15];
+	(* ramstyle = "logic" *) reg [3:0]  mi_q [0:15];
 	reg [4:0]  mi_w, mi_r;
-	reg [3:0]  mf_q [0:15];
+	(* ramstyle = "logic" *) reg [3:0]  mf_q [0:15];
 	reg [4:0]  mf_w, mf_r;
 	reg [1:0]  ms;
 	reg [18:0] ma;
-	reg [1:0]  mcls;
 	reg [63:0] mcd;
 	reg [7:0]  mct;
 	reg        mcv;
+
+	// ------------------------------------------------ the class table
+	// two ports: the load shares the tile stream's (the download is in
+	// reset); each stream's lookup reads it the clock after the address
+	reg [1:0]  cls [0:65535];
+	wire [15:0] cls_ta = class_we ? class_addr : code_of(ta[18:3]);
+	reg  [1:0]  tcls, mcls;
+	always @(posedge clk)
+		if (class_we) begin cls[cls_ta] <= class_data; tcls <= class_data; end
+		else tcls <= cls[cls_ta];
+	always @(posedge clk) mcls <= cls[ma[18:3]];
+
 	always @(posedge clk) begin
 		m_ack <= 1'b0; m_valid <= 1'b0;
 		if (rst) begin
@@ -151,7 +156,6 @@ module ns2_tile_filter (
 			case (ms)
 				2'd0: if (m_req && !m_ack && !mq_full) begin ma <= m_addr; m_ack <= 1'b1; ms <= 2'd1; end
 				2'd1: begin
-					mcls <= cls[ma[18:3]];
 					mcd <= mc_d[ma[10:3]]; mct <= mc_t[ma[10:3]]; mcv <= mc_v[ma[10:3]];
 					ms <= 2'd2;
 				end

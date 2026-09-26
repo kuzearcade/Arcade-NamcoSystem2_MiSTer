@@ -569,3 +569,69 @@ set's image (`tools/ns2_image.py`).
 frame: 67 exact, the same two tearing frames (24: 448 pixels; 79: 332),
 and MAME's boot screen (1–21). There are no overruns and no SDRAM timing
 violations, and every tile burst and mask byte equals the image.
+
+## NS2-13 — M4: the standard bitstream's core fits, timing met (closed for the core, measured)
+
+`sim/quartus/core_fit` compiles the standard bitstream's core with Quartus
+17.0, without the MiSTer framework: `ns2_board` (ROMS = 1, no C45, C169 or
+C355), `ns2_mem`, `ns2_tile_filter` and `ns2_sdram`. The ports other than
+the clocks and the SDRAM are virtual pins.
+
+**The first map** kept 116,347 registers and 7.9 Mbit of block RAM, more
+than the device has. The causes, and the fixes:
+- **RAMs duplicated.** A CPU port that read old data during its own write
+  cannot be an M10K port, so Quartus built each RAM with two read ports
+  twice: the tilemap, ROZ, sprite and palette RAMs, and the class table.
+  Each CPU port is now Intel's true dual port template, where a write
+  returns its own data. The CPU never takes data from a write cycle.
+- **Arrays left as registers.**
+  - The master's EEPROM (65,536 registers): its load port shares the CPU's.
+  - The DPRAM's three write ports: port A is the 68000s'; port B alternates
+    clocks between the 6809 and the MCU, each write waiting at most a clock
+    for its turn.
+  - The C139 RAM and the palette: their reads are registered as the
+    template wants.
+- **Blocks the bitstream leaves out** (`HAS_C45`, `HAS_C169`, `HAS_C355`):
+  their RAMs, line buffers, requests and busy flags are gated, so Quartus
+  removes them.
+- **Small queues and jt51's shift registers** took a whole M10K each (21):
+  they are now logic (`ramstyle "logic"`, `AUTO_SHIFT_REGISTER_RECOGNITION
+  OFF`).
+
+**Timing** (49.152 / 98.304 MHz) failed by 28.9 ns at first:
+- **Sprite A's zoom step** was a divider. It is now a table of
+  (32 << 16) / n.
+- **The C140's mix** takes two clocks (the sample and volumes, then the
+  products).
+- **The bank arbiter's round robin** used `% N`. It is now a masked
+  priority encoder.
+- **The 6809, the HD63705 and the M37450** change registers only on their
+  enables, at least 6 clocks apart. Their paths are 4-cycle multicycles
+  (`core_top.sdc`).
+  - Everything that takes their outputs does so on one of their enables,
+    except the ROM caches.
+  - The ROM caches latch the address 5 clocks after it changes
+    (`ns2_rom_cache SAMPLED`).
+  - This also removes the path from one MCU to the other through the
+    shared cache.
+
+**Result:**
+
+| | |
+|---|---|
+| ALMs | 26,643 of 41,910 (64%) |
+| registers | 38,304 |
+| M10K | 433 of 553 (540 with the framework's 107, Appendix F) |
+| setup slack, `clk` | +2.26 ns (slow 100C), +2.23 ns (slow -40C) |
+| setup slack, `clk_sd` | +1.72 ns (slow 100C), +2.01 ns (slow -40C) |
+| hold | met at every corner |
+
+**The regressions after the changes:**
+- M1: Assault, 201 of 201 exact.
+- The C140 harness: 419,849 samples, all equal.
+- The DPRAM writes against MAME: the C65 all 65,817, the 6809 all 2,325,
+  the C68 all 14,846.
+- M2 Burning Force: 678 of 700 pictures, all 699 replayed frames exact, as
+  before.
+- M3 Finest Hour: 287 of 300 pictures, as before. The audio cache waits
+  96,798 clocks instead of 93,932.

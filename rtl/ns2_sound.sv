@@ -19,6 +19,7 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	input      [7:0]  rom_data,
 	input             rom_ready,
 	output            rom_rd,
+	output            rom_smp,        // rom_rd and the address have settled (ns2_rom_cache SAMPLED)
 	// the DPRAM's sound port
 	output reg [10:0] dp_addr,
 	output reg [7:0]  dp_dout,
@@ -49,6 +50,9 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	wire rom_wait;
 	always @(posedge clk) ph <= (ph == 5'd23) ? (rom_wait ? 5'd23 : 5'd0) : ph + 1'd1;
 	wire fallE = ph == 5'd0, fallQ = ph == 5'd18;
+	// the CPU's address changes on fallE: five clocks later it has settled
+	// (the SDC's 4-cycle multicycle paths from the CPU)
+	assign rom_smp = ph == 5'd5;
 
 	// 3.579545 MHz for the YM2151 (the fraction of 49.152 MHz)
 	reg [26:0] yacc;

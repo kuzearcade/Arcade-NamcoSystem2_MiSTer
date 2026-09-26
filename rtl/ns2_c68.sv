@@ -28,6 +28,7 @@ module ns2_c68 (
 	input             irq_line200,    // one clock pulse
 	input             rom_ready,      // the ROM's cache has the byte (1 with the arrays)
 	output            rom_rd,         // a ROM read is on the bus
+	output            rom_smp,        // rom_rd and the address have settled (ns2_rom_cache SAMPLED)
 	// the ROM: c68.bin (32 KB), data one clock after the address
 	output     [14:0] rom_addr,
 	input      [7:0]  rom_data,
@@ -55,6 +56,9 @@ module ns2_c68 (
 	wire rom_wait;
 	always @(posedge clk) div <= reset ? 5'd0 : div == 5'd23 ? (rom_wait ? 5'd23 : 5'd0) : div + 1'd1;
 	wire cen = div == 5'd23 && !rom_wait;
+	// the CPU's outputs change on cen (div 23): five clocks later they have
+	// settled (the SDC's 4-cycle multicycle paths from the CPU)
+	assign rom_smp = div == 5'd4;
 
 	wire [15:0] a;
 	wire        wr, sync, tap;
