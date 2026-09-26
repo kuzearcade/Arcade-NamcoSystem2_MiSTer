@@ -811,7 +811,7 @@ The harnesses gained, for this:
 - then the other sets, the inputs of the sets with analog controls, and
   M5.
 
-## NS2-15 — M4: every standard set on the board; the Metal Hawk bitstream (open: the NB bitstream)
+## NS2-15 — M4: every standard set on the board; the Metal Hawk and Steel Gunner bitstreams (open: Suzuka 8 Hours, Lucky & Wild)
 
 **The standard bitstream's 49 sets on the board.** Each was loaded with 1P
 Start at 45 s and captured at +15 s and +30 s: 22 parents and 27 clones.
@@ -822,7 +822,8 @@ Start at 45 s and captured at +15 s and +30 s: 22 parents and 27 clones.
   upside down. Config byte 3 bit 6 marks a ROT180 set. The top turns such
   a set 180 degrees through `screen_rotate`'s flip (its framebuffer), with
   the scandoubler off, as when rotating. The new OSD "Flip screen" inverts
-  the turn.
+  the turn. On the board, Bubble Trouble is upright (a stale `.mra` there
+  had shown it inverted).
 
 **NamcoS2_MH, Metal Hawk's bitstream** (`NamcoS2_MH.qsf`, the `NS2_MH`
 macro in `NamcoS2.sv`):
@@ -847,10 +848,45 @@ macro in `NamcoS2.sv`):
     of 699.
 - `tools/ns2_mra.py` writes Metal Hawk's two `.mra`s for `NamcoS2_MH`.
   `build.sh` builds a bitstream by `PROJ=` (`output_files_MH`).
+- The rebuilt bitstream (seed 5, every clock met) runs Metal Hawk on the
+  board.
 
-**Open:** the NB bitstream (Steel Gunner 1 and 2, Suzuka 8 Hours 1 and 2,
-Lucky & Wild).
-- Its C355 (82 KB), C169 (64 KB) and road RAM (128 KB) add about 130
-  blocks to the standard bitstream's.
-- The plan (Appendix F): move both 68000 work RAMs into the SDRAM, behind
-  caches.
+**NamcoS2_SG, Steel Gunner's bitstream** (`NamcoS2_SG.qsf`, `NS2_SG`):
+- Only the C355 sprites: no sprites A (`HAS_SPRA` 0 removes `ns2_sprite_a`
+  and its 16 KB RAM), no ROZ, road or C169. 482 of 553 M10K, 89% of the
+  ALMs.
+- **The C355 missed clk_sys by 45 ns.** Five groups of paths, all
+  rewritten without changing a picture:
+  - The walker's row: two `zt` divisions, a `zstep` division and a multiply
+    in one clock. A size needs only whether zt(l, k) = 4096k / l reaches
+    2048, exactly when 2k >= l: no divider. `zstep` is a 1024-entry ROM,
+    read for the covering row (a new state, `L_SROW`, takes its product)
+    and for each column's job.
+  - The pass: the format offset's fractions by a 17-step division
+    (`P_ZT`), the offset registered before it is added.
+  - The columns: their sizes as the rows'.
+  - The drawer: two stages, positions and the window test, then the pens.
+    The line waits for the second stage before it ends.
+  - M2 on the new RTL: sgunner and sgunner2 give the same 700 pictures as
+    the old, byte for byte.
+- Seed 4 meets every clock (clk_sys +1.187 ns, clk_sd +0.459, HDMI
+  +0.213).
+- **On the board:** Steel Gunner's attract and Steel Gunner 2's (C68) title
+  and play screens. (A first try drew a blank screen: the board had no
+  `sgunner*.zip`, so the ROMs and the default EEPROM loaded as zeros.)
+- M2 against MAME: 145 and 304 of 700 pictures exact. The replay finds no
+  line that differs: the rest are MAME's sprite RAM writes landing inside
+  the frame (NS2-11).
+- `sim/rtl/ns2_hw`: `make VARIANT=SG|MH|NB` builds a bitstream's blocks
+  (`obj_<variant>`); `SDRAM_FILL=seed` starts the SDRAM with random words,
+  as the board keeps the last core's.
+
+**Open:** Suzuka 8 Hours 1 and 2, Lucky & Wild (`NamcoS2_NB`).
+- The whole NB set (C355, C45 road, C169) needs 702 of 553 M10K. The
+  largest: the ROZ / road RAM 128, the two 68000 work RAMs 64 each, the
+  C355 RAM 82, the C169 RAM 64, the tilemap RAM 64, MiSTer's `crt_vsize`
+  26.
+- Suzuka (no C169) needs about 635; Lucky & Wild all 702.
+- The plan (Appendix F): move both 68000 work RAMs into the SDRAM (128
+  blocks), behind caches. Lucky & Wild needs about 20 more: framework
+  buffers the NB bitstream can go without (`crt_vsize` 26, HQ2x 14).

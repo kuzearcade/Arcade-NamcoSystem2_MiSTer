@@ -9,7 +9,7 @@
 // Line events, at the start of the line (MAME's scanline timer):
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
 module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
-	parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1) (
+	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -240,7 +240,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack));
 
 	// the video
-	ns2_video #(.HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_video (
+	ns2_video #(.HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_video (
 		.clk(clk), .reset(reset), .board(board), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.dl_clut_we(clut_we), .dl_clut_addr(clut_addr), .dl_clut_data(clut_data),
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),

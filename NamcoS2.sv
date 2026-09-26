@@ -50,10 +50,16 @@ assign VIDEO_ARY = (!ar) ? (video_rotated ? 12'd4 : 12'd3) : 12'd0;
 // The bitstream (docs/PLAN.md 2.4): NS2_MH (NamcoS2_MH.qsf) is Metal Hawk's,
 // the C169 and no standard ROZ or C45 road; otherwise the standard one.
 `ifdef NS2_MH
-localparam HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0;
+localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0;
 localparam CORE_NAME = "NamcoS2_MH";
+`elsif NS2_NB
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1;
+localparam CORE_NAME = "NamcoS2_NB";
+`elsif NS2_SG
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1;
+localparam CORE_NAME = "NamcoS2_SG";
 `else
-localparam HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0;
+localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0;
 localparam CORE_NAME = "NamcoS2";
 `endif
 localparam CONF_STR = {
@@ -375,7 +381,7 @@ wire [7:0]  core_r, core_g, core_b;
 wire [8:0]  hcnt, vcnt;
 wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
 
-ns2_board #(.ROMS(1), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) board (
+ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(cfg_analog), .dbg_stall(1'b0), .dbg_holds(),

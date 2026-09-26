@@ -2,7 +2,10 @@
 // (ns2_board ROMS = 1), ns2_mem, ns2_sdram and the burst SDRAM model, on the
 // core's clock (clk, 49.152 MHz) and the SDRAM's (clk_sd, twice it). The
 // testbench downloads the set's image through dl_*, then runs the board.
-module top (
+module top #(
+	// a bitstream's blocks (NamcoS2.sv): make VARIANT=SG|MH|NB
+	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1
+) (
 	input             clk,
 	input             clk_sd,
 	input             rst,            // the SDRAM's
@@ -95,7 +98,8 @@ module top (
 	wire [15:0] class_addr;
 	wire [1:0]  class_data;
 
-	ns2_board #(.C140_MAME_RATE(1), .ROMS(1)) u_board (
+	ns2_board #(.C140_MAME_RATE(1), .ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
+		.HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_board (
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog), .dbg_stall(1'b0), .dbg_holds(dbg_holds),

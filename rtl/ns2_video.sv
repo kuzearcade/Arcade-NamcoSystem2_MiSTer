@@ -13,6 +13,7 @@
 module ns2_video #(
 	// the bitstream's blocks: a board whose block is left out shows without
 	// it (the standard bitstream has neither; docs/PLAN.md Appendix F)
+	parameter HAS_SPRA = 1,   // sprites A (ns2_sprite_a) and their RAM; the C355 boards have neither
 	parameter HAS_ROZ  = 1,   // the standard ROZ (ns2_roz); its RAM is also the C45's road RAM
 	parameter HAS_C45  = 1,
 	parameter HAS_C169 = 1,
@@ -193,11 +194,11 @@ module ns2_video #(
 		if (cs_tmap && cw_l) begin tmap_l[cpu_addr[15:1]] <= cpu_dout[7:0]; tq_l <= cpu_dout[7:0]; end
 		else tq_l <= tmap_l[cpu_addr[15:1]];
 	always @(posedge clk)
-		if (cs_spr && cw_h) begin spr_h[cpu_addr[13:1]] <= cpu_dout[15:8]; sq_h <= cpu_dout[15:8]; end
-		else sq_h <= spr_h[cpu_addr[13:1]];
+		if (HAS_SPRA && cs_spr && cw_h) begin spr_h[cpu_addr[13:1]] <= cpu_dout[15:8]; sq_h <= cpu_dout[15:8]; end
+		else if (HAS_SPRA) sq_h <= spr_h[cpu_addr[13:1]];
 	always @(posedge clk)
-		if (cs_spr && cw_l) begin spr_l[cpu_addr[13:1]] <= cpu_dout[7:0]; sq_l <= cpu_dout[7:0]; end
-		else sq_l <= spr_l[cpu_addr[13:1]];
+		if (HAS_SPRA && cs_spr && cw_l) begin spr_l[cpu_addr[13:1]] <= cpu_dout[7:0]; sq_l <= cpu_dout[7:0]; end
+		else if (HAS_SPRA) sq_l <= spr_l[cpu_addr[13:1]];
 	always @(posedge clk)
 		if (HAS_RZRAM && cs_roz && cw_h) begin roz_h[cpu_addr[16:1]] <= cpu_dout[15:8]; rq_h <= cpu_dout[15:8]; end
 		else if (HAS_RZRAM) rq_h <= roz_h[cpu_addr[16:1]];
@@ -299,8 +300,8 @@ module ns2_video #(
 	// (a bitstream without a block has no reads of its RAMs: they go)
 	always @(posedge clk) vt_q[15:8] <= tmap_h[vt_addr];
 	always @(posedge clk) vt_q[7:0]  <= tmap_l[vt_addr];
-	always @(posedge clk) vs_q[15:8] <= spr_h[vs_addr];
-	always @(posedge clk) vs_q[7:0]  <= spr_l[vs_addr];
+	always @(posedge clk) if (HAS_SPRA) vs_q[15:8] <= spr_h[vs_addr];
+	always @(posedge clk) if (HAS_SPRA) vs_q[7:0]  <= spr_l[vs_addr];
 	always @(posedge clk) if (HAS_RZRAM) vr_q[15:8] <= roz_h[vr_addr];
 	always @(posedge clk) if (HAS_RZRAM) vr_q[7:0]  <= roz_l[vr_addr];
 	always @(posedge clk) if (HAS_C169) v169_q[15:8] <= c169_h[vr_addr_c169];
@@ -317,7 +318,8 @@ module ns2_video #(
 	reg  [7:0] ry;
 	reg [11:0] busy_cnt;
 	initial begin line_busy_max = 0; overrun_src = 0; end
-	wire       c123_busy, roz_busy_i, road_busy_i, c169_busy_i, spr_busy_a, c355_busy_i;
+	wire       c123_busy, roz_busy_i, road_busy_i, c169_busy_i, spr_busy_a_i, c355_busy_i;
+	wire       spr_busy_a = HAS_SPRA && spr_busy_a_i;
 	// a block the bitstream leaves out has no outputs that are used (it goes)
 	wire       roz_busy = HAS_ROZ && roz_busy_i;
 	wire       roz_req_i;
@@ -397,7 +399,7 @@ module ns2_video #(
 	wire [8:0]  sa_x, sc_x;
 	wire [16:0] sa_d, sc_d;
 	ns2_sprite_a u_spr (
-		.clk(clk), .reset(reset), .start(go && !c355_b), .y(ry), .busy(spr_busy_a), .gfx_ctrl(gfx_ctrl), .pri4(fl), .spr_fl(spr_fl), .mh(mh),
+		.clk(clk), .reset(reset), .start(HAS_SPRA && go && !c355_b), .y(ry), .busy(spr_busy_a_i), .gfx_ctrl(gfx_ctrl), .pri4(fl), .spr_fl(spr_fl), .mh(mh),
 		.sr_addr(vs_addr), .sr_data(vs_q),
 		.s_req(sa_req), .s_addr(sa_addr), .s_ack(spr_ack && !c355_b), .s_valid(spr_valid && !c355_b), .s_data(spr_data),
 		.lb_we(sa_we), .lb_x(sa_x), .lb_d(sa_d));
@@ -410,11 +412,11 @@ module ns2_video #(
 		.cr_addr(vc_addr), .cr_data(vc_q),
 		.s_req(sc_req), .s_addr(sc_addr), .s_ack(spr_ack && c355_b), .s_valid(spr_valid && c355_b), .s_data(spr_data),
 		.lb_we(sc_we), .lb_x(sc_x), .lb_d(sc_d), .lb_we2(sc_we2), .lb_x2(sc_x2), .lb_d2(sc_d2));
-	assign spr_req  = c355_b ? sc_req : sa_req;
-	assign spr_addr = c355_b ? {1'b0, sc_addr} : sa_addr;
-	assign s_we = c355_b ? sc_we : sa_we;
-	assign s_x  = c355_b ? sc_x  : sa_x;
-	assign s_d  = c355_b ? sc_d  : sa_d;
+	assign spr_req  = c355_b ? sc_req : HAS_SPRA && sa_req;
+	assign spr_addr = c355_b ? {1'b0, sc_addr} : HAS_SPRA ? sa_addr : 20'd0;
+	assign s_we = c355_b ? sc_we : HAS_SPRA && sa_we;
+	assign s_x  = c355_b ? sc_x  : HAS_SPRA ? sa_x : 9'd0;
+	assign s_d  = c355_b ? sc_d  : HAS_SPRA ? sa_d : 17'd0;
 	assign s_we2 = c355_b && sc_we2;
 	assign s_x2  = c355_b ? sc_x2 : 9'd0;
 	assign s_d2  = c355_b ? sc_d2 : 17'd0;

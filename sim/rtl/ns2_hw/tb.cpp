@@ -71,6 +71,12 @@ int main(int argc, char **argv) {
 	// the SDRAM's start, then the download (the board held in reset)
 	t->rst = 1; t->reset = 1; for (int i = 0; i < 64; i++) slow(); t->rst = 0;
 	while (t->sd_init) slow();
+	// SDRAM_FILL=seed: the SDRAM starts with pseudo-random words, as the
+	// board's keeps the last core's (use without DL_SKIP0)
+	if (const char *fs = getenv("SDRAM_FILL")) {
+		uint32_t x = strtoul(fs, nullptr, 0) | 1;
+		for (size_t i = 0; i < 16u * 1024 * 1024; i++) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; t->rootp->top__DOT__u_model__DOT__mem[i] = x; }
+	}
 	t->dl = 1;
 	const bool skip0 = getenv("DL_SKIP0") != nullptr;
 	uint64_t c0 = cyc, words = 0;

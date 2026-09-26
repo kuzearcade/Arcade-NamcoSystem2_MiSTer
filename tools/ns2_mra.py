@@ -41,8 +41,8 @@ import ns2_romdata as R
 ROOT = os.path.join(HERE, '..')
 RELEASES = os.path.join(ROOT, 'releases')
 MAME = os.path.expanduser('~/mame/mame')
-RBF = {0: 'NamcoS2', 1: 'NamcoS2', 2: 'NamcoS2_MH', 3: 'NamcoS2_NB', 4: 'NamcoS2_NB', 5: 'NamcoS2_NB'}   # board code -> bitstream
-BUILT = {'NamcoS2', 'NamcoS2_MH'}                          # the bitstreams that exist: the default set list
+RBF = {0: 'NamcoS2', 1: 'NamcoS2', 2: 'NamcoS2_MH', 3: 'NamcoS2_SG', 4: 'NamcoS2_NB', 5: 'NamcoS2_NB'}   # board code -> bitstream
+BUILT = {'NamcoS2', 'NamcoS2_MH', 'NamcoS2_SG'}                    # the bitstreams that exist: the default set list
 
 
 def x(v): return _xml_escape(str(v))

@@ -39,17 +39,12 @@ module ns2_c355 (
 	output reg [8:0]  lb_x2,
 	output reg [16:0] lb_d2
 );
-	// (k * 4096) / l, k <= l <= 16: the rows' and columns' zoom fractions
-	function [12:0] zt(input [4:0] l, input [4:0] k);
-		reg [16:0] n;             // k * 4096 needs 17 bits (13 would overflow)
-		begin
-			n = {12'd0, k} << 12;
-			zt = l == 0 ? 13'd0 : n / {12'd0, l};
-		end
-	endfunction
-	// (16 << 16) / n for a tile's screen size n (1..1023)
-	function [20:0] zstep(input [9:0] n);
-		zstep = n == 0 ? 21'd0 : 21'h100000 / {11'd0, n};
+	// zt(l, k) = (k * 4096) / l, k <= l <= 16, the rows' and columns' zoom
+	// fractions. A tile's screen size, (q * 4096 + zt(l, k) + 2048) >> 12 in
+	// 10 bits, needs only whether zt(l, k) >= 2048, exactly when 2k >= l (no
+	// divider in the walker); the pass divides for the format's offset.
+	function [9:0] zsz(input [9:0] q, input [4:0] l, input [4:0] k);
+		zsz = q + (l != 0 && {k, 1'b0} >= {1'b0, l} ? 10'd1 : 10'd0);
 	endfunction
 	function signed [12:0] sx11(input [10:0] v);
 		sx11 = {{2{v[10]}}, v};
@@ -80,7 +75,7 @@ module ns2_c355 (
 	// format words: each address depends on an earlier word), two small
 	// divisions (width / columns, height / rows), the format's offset, the
 	// lines the rows' tiles cover
-	localparam P_IDLE = 0, P_ISSUE = 1, P_WAIT = 2, P_CAP = 3, P_DIV = 4, P_ADJ = 5, P_OFF = 6, P_SPAN = 7, P_STORE = 8;
+	localparam P_IDLE = 0, P_ISSUE = 1, P_WAIT = 2, P_CAP = 3, P_DIV = 4, P_ADJ = 5, P_OFF = 6, P_SPAN = 7, P_STORE = 8, P_ZT = 9;
 	reg [3:0]  ps;
 	reg [8:0]  pi;
 	reg [4:0]  pk;               // the word being read (0..16)
@@ -88,6 +83,14 @@ module ns2_c355 (
 	reg        dy_pass;          // the division: 0 columns, 1 rows
 	reg [3:0]  di;
 	reg [9:0]  dq, dr;
+	// zt(n, rem), the offset's fractions: (rem << 12) / n, 17 steps
+	reg [4:0]  zi;
+	reg [16:0] zn;
+	reg [5:0]  zr;
+	reg [12:0] zfx, zfy;
+	wire [4:0] z_l = dy_pass ? f_nr : f_nc;
+	wire [5:0] z_t = {zr[4:0], zn[16]};
+	reg signed [12:0] dxz_q, dyz_q;
 	reg [9:0]  qx, qy;
 	reg [3:0]  rx, ry;
 	reg [4:0]  sr;
@@ -103,8 +106,8 @@ module ns2_c355 (
 	                     pk <= 5'd12 ? 16'h1200 + {10'd0, tb6[11:8], 2'd0} + {11'd0, pk - 5'd9} :
 	                                   16'h2000 + {3'd0, tb0[10:0], 2'd0} + {11'd0, pk - 5'd13};
 	// the format's offset, zoomed: ((d & 0xff) * zoom + 0x8000) >> 16, zoom = q*4096 + zt
-	wire [21:0] zx   = {qx, 12'd0} + zt(f_nc, {1'b0, rx});
-	wire [21:0] zy   = {qy, 12'd0} + zt(f_nr, {1'b0, ry});
+	wire [21:0] zx   = {qx, 12'd0} + {9'd0, zfx};
+	wire [21:0] zy   = {qy, 12'd0} + {9'd0, zfy};
 	wire [29:0] dxzp = w[15][7:0] * zx + 30'h8000;
 	wire [29:0] dyzp = w[16][7:0] * zy + 30'h8000;
 	wire signed [12:0] dxz = w[15][8] ? -$signed({1'b0, dxzp[27:16]}) : $signed({1'b0, dxzp[27:16]});
@@ -114,8 +117,7 @@ module ns2_c355 (
 	wire [4:0]  sp_k    = sp_left < {1'b0, ry} ? sp_left : {1'b0, ry};
 	wire [9:0]  sp_st   = sr * qy + (sr > f_nr - ry ? {5'd0, sr - (f_nr - ry)} : 10'd0);
 	wire [9:0]  sp_th   = qy + (sr >= f_nr - ry ? 10'd1 : 10'd0);
-	wire [21:0] sp_zoom = {qy, 12'd0} + zt(sp_left, sp_k);
-	wire [9:0]  sp_sh   = (sp_zoom + 22'd2048) >> 12;
+	wire [9:0]  sp_sh   = zsz(qy, sp_left, sp_k);
 	wire signed [12:0] sp_top = tb5[15] ? vp - $signed({3'd0, sp_st}) - $signed({3'd0, sp_th}) : vp + $signed({3'd0, sp_st});
 	wire signed [12:0] sp_bot = sp_top + $signed({3'd0, sp_sh});
 
@@ -144,17 +146,31 @@ module ns2_c355 (
 				end
 				if (di == 4'd11) begin
 					if (!dy_pass) begin qx <= dq; rx <= dr[3:0]; dy_pass <= 1'b1; di <= 0; end
-					else begin qy <= dq; ry <= dr[3:0]; ps <= P_ADJ; end
+					else begin qy <= dq; ry <= dr[3:0]; dy_pass <= 1'b0; zi <= 0; ps <= P_ZT; end
+				end
+			end
+			P_ZT: begin
+				if (zi == 0) begin
+					zn <= {dy_pass ? ry : rx, 12'd0}; zr <= 0; zi <= 1;
+				end else begin
+					if (z_t >= {1'b0, z_l}) begin zr <= z_t - {1'b0, z_l}; zn <= {zn[15:0], 1'b1}; end
+					else begin zr <= z_t; zn <= {zn[15:0], 1'b0}; end
+					zi <= zi + 1'd1;
+				end
+				if (zi == 5'd18) begin
+					if (!dy_pass) begin zfx <= zn[12:0]; dy_pass <= 1'b1; zi <= 0; end
+					else begin zfy <= zn[12:0]; ps <= P_ADJ; end
 				end
 			end
 			P_ADJ: begin
 				hp <= sx11(tb2[10:0] - xscroll[10:0]); vp <= sx11(tb3[10:0] - yscroll[10:0]);
+				dxz_q <= dxz; dyz_q <= dyz;
 				ps <= P_OFF;
 			end
 			P_OFF: begin
 				// the format's offset (qx, qy are in now)
-				hp <= tb4[15] ? hp + dxz : hp - dxz;
-				vp <= tb5[15] ? vp + dyz : vp - dyz;
+				hp <= tb4[15] ? hp + dxz_q : hp - dxz_q;
+				vp <= tb5[15] ? vp + dyz_q : vp - dyz_q;
 				ymin <= 13'sd4095; ymax <= -13'sd4096;
 				sr <= 0; ps <= P_SPAN;
 			end
@@ -192,7 +208,7 @@ module ns2_c355 (
 	// becomes a job (FIFO of 8, with room kept for the reads in flight); the
 	// fetcher issues each job's two bursts; the drawer draws the oldest job
 	// whose 16 pixels are in, two pixels a clock.
-	localparam L_IDLE = 0, L_REC = 1, L_CHK = 2, L_ROW = 3, L_COL = 4, L_DRAIN = 5, L_DONE = 6;
+	localparam L_IDLE = 0, L_REC = 1, L_CHK = 2, L_ROW = 3, L_COL = 4, L_DRAIN = 5, L_DONE = 6, L_SROW = 7;
 	reg [2:0]  ls;
 	reg [7:0]  yl;
 	reg [8:0]  li;
@@ -212,20 +228,24 @@ module ns2_c355 (
 	wire [4:0]  rw_k    = rw_left < {1'b0, c_ry} ? rw_left : {1'b0, c_ry};
 	wire [9:0]  rw_st   = rr * c_qy + (rr > c_nr - c_ry ? {5'd0, rr - (c_nr - c_ry)} : 10'd0);
 	wire [9:0]  rw_th   = c_qy + (rr >= c_nr - c_ry ? 10'd1 : 10'd0);
-	wire [21:0] rw_zoom = {c_qy, 12'd0} + zt(rw_left, rw_k);
-	wire [9:0]  rw_sh   = (rw_zoom + 22'd2048) >> 12;
+	wire [9:0]  rw_sh   = zsz(c_qy, rw_left, rw_k);
 	wire signed [12:0] rw_top = c_fy ? c_vp - $signed({3'd0, rw_st}) - $signed({3'd0, rw_th}) : c_vp + $signed({3'd0, rw_st});
 	wire signed [12:0] yy   = $signed({5'd0, yl});
 	wire [9:0]  rw_i    = yy - rw_top;
-	wire [20:0] rw_ddy  = zstep(rw_sh);
-	wire [30:0] rw_srcp = (c_fy ? rw_sh - 10'd1 - rw_i : rw_i) * rw_ddy;
+	// (16 << 16) / n for a tile's screen size n (1..1023): a ROM, read for
+	// the covering row (then L_SROW) and for each column's job
+	reg [20:0] zrom [0:1023];
+	integer zk;
+	initial for (zk = 0; zk < 1024; zk = zk + 1) zrom[zk] = zk == 0 ? 21'd0 : 21'h100000 / zk;
+	reg [20:0] zq_row, zq_col;
+	reg [9:0]  rw_iq;             // the covering row's line in it (flipped)
+	wire [30:0] rw_srcp = rw_iq * zq_row;
 	// column cc: left, width, its tile word's index
 	wire [4:0]  cl_left = c_nc - cc;
 	wire [4:0]  cl_k    = cl_left < {1'b0, c_rx} ? cl_left : {1'b0, c_rx};
 	wire [9:0]  cl_st   = cc * c_qx + (cc > c_nc - c_rx ? {5'd0, cc - (c_nc - c_rx)} : 10'd0);
 	wire [9:0]  cl_tw   = c_qx + (cc >= c_nc - c_rx ? 10'd1 : 10'd0);
-	wire [21:0] cl_zoom = {c_qx, 12'd0} + zt(cl_left, cl_k);
-	wire [9:0]  cl_sw   = (cl_zoom + 22'd2048) >> 12;
+	wire [9:0]  cl_sw   = zsz(c_qx, cl_left, cl_k);
 	wire signed [12:0] cl_x = c_fx ? c_hp - $signed({3'd0, cl_st}) - $signed({3'd0, cl_tw}) : c_hp + $signed({3'd0, cl_st});
 	wire [15:0] cl_ti   = c_tile + {7'd0, {4'd0, rr} * {4'd0, c_nc}} + {11'd0, cc};   // (9-bit product)
 	// (a concatenation is unsigned: sign-extended into signed wires first)
@@ -266,9 +286,15 @@ module ns2_c355 (
 	wire signed [17:0] px2_18 = {{5{px_x2[12]}}, px_x2};
 	wire [30:0] px_p  = (j_fx[jr] ? sw_r - 10'd1 - j : j) * dd_r;
 	wire [30:0] px_p2 = (j_fx[jr] ? sw_r - 10'd2 - j : j + 10'd1) * dd_r;
-	wire [7:0]  pen   = j_pix[jr][px_p[19:16]];
-	wire [7:0]  pen2  = j_pix[jr][px_p2[19:16]];
 	wire        two   = j + 10'd1 < sw_r;
+	// the drawer's second stage: the pens (the job's pixels stay until its
+	// slot is fetched again, long after it pops)
+	reg        d_in, d_in2;
+	reg [2:0]  d_jr;
+	reg [3:0]  d_i, d_i2;
+	reg [8:0]  d_x, d_x2;
+	wire [7:0] pen  = j_pix[d_jr][d_i];
+	wire [7:0] pen2 = j_pix[d_jr][d_i2];
 	wire        drawing = jdn != 0;
 	wire        pop   = drawing && (j + 10'd2 >= sw_r);
 	wire        push  = t2_v && !(!t2_beyond && cr_data[15]);
@@ -280,10 +306,16 @@ module ns2_c355 (
 	assign cr_addr = ps != P_IDLE ? p_cr : l_cr;
 
 	always @(posedge clk) begin
+		zq_row <= zrom[rw_sh];        // L_ROW's covering row, used in L_SROW
+		zq_col <= zrom[t1_sw];        // the column in t2, at its push
+	end
+
+	always @(posedge clk) begin
 		lb_we <= 1'b0; lb_we2 <= 1'b0;
 		if (reset) begin
 			ls <= L_IDLE; s_req <= 1'b0; t1_v <= 1'b0; t2_v <= 1'b0;
 			jw <= 0; jf <= 0; jd <= 0; jr <= 0; jcnt <= 0; jfn <= 0; jdn <= 0; fhalf <= 0; rhalf <= 0; j <= 0;
+			d_in <= 1'b0; d_in2 <= 1'b0;
 		end else begin
 			t1_v <= 1'b0;
 			case (ls)
@@ -307,9 +339,9 @@ module ns2_c355 (
 					end else begin rr <= 0; ls <= L_ROW; end
 				end
 				L_ROW: begin
-					// does row rr's tile cover this line?
+					// does row rr's tile cover this line? (its step is read meanwhile)
 					if (rw_sh != 0 && yy >= rw_top && yy < rw_top + $signed({3'd0, rw_sh})) begin
-						srow <= rw_srcp[19:16]; cc <= 0; ls <= L_COL;
+						rw_iq <= c_fy ? rw_sh - 10'd1 - rw_i : rw_i; ls <= L_SROW;
 					end else if (rr + 1'd1 == c_nr) begin li <= li + 1'd1; ls <= L_REC; end
 					else rr <= rr + 1'd1;
 				end
@@ -328,14 +360,15 @@ module ns2_c355 (
 						else begin rr <= rr + 1'd1; ls <= L_ROW; end
 					end else cc <= cc + 1'd1;
 				end
-				L_DRAIN: if (!t1_v && !t2_v && jcnt == 0 && !s_req) ls <= L_IDLE;
+				L_SROW: begin srow <= rw_srcp[19:16]; cc <= 0; ls <= L_COL; end
+				L_DRAIN: if (!t1_v && !t2_v && jcnt == 0 && !s_req && !d_in && !d_in2) ls <= L_IDLE;
 				default: ls <= L_IDLE;
 			endcase
 			// the tile word's latency, then the job
 			t2_v <= t1_v; t2_beyond <= t1_beyond; t2_left <= t1_left; t2_sw <= t1_sw; t2_srow <= t1_srow; t2_fx <= t1_fx;
 			t2_pri <= t1_pri; t2_col <= t1_col; t2_cx0 <= t1_cx0; t2_cx1 <= t1_cx1; t2_off <= t1_off;
 			if (push) begin
-				j_left[jw] <= t2_left; j_sw[jw] <= t2_sw; j_ddx[jw] <= zstep(t2_sw); j_fx[jw] <= t2_fx;
+				j_left[jw] <= t2_left; j_sw[jw] <= t2_sw; j_ddx[jw] <= zq_col; j_fx[jw] <= t2_fx;
 				j_pri[jw] <= t2_pri; j_col[jw] <= t2_col; j_cx0[jw] <= t2_cx0; j_cx1[jw] <= t2_cx1;
 				j_addr[jw] <= {(((t2_beyond ? 16'h0000 : cr_data) + t2_off) & 16'h3fff), t2_srow, 1'b0};
 				jw <= jw + 1'd1;
@@ -354,16 +387,20 @@ module ns2_c355 (
 				rhalf <= !rhalf;
 				if (rhalf) jd <= jd + 1'd1;
 			end
-			// the drawer: two pixels a clock
+			// the drawer: two pixels a clock, positions then pens
+			d_in <= 1'b0; d_in2 <= 1'b0;
 			if (drawing) begin
-				if (px_18 >= j_cx0[jr] && px_18 <= j_cx1[jr] && px_x >= 0 && px_x < 13'sd288 && pen != 8'hff) begin
-					lb_we <= 1'b1; lb_x <= px_x[8:0]; lb_d <= {1'b1, j_pri[jr], j_col[jr], pen};
-				end
-				if (two && px2_18 >= j_cx0[jr] && px2_18 <= j_cx1[jr] && px_x2 >= 0 && px_x2 < 13'sd288 && pen2 != 8'hff) begin
-					lb_we2 <= 1'b1; lb_x2 <= px_x2[8:0]; lb_d2 <= {1'b1, j_pri[jr], j_col[jr], pen2};
-				end
+				d_in  <= px_18 >= j_cx0[jr] && px_18 <= j_cx1[jr] && px_x >= 0 && px_x < 13'sd288;
+				d_in2 <= two && px2_18 >= j_cx0[jr] && px2_18 <= j_cx1[jr] && px_x2 >= 0 && px_x2 < 13'sd288;
+				d_jr <= jr; d_i <= px_p[19:16]; d_i2 <= px_p2[19:16]; d_x <= px_x[8:0]; d_x2 <= px_x2[8:0];
 				if (pop) begin j <= 0; jr <= jr + 1'd1; end
 				else j <= j + 10'd2;
+			end
+			if (d_in && pen != 8'hff) begin
+				lb_we <= 1'b1; lb_x <= d_x; lb_d <= {1'b1, j_pri[d_jr], j_col[d_jr], pen};
+			end
+			if (d_in2 && pen2 != 8'hff) begin
+				lb_we2 <= 1'b1; lb_x2 <= d_x2; lb_d2 <= {1'b1, j_pri[d_jr], j_col[d_jr], pen2};
 			end
 			jcnt <= jcnt + {3'd0, push} - {3'd0, pop};
 			jfn  <= jfn + {3'd0, push} - {3'd0, s_req && s_ack && fhalf};

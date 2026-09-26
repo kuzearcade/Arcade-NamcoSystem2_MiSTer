@@ -1,5 +1,11 @@
 # M3: the board with its ROMs in the SDRAM, from the download (tb.cpp)
 #   make && KEY="$(tools/ns2_keys.py --tb SET)" ./obj_dir/Vtop SET TRACE [last_frame]
+# VARIANT=SG|MH|NB builds a bitstream's blocks (NamcoS2.sv) into obj_<variant>/
+VARIANT ?=
+G_SG := -GHAS_SPRA=0 -GHAS_ROZ=0 -GHAS_C45=0 -GHAS_C169=0 -GHAS_C355=1
+G_MH := -GHAS_SPRA=1 -GHAS_ROZ=0 -GHAS_C45=0 -GHAS_C169=1 -GHAS_C355=0
+G_NB := -GHAS_SPRA=0 -GHAS_ROZ=0 -GHAS_C45=1 -GHAS_C169=1 -GHAS_C355=1
+OBJ := $(if $(VARIANT),obj_$(VARIANT),obj_dir)
 R := ../../../rtl
 T := $(R)/third_party
 SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \
@@ -8,10 +14,10 @@ SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.
 	$(R)/ns2_sound.sv $(R)/ns2_c140.sv $(R)/ns2_rom_cache.sv $(R)/ns2_mem.sv $(R)/ns2_bank_arb.sv $(R)/ns2_tile_filter.sv $(R)/ns2_sdram.sv \
 	$(wildcard $(T)/jtframe_sdram64/*.v) ../../models/sdram_model_burst.sv \
 	$(T)/fx68k/fx68k.sv $(T)/fx68k/fx68kAlu.sv $(T)/fx68k/uaddrPla.sv $(T)/mc6809/mc6809is.v $(wildcard $(T)/jt51/hdl/*.v)
-obj_dir/Vtop: tb.cpp $(SRCS) Makefile
+$(OBJ)/Vtop: tb.cpp $(SRCS) Makefile
 	verilator --cc --exe --build -O3 -j 8 -CFLAGS -O2 --x-assign fast --x-initial fast -Wno-fatal -Wno-WIDTH \
 		-Wno-BLKANDNBLK -Wno-MULTIDRIVEN -Wno-UNOPTFLAT -Wno-CASEINCOMPLETE -Wno-LATCH -Wno-BLKSEQ -I$(R) -I$(T)/fx68k \
-		--top-module top $(SRCS) tb.cpp -o Vtop
+		--top-module top $(G_$(VARIANT)) --Mdir $(OBJ) $(SRCS) tb.cpp -o Vtop
 	ln -sf $(R)/63705.uc 63705.uc
 	ln -sf $(T)/fx68k/microrom.mem microrom.mem
 	ln -sf $(T)/fx68k/nanorom.mem nanorom.mem
