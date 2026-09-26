@@ -46,6 +46,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	output     [15:0] mcu_addr, snd_addr,
 	output            mcu_wr, snd_wr,
 	output            mcu_tap, mcu_sync, mcu_cen,  // the C68's bus (debug)
+	output     [7:0]  mcu_din,
 	output     [7:0]  mcu_dout, snd_dout,
 	output            sound_run, sub_run
 );
@@ -152,7 +153,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 		.rom_addr(ira68), .rom_data(irq_q),
 		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
-		.dbg_addr(a_68), .dbg_wr(w_68), .dbg_dout(d_68), .dbg_tap(mcu_tap), .dbg_sync(mcu_sync), .dbg_cen(mcu_cen), .dbg_din());
+		.dbg_addr(a_68), .dbg_wr(w_68), .dbg_dout(d_68), .dbg_tap(mcu_tap), .dbg_sync(mcu_sync), .dbg_cen(mcu_cen), .dbg_din(mcu_din));
 	assign dpa_u = mcu_c68 ? dpa_68 : dpa_65;
 	assign dpd_u = mcu_c68 ? dpd_68 : dpd_65;
 	assign dpw_u = mcu_c68 ? dpw_68 : dpw_65;

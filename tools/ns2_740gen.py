@@ -321,15 +321,15 @@ def bus(s):
     args = split_args(s[op + 1:end - 1]) if s[op + 1:end - 1].strip() else []
     rest = (s[:m.start()] + 'DIN' + s[end:]).strip()
     if f == 'prefetch':
-        return ["addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;"], None, 'fetch'
+        return ["b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;"], None, 'fetch'
     if f == 'read_pc':
-        issue = ["addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;"]
+        issue = ["b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;"]
     elif f in ('write', 'write_data'):
-        issue = ["addr = 16'(%s); dout = 8'(%s); wr = 1'b1; sync = 1'b0; tap = 1'b1;" % (expr(args[0]), expr(args[1]))]
+        issue = ["b_addr = 16'(%s); b_dout = 8'(%s); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;" % (expr(args[0]), expr(args[1]))]
         rest = ''
     else:
         # read_arg goes through MAME's opcode cache, unseen by its taps
-        issue = ["addr = 16'(%s); wr = 1'b0; sync = 1'b0; tap = 1'b%d;" % (expr(args[0]), f != 'read_arg')]
+        issue = ["b_addr = 16'(%s); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b%d;" % (expr(args[0]), f != 'read_arg')]
     if re.match(r'DIN\s*;?$', rest):
         rest = ''
     return issue, rest, 'bus'
@@ -375,7 +375,7 @@ class Gen:
             elif c[0] == 'EAT':
                 # MAME burns the timeslice while waiting: wait a cycle, test again
                 sid = self.state(body, code, ('eat', i))
-                out.append(ind + "addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0; st = %d;  // %s: wait" % (sid, body))
+                out.append(ind + "b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; st = %d;  // %s: wait" % (sid, body))
                 return out
             elif c[0] == 'B':
                 issue, rest, kind = bus(c[1])
@@ -453,7 +453,7 @@ def main():
     w("\talways @(posedge clk) begin\n")
     w("\t\tif (rst) begin\n")
     w("\t\t\tA = 8'h00; X = 8'h80; Y = 8'h00; P = 8'h36; SP = 16'h01ff; PC = 16'h0000; TMP = 16'h0000; TMP2 = 8'h00;\n")
-    w("\t\t\tIR = 8'h00; inst_state_base = 9'd0; irq_taken = 1'b0; wr = 1'b0; sync = 1'b0; tap = 1'b0; dout = 8'h00;\n")
+    w("\t\t\tIR = 8'h00; inst_state_base = 9'd0; irq_taken = 1'b0; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; b_dout = 8'h00;\n")
     w("\t\t\t// MAME's STATE_RESET: reset_m from its start\n")
     for line in entry[RESET]:
         w(line.replace('\t\t\t\t\t', '\t\t\t', 1) + '\n')
@@ -472,6 +472,8 @@ def main():
     w("\t\t\tdefault: st = S_FETCH;\n")
     w("\t\t\tendcase\n")
     w("\t\tend\n")
+    w("\t\t// the bus outputs: registered, so the other blocks see this cycle's until the edge\n")
+    w("\t\taddr <= b_addr; dout <= b_dout; wr <= b_wr; sync <= b_sync; tap <= b_tap;\n")
     w("\tend\n")
     w("endmodule\n")
     sys.stderr.write('%d states, %d opcodes, %d bodies\n' % (len(g.states), len(TABLE), len(set(TABLE))))
@@ -502,8 +504,11 @@ module ns2_m740 (
 	input      [7:0]  din
 );
 	// MAME's registers (blocking: the statements between two bus cycles run
-	// in C's order within one clock)
+	// in C's order within one clock; the bus outputs are registered from b_*)
 	reg [7:0]  A, X, Y, P, IR, TMP2, DIN, RET;
+	reg [15:0] b_addr;                // the bus outputs as the statements set them
+	reg [7:0]  b_dout;
+	reg        b_wr, b_sync, b_tap;
 	reg [15:0] PC, SP, TMP;
 	reg [8:0]  inst_state_base;
 	reg        irq_taken;

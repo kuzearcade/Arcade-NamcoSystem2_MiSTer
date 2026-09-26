@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run MAME's oracle capture (sim/oracle/ns2_capture.lua) for one or more sets.
 
-    tools/ns2_capture.py SET[:tag] ... [--frames N] [--from F] [--every K] [--play SCRIPT]
+    tools/ns2_capture.py SET[:tag] ... [--frames N] [--from F] [--every K] [--play SCRIPT] [--quantum HZ]
 
 Each run gets a fresh directory `sim/oracle/traces/<set>_<tag>/` (default tag
 `attract`), so MAME starts from its all-ones EEPROM like the core does (the
@@ -28,6 +28,8 @@ def main():
     ap.add_argument('--from', dest='frm', type=int, default=0)
     ap.add_argument('--every', type=int, default=1)
     ap.add_argument('--play', default=os.path.join(ROOT, 'sim/oracle/ns2_boot.lua'))
+    ap.add_argument('--quantum', type=int, default=0,
+                    help="NS2_QUANTUM_HZ: interleave MAME's CPUs every 1/HZ s (12288000 for the board comparisons, NS2-8)")
     a = ap.parse_args()
     gm = R.games()
     procs = []
@@ -48,6 +50,8 @@ def main():
             sys.exit(f'{out}: cannot recreate (is a MAME still running there?)')
         env = dict(os.environ, MP_OUT='.', MP_FROM=str(a.frm), MP_FRAMES=str(a.frames), MP_EVERY=str(a.every),
                    MP_BOARD=BOARD[gm[name]['config']], MP_PLAY=os.path.abspath(a.play))
+        if a.quantum:
+            env['NS2_QUANTUM_HZ'] = str(a.quantum)
         log = open(os.path.join(out, 'mame.log'), 'w')
         procs.append((name, out, subprocess.Popen(
             [os.path.expanduser('~/mame/mame'), name, '-rompath', os.path.join(ROOT, 'mame_roms'),

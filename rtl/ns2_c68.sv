@@ -65,7 +65,7 @@ module ns2_c68 (
 	assign rom_addr = a[14:0];
 
 	// ------------------------------------------------ the peripherals
-	reg  [7:0] ram [0:511];           // 0000-00bf, 0100-01ff
+	reg  [7:0] ram [0:511] /*verilator public_flat_rw*/;  // 0000-00bf, 0100-01ff
 	reg  [7:0] ram_q;
 	reg  [7:0] port [0:3], ddr [0:3]; // P3, P4, P5, P6
 	reg        mux;                    // P3 bit 7: the player half

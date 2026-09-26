@@ -47,6 +47,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `tools/ns2_740gen.py`, `rtl/ns2_m740.sv` | the C68's 740 core, generated from MAME's `dm740.lst`, `om740.lst` and `om6502.lst` (BSD-3-Clause, Olivier Galibert); the helpers transcribed from `m6502.cpp` and `m740.cpp` (NS2-9) |
 | `rtl/ns2_c68.sv` | the C68: MAME's `namco68.cpp` map and `m3745x.cpp` peripherals |
 | `sim/rtl/c68/` | the C68 against MAME's cycle trace of it (NS2-9) |
+| `tools/ns2_replay.py` | the board's pictures replayed line by line from MAME's timed video writes (NS2-10) |
 | `tools/ns2_740cycles.py` | measures the C68's cycles from MAME's traces. It showed that the taps miss dummy cycles (docs/PLAN.md M2) |
 | `tools/gen_ucode.sh` | rebuilds jt680x's microcode with jtframe's generator |
 | `tools/ns2_romdump.py` | the graphics ROMs for the testbenches (git-ignored output) |

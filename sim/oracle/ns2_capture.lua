@@ -19,6 +19,8 @@
 --                        the model rebuilds it per band (NS2-5)
 --   <MP_OUT>/blocks.txt  the block table of this board (name, address, words)
 --   <MP_OUT>/frames.txt  "F frame_time_s"
+--   <MP_OUT>/writes.txt  every write to the blocks but the DPRAM, by either
+--                        68000, at its time: "clock addr data mask cpu"
 --
 -- MP_BOARD: std (standard ROZ + sprites), fl (Final Lap: sprites + C45),
 -- mh (Metal Hawk), sg (Steel Gunner: C355), suz (Suzuka: C355 + C45),
@@ -111,6 +113,19 @@ for i, r in ipairs(vranges) do
   end
 end
 
+-- every write to the video's blocks, with MAME's time in 49.152 MHz clocks:
+-- the board's per-line replay (sim/rtl/ns2_frames PICS, NS2-10)
+local wrf = io.open(OUT .. "/writes.txt", "w")
+for i, b in ipairs(blocks) do
+  if b[1] ~= "dpram" then
+    for k, sp in ipairs({mem, slave}) do
+      _G.ns2_cap_taps[#_G.ns2_cap_taps + 1] = sp:install_write_tap(b[2], b[2] + 2 * b[3] - 1, "ns2wr" .. i .. "_" .. k, guard(function(off, data, mask)
+        wrf:write(string.format("%.0f %06x %04x %04x %s\n", manager.machine.time:as_double() * 49152000, off, data, mask, k == 1 and "m" or "s"))
+      end))
+    end
+  end
+end
+
 local ftxt = io.open(OUT .. "/frames.txt", "w")
 _G.ns2_cap_sub = emu.add_machine_frame_notifier(guard(function()
   if F >= FROM and F < FROM + FRAMES and (F - FROM) % EVERY == 0 then
@@ -123,6 +138,7 @@ _G.ns2_cap_sub = emu.add_machine_frame_notifier(guard(function()
   ftxt:write(string.format("%d %.9f\n", F, manager.machine.time:as_double())); ftxt:flush()
   regf:flush()
   vramf:flush()
+  wrf:flush()
   t0 = manager.machine.time:as_double()
   F = F + 1
   if F >= FROM + FRAMES then manager.machine:exit() end

@@ -153,10 +153,57 @@ int main(int argc, char **argv) {
 		t->clk = 1; t->eval(); t->clk = 0; t->eval(); cyc++;
 	};
 	t->reset = 1; for (int i = 0; i < 64; i++) tick(); t->reset = 0;
-	while (mi < maxn && !bad && cyc < 4000000000ULL) {
+	// PICS=dir: the board's pictures against MAME's (dir/pNNNNN.raw, BGRA,
+	// sim/oracle/ns2_capture.lua): the lines of MAME's frame F are those
+	// drawn before line 224 at time (F + 1) * 811008. PICS_TO=F stops there;
+	// PICS_DUMP=dir writes the RTL's (rtlNNNNN.raw, u32 0x00RRGGBB).
+	const char *pics = getenv("PICS");
+	const long pics_to = getenv("PICS_TO") ? atol(getenv("PICS_TO")) : -1;
+	static uint32_t pic[224][288];
+	int pics_n = 0, pics_exact = 0;
+	while ((pics ? (pics_to < 0 || (long)((cyc - 64) / 811008) <= pics_to) : (mi < maxn && !bad)) && cyc < 4000000000ULL) {
 		tick();
-		if ((int)t->vcnt != lastv) { if (t->vcnt == 224) frame++; lastv = t->vcnt; }
+		static long npx = 0;
+		if (pics && t->out_valid && t->out_y < 224 && t->out_x < 288) { pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue; npx++; }
+		if (pics && getenv("PICS_COUNT") && t->vcnt == 224 && lastv != 224) { printf("pixels %ld\n", npx); npx = 0; }
+		if ((int)t->vcnt != lastv) {
+			if (t->vcnt == 224) {
+				frame++;
+				long F = (long)((cyc - 64) / 811008) - 1;
+				if (pics && F >= 0) {
+					char pp[512]; snprintf(pp, sizeof pp, "%s/p%05ld.raw", pics, F);
+					auto mp = load(pp);
+					if (mp.size() == 288 * 224 * 4) {
+						int diff = 0, fx = -1, fy = -1, ly = -1;
+						for (int y = 0; y < 224; y++)
+							for (int x = 0; x < 288; x++) {
+								const uint8_t *q = &mp[(y * 288 + x) * 4];
+								if ((pic[y][x] & 0xffffff) != (uint32_t)(q[0] | q[1] << 8 | q[2] << 16)) { if (!diff) { fx = x; fy = y; } diff++; ly = y; }
+							}
+						pics_n++; pics_exact += diff == 0;
+						if (diff) printf("frame %ld: %d pixels differ (lines %d-%d; first at %d,%d)\n", F, diff, fy, ly, fx, fy);
+						if (getenv("PICS_ALL") && !diff) printf("frame %ld: exact\n", F);
+						fflush(stdout);
+					}
+					if (getenv("PICS_DUMP")) {
+						snprintf(pp, sizeof pp, "%s/rtl%05ld.raw", getenv("PICS_DUMP"), F);
+						FILE *df = fopen(pp, "wb"); if (df) { fwrite(pic, sizeof pic, 1, df); fclose(df); }
+					}
+				}
+			}
+			lastv = t->vcnt;
+		}
 		// a bus cycle: its address at AS, its data at DTACK
+		// MCUREADS=file: the C68's DPRAM reads ("R addr data time"), to set against MAME's
+		if (getenv("RAMWATCH")) { static int last = -1; int v = r->ns2_board__DOT__u_c68__DOT__ram[strtol(getenv("RAMWATCH"), 0, 16)];
+			if (v != last) { printf("ram %s = %02x at %llu\n", getenv("RAMWATCH"), v, (unsigned long long)(cyc - 64)); last = v; } }
+		// MCUFULL=file: every C68 cycle, in MAME's trace format ("R|W addr data time")
+		if (getenv("MCUFULL")) { static FILE *mf = fopen(getenv("MCUFULL"), "w");
+			if (t->mcu_c68 && t->mcu_cen && t->sub_run)
+				fprintf(mf, "%c %04x %02x %llu\n", t->mcu_wr ? 'W' : 'R', t->mcu_addr, t->mcu_wr ? t->mcu_dout : t->mcu_din, (unsigned long long)(cyc - 64 + 1 - 24)); }
+		if (getenv("MCUREADS")) { static FILE *mr = fopen(getenv("MCUREADS"), "w");
+			if (t->mcu_c68 && t->mcu_cen && !t->mcu_wr && (t->mcu_addr & 0xf800) == 0x5000)
+				fprintf(mr, "R %04x %02x %llu\n", t->mcu_addr, t->mcu_din, (unsigned long long)(cyc - 64 + 1 - 24)); }
 		if (getenv("SNDDUMP")) { static unsigned la3 = 0x10000; static uint64_t c0 = 0; unsigned a = t->snd_addr;
 			if (t->sound_run && !c0) { c0 = cyc; printf("sound_run at %llu\n", (unsigned long long)(cyc - 64)); }
 			if (c0 && cyc < c0 + atol(getenv("SNDDUMP")) && a != la3) printf("snd %04x at %llu\n", a, (unsigned long long)(cyc - 64));
@@ -172,7 +219,7 @@ int main(int argc, char **argv) {
 			static FILE *clog = getenv("C140LOG") ? fopen(getenv("C140LOG"), "w") : nullptr;
 			if (clog && t->snd_wr && ((t->snd_addr & 0xf000) == 0x5000 || (t->snd_addr & 0xf000) == 0x6000))
 				fprintf(clog, "W %06x %04x 00ff %u %llu\n", t->snd_addr, t->snd_dout, frame, (unsigned long long)(cyc - 64));
-			if (t->c140_sample) {
+			if (t->c140_sample && mi < mame.size()) {
 				const Acc &m = mame[mi];
 				int16_t ml = (int16_t)(m.data >> 16), mr = (int16_t)(m.data & 0xffff), rl = (int16_t)t->c140_raw_l, rr = (int16_t)t->c140_raw_r;
 				if (ml != rl || mr != rr) {
@@ -186,7 +233,7 @@ int main(int argc, char **argv) {
 		}
 		if (wonly) {
 			unsigned a = snd ? t->snd_addr : t->mcu_addr, d = snd ? t->snd_dout : t->mcu_dout;
-			if ((snd ? t->snd_wr : t->mcu_wr) && (!dponly || in_dp(a))) {
+			if ((snd ? t->snd_wr : t->mcu_wr) && (!dponly || in_dp(a)) && mi < mame.size()) {
 				const Acc &m = mame[mi];
 				// WTIMES=n: the writes where the RTL's offset from MAME's time changes by more than n
 				static const double wt = getenv("WTIMES") ? atof(getenv("WTIMES")) : -1; static double lo = 1e30;
@@ -213,7 +260,7 @@ int main(int argc, char **argv) {
 			have_pend = true; pend_cyc = cyc;
 		}
 		as_d = as;
-		if (have_pend && (slave ? t->s_dtack : t->m_dtack)) {
+		if (have_pend && (slave ? t->s_dtack : t->m_dtack) && mi < mame.size()) {
 			have_pend = false;
 			if (pend.rw == 'R') pend.data = slave ? t->s_rdata : t->m_rdata;
 			// DELTA=start: the accesses after which the RTL's gap to the next differs from MAME's
@@ -246,6 +293,7 @@ int main(int argc, char **argv) {
 			mi++;
 		}
 	}
+	if (pics) printf("pictures: %d of %d exact\n", pics_exact, pics_n);
 	printf("%zu of %zu %s accesses matched (%llu clocks, frame %u)%s\n", bad ? mi - 1 : mi, maxn, cpu.c_str(),
 	       (unsigned long long)cyc, frame, (!bad && mi >= maxn) ? ": ALL MATCH" : "");
 	delete t;

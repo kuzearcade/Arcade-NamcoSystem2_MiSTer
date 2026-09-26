@@ -23,8 +23,11 @@ module ns2_m740 (
 	input      [7:0]  din
 );
 	// MAME's registers (blocking: the statements between two bus cycles run
-	// in C's order within one clock)
+	// in C's order within one clock; the bus outputs are registered from b_*)
 	reg [7:0]  A, X, Y, P, IR, TMP2, DIN, RET;
+	reg [15:0] b_addr;                // the bus outputs as the statements set them
+	reg [7:0]  b_dout;
+	reg        b_wr, b_sync, b_tap;
 	reg [15:0] PC, SP, TMP;
 	reg [8:0]  inst_state_base;
 	reg        irq_taken;
@@ -258,2141 +261,2141 @@ module ns2_m740 (
 			case ({inst_state_base[8], IR})
 			9'h000: begin // brk_m_imp
 				if (($signed({31'd0, irq_taken})) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 132;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 225;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 133;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 226;
 				end
 			end
 			9'h001: begin // ora_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 228;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 201;
 			end
 			9'h002: begin // jsr_zpi
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 7;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 9;
 			end
 			9'h003: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h004: begin // nop_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 16;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 88;
 			end
 			9'h005: begin // ora_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 20;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 118;
 			end
 			9'h006: begin // asl_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 134;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 141;
 			end
 			9'h007: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h008: begin // php_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 184;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 13;
 			end
 			9'h009: begin // ora_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 73;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 211;
 			end
 			9'h00a: begin // asl_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 221;
 			end
 			9'h00b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h00c: begin // nop_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 77;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 29;
 			end
 			9'h00d: begin // ora_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 113;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 31;
 			end
 			9'h00e: begin // asl_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 200;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 21;
 			end
 			9'h00f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h010: begin // bpl_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd128))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 18;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 10;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 19;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 11;
 				end
 			end
 			9'h011: begin // ora_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 110;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 210;
 			end
 			9'h012: begin // clt_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 165;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 233;
 			end
 			9'h013: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h014: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h015: begin // ora_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 201;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 77;
 			end
 			9'h016: begin // asl_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 146;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 106;
 			end
 			9'h017: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h018: begin // clc_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 129;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 124;
 			end
 			9'h019: begin // ora_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 56;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 194;
 			end
 			9'h01a: begin // dec_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 8;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 135;
 			end
 			9'h01b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h01c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h01d: begin // ora_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 130;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 36;
 			end
 			9'h01e: begin // asl_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 242;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 161;
 			end
 			9'h01f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h020: begin // jsr_m_adr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 224;
-			end
-			9'h021: begin // and_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 67;
-			end
-			9'h022: begin // jsr_spg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 22;
-			end
-			9'h023: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h024: begin // bit_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 81;
-			end
-			9'h025: begin // and_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 176;
-			end
-			9'h026: begin // rol_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 112;
-			end
-			9'h027: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
-			end
-			9'h028: begin // plp_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 207;
-			end
-			9'h029: begin // and_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 65;
-			end
-			9'h02a: begin // rol_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 104;
 			end
+			9'h021: begin // and_m_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 110;
+			end
+			9'h022: begin // jsr_spg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 51;
+			end
+			9'h023: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h024: begin // bit_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 98;
+			end
+			9'h025: begin // and_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 145;
+			end
+			9'h026: begin // rol_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 132;
+			end
+			9'h027: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
+			9'h028: begin // plp_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 63;
+			end
+			9'h029: begin // and_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 70;
+			end
+			9'h02a: begin // rol_acc
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 152;
+			end
 			9'h02b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h02c: begin // bit_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 58;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 222;
 			end
 			9'h02d: begin // and_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 178;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 217;
 			end
 			9'h02e: begin // rol_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 26;
 			end
 			9'h02f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h030: begin // bmi_m_rel
 				if (((($signed({24'd0, P})) & (32'sd128))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 38;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 214;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 39;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 215;
 				end
 			end
 			9'h031: begin // and_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 27;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 8;
 			end
 			9'h032: begin // set_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 9;
-			end
-			9'h033: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
-			end
-			9'h034: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
-			end
-			9'h035: begin // and_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 237;
-			end
-			9'h036: begin // rol_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 189;
-			end
-			9'h037: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
-			end
-			9'h038: begin // sec_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 126;
-			end
-			9'h039: begin // and_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 158;
-			end
-			9'h03a: begin // inc_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 187;
-			end
-			9'h03b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
-			end
-			9'h03c: begin // ldm_imz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 111;
-			end
-			9'h03d: begin // and_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 71;
-			end
-			9'h03e: begin // rol_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 13;
-			end
-			9'h03f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h040: begin // rti_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 216;
 			end
+			9'h033: begin // bbc_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
+			end
+			9'h034: begin // nop_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
+			end
+			9'h035: begin // and_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 149;
+			end
+			9'h036: begin // rol_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 175;
+			end
+			9'h037: begin // bbc_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
+			end
+			9'h038: begin // sec_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 82;
+			end
+			9'h039: begin // and_m_aby
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 153;
+			end
+			9'h03a: begin // inc_acc
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 97;
+			end
+			9'h03b: begin // clb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
+			end
+			9'h03c: begin // ldm_imz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 3;
+			end
+			9'h03d: begin // and_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 58;
+			end
+			9'h03e: begin // rol_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 48;
+			end
+			9'h03f: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
+			end
+			9'h040: begin // rti_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 102;
+			end
 			9'h041: begin // eor_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 88;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 146;
 			end
 			9'h042: begin // stp_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 227;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 231;
 			end
 			9'h043: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h044: begin // com_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 204;
-			end
-			9'h045: begin // eor_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 98;
-			end
-			9'h046: begin // lsr_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 233;
-			end
-			9'h047: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
-			end
-			9'h048: begin // pha_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 141;
-			end
-			9'h049: begin // eor_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 148;
 			end
+			9'h045: begin // eor_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 39;
+			end
+			9'h046: begin // lsr_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 174;
+			end
+			9'h047: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
+			9'h048: begin // pha_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 103;
+			end
+			9'h049: begin // eor_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 89;
+			end
 			9'h04a: begin // lsr_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 36;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 227;
 			end
 			9'h04b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h04c: begin // jmp_adr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 44;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 240;
 			end
 			9'h04d: begin // eor_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 225;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 67;
 			end
 			9'h04e: begin // lsr_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 239;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 33;
 			end
 			9'h04f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h050: begin // bvc_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd64))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 59;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 208;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 60;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 209;
 				end
 			end
 			9'h051: begin // eor_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 169;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 188;
 			end
 			9'h052: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h053: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h054: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h055: begin // eor_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 53;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 50;
 			end
 			9'h056: begin // lsr_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 15;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 154;
 			end
 			9'h057: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h058: begin // cli_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 192;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 5;
 			end
 			9'h059: begin // eor_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 230;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 65;
 			end
 			9'h05a: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h05b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h05c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h05d: begin // eor_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 75;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 6;
 			end
 			9'h05e: begin // lsr_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 162;
-			end
-			9'h05f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h060: begin // rts_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 90;
 			end
+			9'h05f: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
+			end
+			9'h060: begin // rts_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 171;
+			end
 			9'h061: begin // adc_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 156;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 177;
 			end
 			9'h062: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h063: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h064: begin // tst_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 30;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 94;
 			end
 			9'h065: begin // adc_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 43;
-			end
-			9'h066: begin // ror_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 161;
-			end
-			9'h067: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
-			end
-			9'h068: begin // pla_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 213;
-			end
-			9'h069: begin // adc_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 149;
-			end
-			9'h06a: begin // ror_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 166;
-			end
-			9'h06b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
-			end
-			9'h06c: begin // jmp_ind
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 234;
-			end
-			9'h06d: begin // adc_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 172;
-			end
-			9'h06e: begin // ror_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 150;
 			end
+			9'h066: begin // ror_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 57;
+			end
+			9'h067: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
+			9'h068: begin // pla_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 143;
+			end
+			9'h069: begin // adc_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 43;
+			end
+			9'h06a: begin // ror_acc
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 206;
+			end
+			9'h06b: begin // seb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
+			end
+			9'h06c: begin // jmp_ind
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 129;
+			end
+			9'h06d: begin // adc_aba
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 22;
+			end
+			9'h06e: begin // ror_m_aba
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 80;
+			end
 			9'h06f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h070: begin // bvs_m_rel
 				if (((($signed({24'd0, P})) & (32'sd64))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 105;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 235;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 106;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 236;
 				end
 			end
 			9'h071: begin // adc_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 14;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 187;
 			end
 			9'h072: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h073: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h074: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h075: begin // adc_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 21;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 7;
 			end
 			9'h076: begin // ror_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 131;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 159;
 			end
 			9'h077: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h078: begin // sei_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 236;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 224;
 			end
 			9'h079: begin // adc_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 222;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 198;
 			end
 			9'h07a: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h07b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h07c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h07d: begin // adc_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 218;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 151;
 			end
 			9'h07e: begin // ror_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 23;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 200;
 			end
 			9'h07f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h080: begin // bra_rel
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 138;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 83;
 			end
 			9'h081: begin // sta_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 51;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 178;
 			end
 			9'h082: begin // rrf_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 135;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 121;
 			end
 			9'h083: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h084: begin // sty_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 103;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 160;
 			end
 			9'h085: begin // sta_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 226;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 189;
 			end
 			9'h086: begin // stx_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 139;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 42;
 			end
 			9'h087: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h088: begin // dey_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 142;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 169;
 			end
 			9'h089: begin // nop_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 202;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 37;
 			end
 			9'h08a: begin // txa_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 94;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 38;
 			end
 			9'h08b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h08c: begin // sty_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 214;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 69;
 			end
 			9'h08d: begin // sta_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 147;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 96;
 			end
 			9'h08e: begin // stx_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 31;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 12;
 			end
 			9'h08f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h090: begin // bcc_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd1))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 40;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 78;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 41;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 79;
 				end
 			end
 			9'h091: begin // sta_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 194;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 218;
 			end
 			9'h092: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h093: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h094: begin // sty_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 49;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 20;
 			end
 			9'h095: begin // sta_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 157;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 91;
 			end
 			9'h096: begin // stx_m_zpy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 35;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 86;
 			end
 			9'h097: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h098: begin // tya_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 101;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 14;
 			end
 			9'h099: begin // sta_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 100;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 92;
 			end
 			9'h09a: begin // txs_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 47;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 239;
 			end
 			9'h09b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h09c: begin // shy_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 34;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 25;
 			end
 			9'h09d: begin // sta_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 143;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 59;
 			end
 			9'h09e: begin // shx_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 183;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 116;
 			end
 			9'h09f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h0a0: begin // ldy_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 70;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 130;
 			end
 			9'h0a1: begin // lda_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 68;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 17;
 			end
 			9'h0a2: begin // ldx_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 179;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 99;
 			end
 			9'h0a3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h0a4: begin // ldy_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 177;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 190;
 			end
 			9'h0a5: begin // lda_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 24;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 101;
 			end
 			9'h0a6: begin // ldx_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 219;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 162;
 			end
 			9'h0a7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h0a8: begin // tay_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 95;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 60;
 			end
 			9'h0a9: begin // lda_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 203;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 120;
 			end
 			9'h0aa: begin // tax_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 6;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 112;
 			end
 			9'h0ab: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h0ac: begin // ldy_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 4;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 117;
 			end
 			9'h0ad: begin // lda_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 235;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 64;
 			end
 			9'h0ae: begin // ldx_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 209;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 185;
 			end
 			9'h0af: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h0b0: begin // bcs_m_rel
 				if (((($signed({24'd0, P})) & (32'sd1))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 119;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 61;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 120;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 62;
 				end
 			end
 			9'h0b1: begin // lda_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 3;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 119;
 			end
 			9'h0b2: begin // jmp_zpi
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 82;
-			end
-			9'h0b3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
-			end
-			9'h0b4: begin // ldy_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 57;
-			end
-			9'h0b5: begin // lda_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 91;
-			end
-			9'h0b6: begin // ldx_m_zpy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 186;
-			end
-			9'h0b7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
-			end
-			9'h0b8: begin // clv_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 50;
-			end
-			9'h0b9: begin // lda_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 11;
-			end
-			9'h0ba: begin // tsx_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 174;
-			end
-			9'h0bb: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
-			end
-			9'h0bc: begin // ldy_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 92;
-			end
-			9'h0bd: begin // lda_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 195;
-			end
-			9'h0be: begin // ldx_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 163;
-			end
-			9'h0bf: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h0c0: begin // cpy_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 107;
-			end
-			9'h0c1: begin // cmp_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 208;
-			end
-			9'h0c2: begin // wit_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 229;
-			end
-			9'h0c3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h0c4: begin // cpy_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 206;
-			end
-			9'h0c5: begin // cmp_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 84;
-			end
-			9'h0c6: begin // dec_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 54;
-			end
-			9'h0c7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
-			end
-			9'h0c8: begin // iny_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 0;
-			end
-			9'h0c9: begin // cmp_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 17;
-			end
-			9'h0ca: begin // dex_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 25;
-			end
-			9'h0cb: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
-			end
-			9'h0cc: begin // cpy_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 85;
-			end
-			9'h0cd: begin // cmp_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 125;
 			end
+			9'h0b3: begin // bbc_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
+			end
+			9'h0b4: begin // ldy_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 133;
+			end
+			9'h0b5: begin // lda_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 76;
+			end
+			9'h0b6: begin // ldx_m_zpy
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 172;
+			end
+			9'h0b7: begin // bbc_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
+			end
+			9'h0b8: begin // clv_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 170;
+			end
+			9'h0b9: begin // lda_m_aby
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 156;
+			end
+			9'h0ba: begin // tsx_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 234;
+			end
+			9'h0bb: begin // clb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
+			end
+			9'h0bc: begin // ldy_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 56;
+			end
+			9'h0bd: begin // lda_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 126;
+			end
+			9'h0be: begin // ldx_m_aby
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 144;
+			end
+			9'h0bf: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
+			end
+			9'h0c0: begin // cpy_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 122;
+			end
+			9'h0c1: begin // cmp_m_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 49;
+			end
+			9'h0c2: begin // wit_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 193;
+			end
+			9'h0c3: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h0c4: begin // cpy_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 34;
+			end
+			9'h0c5: begin // cmp_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 182;
+			end
+			9'h0c6: begin // dec_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 53;
+			end
+			9'h0c7: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
+			9'h0c8: begin // iny_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 87;
+			end
+			9'h0c9: begin // cmp_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 137;
+			end
+			9'h0ca: begin // dex_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 136;
+			end
+			9'h0cb: begin // seb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
+			end
+			9'h0cc: begin // cpy_aba
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 111;
+			end
+			9'h0cd: begin // cmp_aba
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 93;
+			end
 			9'h0ce: begin // dec_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 151;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 71;
 			end
 			9'h0cf: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h0d0: begin // bne_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd2))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 196;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 139;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 197;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 140;
 				end
 			end
 			9'h0d1: begin // cmp_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 164;
-			end
-			9'h0d2: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
-			end
-			9'h0d3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
-			end
-			9'h0d4: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
-			end
-			9'h0d5: begin // cmp_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 171;
-			end
-			9'h0d6: begin // dec_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 108;
-			end
-			9'h0d7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
-			end
-			9'h0d8: begin // cld_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 153;
-			end
-			9'h0d9: begin // cmp_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 223;
-			end
-			9'h0da: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
-			end
-			9'h0db: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
-			end
-			9'h0dc: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
-			end
-			9'h0dd: begin // cmp_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 45;
-			end
-			9'h0de: begin // dec_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 66;
-			end
-			9'h0df: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h0e0: begin // cpx_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 210;
-			end
-			9'h0e1: begin // sbc_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 145;
-			end
-			9'h0e2: begin // nop_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 202;
-			end
-			9'h0e3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h0e4: begin // cpx_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 217;
-			end
-			9'h0e5: begin // sbc_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 109;
 			end
-			9'h0e6: begin // inc_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			9'h0d2: begin // kil_non
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
+			end
+			9'h0d3: begin // bbc_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
+			end
+			9'h0d4: begin // nop_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
+			end
+			9'h0d5: begin // cmp_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 23;
+			end
+			9'h0d6: begin // dec_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 95;
+			end
+			9'h0d7: begin // bbc_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
+			end
+			9'h0d8: begin // cld_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 228;
+			end
+			9'h0d9: begin // cmp_m_aby
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 212;
+			end
+			9'h0da: begin // nop_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
+			end
+			9'h0db: begin // clb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
+			end
+			9'h0dc: begin // nop_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
+			end
+			9'h0dd: begin // cmp_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 66;
+			end
+			9'h0de: begin // dec_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 105;
+			end
+			9'h0df: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 115;
 			end
+			9'h0e0: begin // cpx_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 127;
+			end
+			9'h0e1: begin // sbc_m_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 166;
+			end
+			9'h0e2: begin // nop_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 37;
+			end
+			9'h0e3: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h0e4: begin // cpx_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 157;
+			end
+			9'h0e5: begin // sbc_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 138;
+			end
+			9'h0e6: begin // inc_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 35;
+			end
 			9'h0e7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h0e8: begin // inx_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 48;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 203;
 			end
 			9'h0e9: begin // sbc_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 160;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 229;
 			end
 			9'h0ea: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h0eb: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h0ec: begin // cpx_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 140;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 45;
 			end
 			9'h0ed: begin // sbc_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 240;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 195;
 			end
 			9'h0ee: begin // inc_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 198;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 155;
 			end
 			9'h0ef: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h0f0: begin // beq_m_rel
 				if (((($signed({24'd0, P})) & (32'sd2))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 154;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 72;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 155;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 73;
 				end
 			end
 			9'h0f1: begin // sbc_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 69;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 183;
 			end
 			9'h0f2: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h0f3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h0f4: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h0f5: begin // sbc_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 199;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 202;
 			end
 			9'h0f6: begin // inc_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 185;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 2;
 			end
 			9'h0f7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h0f8: begin // sed_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 117;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 81;
 			end
 			9'h0f9: begin // sbc_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 136;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 131;
 			end
 			9'h0fa: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h0fb: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h0fc: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h0fd: begin // sbc_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 97;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 168;
 			end
 			9'h0fe: begin // inc_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 182;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 191;
 			end
 			9'h0ff: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h100: begin // brk_m_imp
 				if (($signed({31'd0, irq_taken})) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 132;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 225;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 133;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 226;
 				end
 			end
 			9'h101: begin // ort_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 211;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 158;
 			end
 			9'h102: begin // jsr_zpi
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 7;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 9;
 			end
 			9'h103: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h104: begin // nop_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 16;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 88;
 			end
 			9'h105: begin // ort_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 159;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 173;
 			end
 			9'h106: begin // asl_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 134;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 141;
 			end
 			9'h107: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h108: begin // php_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 184;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 13;
 			end
 			9'h109: begin // ort_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 63;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 74;
 			end
 			9'h10a: begin // asl_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 221;
 			end
 			9'h10b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h10c: begin // nop_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 77;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 29;
 			end
 			9'h10d: begin // ort_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 32;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 107;
 			end
 			9'h10e: begin // asl_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 200;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 21;
 			end
 			9'h10f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h110: begin // bpl_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd128))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 18;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 10;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 19;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 11;
 				end
 			end
 			9'h111: begin // ort_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 193;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 179;
 			end
 			9'h112: begin // clt_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 165;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 233;
 			end
 			9'h113: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h114: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h115: begin // ort_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 118;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 84;
 			end
 			9'h116: begin // asl_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 146;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 106;
 			end
 			9'h117: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h118: begin // clc_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 129;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 124;
 			end
 			9'h119: begin // ort_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 5;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 213;
 			end
 			9'h11a: begin // dec_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 8;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 135;
 			end
 			9'h11b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h11c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h11d: begin // ort_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 64;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 128;
 			end
 			9'h11e: begin // asl_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 242;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 161;
 			end
 			9'h11f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h120: begin // jsr_m_adr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 224;
-			end
-			9'h121: begin // andt_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 190;
-			end
-			9'h122: begin // jsr_spg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 22;
-			end
-			9'h123: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h124: begin // bit_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 81;
-			end
-			9'h125: begin // andt_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 86;
-			end
-			9'h126: begin // rol_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 112;
-			end
-			9'h127: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
-			end
-			9'h128: begin // plp_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 207;
-			end
-			9'h129: begin // andt_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 10;
-			end
-			9'h12a: begin // rol_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 104;
 			end
+			9'h121: begin // andt_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 44;
+			end
+			9'h122: begin // jsr_spg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 51;
+			end
+			9'h123: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h124: begin // bit_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 98;
+			end
+			9'h125: begin // andt_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 0;
+			end
+			9'h126: begin // rol_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 132;
+			end
+			9'h127: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
+			9'h128: begin // plp_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 63;
+			end
+			9'h129: begin // andt_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 142;
+			end
+			9'h12a: begin // rol_acc
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 152;
+			end
 			9'h12b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h12c: begin // bit_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 58;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 222;
 			end
 			9'h12d: begin // andt_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 37;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 180;
 			end
 			9'h12e: begin // rol_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 26;
 			end
 			9'h12f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h130: begin // bmi_m_rel
 				if (((($signed({24'd0, P})) & (32'sd128))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 38;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 214;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 39;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 215;
 				end
 			end
 			9'h131: begin // andt_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 137;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 55;
 			end
 			9'h132: begin // set_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 9;
-			end
-			9'h133: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
-			end
-			9'h134: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
-			end
-			9'h135: begin // andt_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 2;
-			end
-			9'h136: begin // rol_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 189;
-			end
-			9'h137: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
-			end
-			9'h138: begin // sec_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 126;
-			end
-			9'h139: begin // andt_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 212;
-			end
-			9'h13a: begin // inc_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 187;
-			end
-			9'h13b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
-			end
-			9'h13c: begin // ldm_imz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 111;
-			end
-			9'h13d: begin // andt_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 231;
-			end
-			9'h13e: begin // rol_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 13;
-			end
-			9'h13f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h140: begin // rti_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 216;
 			end
-			9'h141: begin // eort_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 191;
+			9'h133: begin // bbc_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
-			9'h142: begin // stp_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 227;
+			9'h134: begin // nop_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
-			9'h143: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+			9'h135: begin // andt_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 164;
 			end
-			9'h144: begin // com_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 204;
+			9'h136: begin // rol_m_zpx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 175;
 			end
-			9'h145: begin // eort_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			9'h137: begin // bbc_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 123;
 			end
+			9'h138: begin // sec_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 82;
+			end
+			9'h139: begin // andt_aby
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 114;
+			end
+			9'h13a: begin // inc_acc
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 97;
+			end
+			9'h13b: begin // clb_bac
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
+			end
+			9'h13c: begin // ldm_imz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 3;
+			end
+			9'h13d: begin // andt_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 68;
+			end
+			9'h13e: begin // rol_m_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 48;
+			end
+			9'h13f: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
+			end
+			9'h140: begin // rti_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 102;
+			end
+			9'h141: begin // eort_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 100;
+			end
+			9'h142: begin // stp_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 231;
+			end
+			9'h143: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h144: begin // com_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 148;
+			end
+			9'h145: begin // eort_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 181;
+			end
 			9'h146: begin // lsr_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 233;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 174;
 			end
 			9'h147: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h148: begin // pha_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 141;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 103;
 			end
 			9'h149: begin // eort_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 72;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 165;
 			end
 			9'h14a: begin // lsr_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 36;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 227;
 			end
 			9'h14b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h14c: begin // jmp_adr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 44;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 240;
 			end
 			9'h14d: begin // eort_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 173;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 167;
 			end
 			9'h14e: begin // lsr_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 239;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 33;
 			end
 			9'h14f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h150: begin // bvc_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd64))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 59;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 208;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 60;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 209;
 				end
 			end
 			9'h151: begin // eort_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 175;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 85;
 			end
 			9'h152: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h153: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h154: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h155: begin // eort_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 61;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 223;
 			end
 			9'h156: begin // lsr_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 15;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 154;
 			end
 			9'h157: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h158: begin // cli_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 192;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 5;
 			end
 			9'h159: begin // eort_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 74;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 207;
 			end
 			9'h15a: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h15b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
-			end
-			9'h15c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
-			end
-			9'h15d: begin // eort_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 241;
 			end
+			9'h15c: begin // nop_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
+			end
+			9'h15d: begin // eort_abx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 147;
+			end
 			9'h15e: begin // lsr_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 162;
-			end
-			9'h15f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h160: begin // rts_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 90;
 			end
+			9'h15f: begin // clb_biz
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
+			end
+			9'h160: begin // rts_m_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 171;
+			end
 			9'h161: begin // adct_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 29;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 24;
 			end
 			9'h162: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h163: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h164: begin // tst_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 30;
-			end
-			9'h165: begin // adct_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 232;
 			end
+			9'h164: begin // tst_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 94;
+			end
+			9'h165: begin // adct_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 230;
+			end
 			9'h166: begin // ror_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 161;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 57;
 			end
 			9'h167: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h168: begin // pla_m_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 213;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 143;
 			end
 			9'h169: begin // adct_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 80;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 163;
 			end
 			9'h16a: begin // ror_acc
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 166;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 206;
 			end
 			9'h16b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h16c: begin // jmp_ind
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 234;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 129;
 			end
 			9'h16d: begin // adct_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 215;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 108;
 			end
 			9'h16e: begin // ror_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 150;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 80;
 			end
 			9'h16f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h170: begin // bvs_m_rel
 				if (((($signed({24'd0, P})) & (32'sd64))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 105;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 235;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 106;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 236;
 				end
 			end
 			9'h171: begin // adct_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 127;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 40;
 			end
 			9'h172: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h173: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h174: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h175: begin // adct_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 121;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 199;
 			end
 			9'h176: begin // ror_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 131;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 159;
 			end
 			9'h177: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h178: begin // sei_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 236;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 224;
 			end
 			9'h179: begin // adct_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 76;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 15;
 			end
 			9'h17a: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h17b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h17c: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h17d: begin // adct_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 12;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 242;
 			end
 			9'h17e: begin // ror_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 23;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 200;
 			end
 			9'h17f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h180: begin // bra_rel
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 138;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 83;
 			end
 			9'h181: begin // sta_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 51;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 178;
 			end
 			9'h182: begin // rrf_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 135;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 121;
 			end
 			9'h183: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
 			end
 			9'h184: begin // sty_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 103;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 160;
 			end
 			9'h185: begin // sta_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 226;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 189;
 			end
 			9'h186: begin // stx_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 139;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 42;
 			end
 			9'h187: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h188: begin // dey_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 142;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 169;
 			end
 			9'h189: begin // nop_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 202;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 37;
 			end
 			9'h18a: begin // txa_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 94;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 38;
 			end
 			9'h18b: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h18c: begin // sty_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 214;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 69;
 			end
 			9'h18d: begin // sta_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 147;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 96;
 			end
 			9'h18e: begin // stx_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 31;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 12;
 			end
 			9'h18f: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h190: begin // bcc_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd1))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 40;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 78;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 41;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 79;
 				end
 			end
 			9'h191: begin // sta_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 194;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 218;
 			end
 			9'h192: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h193: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h194: begin // sty_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 49;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 20;
 			end
 			9'h195: begin // sta_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 157;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 91;
 			end
 			9'h196: begin // stx_m_zpy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 35;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 86;
 			end
 			9'h197: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h198: begin // tya_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 101;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 14;
 			end
 			9'h199: begin // sta_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 100;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 92;
 			end
 			9'h19a: begin // txs_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 47;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 239;
 			end
 			9'h19b: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h19c: begin // shy_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 34;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 25;
 			end
 			9'h19d: begin // sta_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 143;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 59;
 			end
 			9'h19e: begin // shx_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 183;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 116;
 			end
 			9'h19f: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h1a0: begin // ldy_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 70;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 130;
 			end
 			9'h1a1: begin // ldt_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 42;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 237;
 			end
 			9'h1a2: begin // ldx_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 179;
-			end
-			9'h1a3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h1a4: begin // ldy_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 177;
-			end
-			9'h1a5: begin // ldt_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 99;
 			end
+			9'h1a3: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h1a4: begin // ldy_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 190;
+			end
+			9'h1a5: begin // ldt_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 47;
+			end
 			9'h1a6: begin // ldx_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 219;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 162;
 			end
 			9'h1a7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h1a8: begin // tay_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 95;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 60;
 			end
 			9'h1a9: begin // ldt_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 170;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 186;
 			end
 			9'h1aa: begin // tax_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 6;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 112;
 			end
 			9'h1ab: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h1ac: begin // ldy_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 4;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 117;
 			end
 			9'h1ad: begin // ldt_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 180;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 238;
 			end
 			9'h1ae: begin // ldx_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 209;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 185;
 			end
 			9'h1af: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h1b0: begin // bcs_m_rel
 				if (((($signed({24'd0, P})) & (32'sd1))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 119;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 61;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 120;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 62;
 				end
 			end
 			9'h1b1: begin // ldt_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 188;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 75;
 			end
 			9'h1b2: begin // jmp_zpi
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 82;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 125;
 			end
 			9'h1b3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h1b4: begin // ldy_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 57;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 133;
 			end
 			9'h1b5: begin // ldt_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 238;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 219;
 			end
 			9'h1b6: begin // ldx_m_zpy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 186;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 172;
 			end
 			9'h1b7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h1b8: begin // clv_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 50;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 170;
 			end
 			9'h1b9: begin // ldt_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 87;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 52;
 			end
 			9'h1ba: begin // tsx_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 174;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 234;
 			end
 			9'h1bb: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h1bc: begin // ldy_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 92;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 56;
 			end
 			9'h1bd: begin // ldt_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 46;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 176;
 			end
 			9'h1be: begin // ldx_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 163;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 144;
 			end
 			9'h1bf: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			9'h1c0: begin // cpy_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 107;
-			end
-			9'h1c1: begin // cmp_m_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 208;
-			end
-			9'h1c2: begin // wit_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 229;
-			end
-			9'h1c3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h1c4: begin // cpy_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 206;
-			end
-			9'h1c5: begin // cmpt_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 78;
-			end
-			9'h1c6: begin // dec_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 54;
-			end
-			9'h1c7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 122;
 			end
+			9'h1c1: begin // cmp_m_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 49;
+			end
+			9'h1c2: begin // wit_imp
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 193;
+			end
+			9'h1c3: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h1c4: begin // cpy_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 34;
+			end
+			9'h1c5: begin // cmpt_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 41;
+			end
+			9'h1c6: begin // dec_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 53;
+			end
+			9'h1c7: begin // bbs_bzr
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
+			end
 			9'h1c8: begin // iny_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 87;
 			end
 			9'h1c9: begin // cmpt_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 28;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 16;
 			end
 			9'h1ca: begin // dex_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 25;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 136;
 			end
 			9'h1cb: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h1cc: begin // cpy_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 85;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 111;
 			end
 			9'h1cd: begin // cmpt_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 167;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 220;
 			end
 			9'h1ce: begin // dec_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 151;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 71;
 			end
 			9'h1cf: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h1d0: begin // bne_m_rel
 				if ((b2i(((($signed({24'd0, P})) & (32'sd2))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 196;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 139;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 197;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 140;
 				end
 			end
 			9'h1d1: begin // cmp_m_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 164;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 109;
 			end
 			9'h1d2: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h1d3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h1d4: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h1d5: begin // cmpt_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 124;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 192;
 			end
 			9'h1d6: begin // dec_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 108;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 95;
 			end
 			9'h1d7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h1d8: begin // cld_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 153;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 228;
 			end
 			9'h1d9: begin // cmpt_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 205;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 19;
 			end
 			9'h1da: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h1db: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h1dc: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h1dd: begin // cmpt_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 144;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 205;
 			end
 			9'h1de: begin // dec_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 66;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 105;
 			end
 			9'h1df: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
-			end
-			9'h1e0: begin // cpx_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 210;
-			end
-			9'h1e1: begin // sbct_idx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 168;
-			end
-			9'h1e2: begin // nop_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 202;
-			end
-			9'h1e3: begin // bbs_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 152;
-			end
-			9'h1e4: begin // cpx_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 217;
-			end
-			9'h1e5: begin // sbct_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 116;
-			end
-			9'h1e6: begin // inc_m_zpg
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 115;
 			end
+			9'h1e0: begin // cpx_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 127;
+			end
+			9'h1e1: begin // sbct_idx
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 28;
+			end
+			9'h1e2: begin // nop_imm
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 37;
+			end
+			9'h1e3: begin // bbs_bar
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 232;
+			end
+			9'h1e4: begin // cpx_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 157;
+			end
+			9'h1e5: begin // sbct_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 196;
+			end
+			9'h1e6: begin // inc_m_zpg
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 35;
+			end
 			9'h1e7: begin // bbs_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 122;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 30;
 			end
 			9'h1e8: begin // inx_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 48;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 203;
 			end
 			9'h1e9: begin // sbc_imm
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 160;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 229;
 			end
 			9'h1ea: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h1eb: begin // seb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 62;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 46;
 			end
 			9'h1ec: begin // cpx_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 140;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 45;
 			end
 			9'h1ed: begin // sbct_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 79;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 113;
 			end
 			9'h1ee: begin // inc_m_aba
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 198;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 155;
 			end
 			9'h1ef: begin // seb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 184;
 			end
 			9'h1f0: begin // beq_m_rel
 				if (((($signed({24'd0, P})) & (32'sd2))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 154;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 72;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 155;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 73;
 				end
 			end
 			9'h1f1: begin // sbct_idy
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 83;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 4;
 			end
 			9'h1f2: begin // kil_non
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 33;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 27;
 			end
 			9'h1f3: begin // bbc_bar
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 128;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 32;
 			end
 			9'h1f4: begin // nop_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 96;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 1;
 			end
 			9'h1f5: begin // sbct_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 89;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 134;
 			end
 			9'h1f6: begin // inc_m_zpx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 185;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 2;
 			end
 			9'h1f7: begin // bbc_bzr
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 52;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 123;
 			end
 			9'h1f8: begin // sed_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 117;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 81;
 			end
 			9'h1f9: begin // sbc_m_aby
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 136;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 131;
 			end
 			9'h1fa: begin // nop_imp
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 102;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 204;
 			end
 			9'h1fb: begin // clb_bac
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 220;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 241;
 			end
 			9'h1fc: begin // nop_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 93;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 197;
 			end
 			9'h1fd: begin // sbct_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 181;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 54;
 			end
 			9'h1fe: begin // inc_m_abx
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 182;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 191;
 			end
 			9'h1ff: begin // clb_biz
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 114;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 115;
 			end
 			endcase
 		end
@@ -2401,4927 +2404,4927 @@ module ns2_m740 (
 	always @(posedge clk) begin
 		if (rst) begin
 			A = 8'h00; X = 8'h80; Y = 8'h00; P = 8'h36; SP = 16'h01ff; PC = 16'h0000; TMP = 16'h0000; TMP2 = 8'h00;
-			IR = 8'h00; inst_state_base = 9'd0; irq_taken = 1'b0; wr = 1'b0; sync = 1'b0; tap = 1'b0; dout = 8'h00;
+			IR = 8'h00; inst_state_base = 9'd0; irq_taken = 1'b0; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; b_dout = 8'h00;
 			// MAME's STATE_RESET: reset_m from its start
 			P = 8'((($signed({24'd0, P})) | (32'sd4)));
-			addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-			st = 55;
+			b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+			st = 18;
 		end else if (cen) begin
 			DIN = din;
 			case (st)
-			0: begin // iny_imp 0
-				Y = 8'($signed({24'd0, Y}) + 32'sd1);
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			1: begin // seb_biz 0
+			0: begin // andt_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 243;
 			end
-			2: begin // andt_zpx 0
+			1: begin // nop_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 244;
 			end
-			3: begin // lda_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			2: begin // inc_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 245;
 			end
-			4: begin // ldy_aba 0
+			3: begin // ldm_imz 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 246;
 			end
-			5: begin // ort_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
+			4: begin // sbct_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 247;
 			end
-			6: begin // tax_imp 0
-				X = 8'($signed({24'd0, A}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			7: begin // jsr_zpi 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			5: begin // cli_imp 0
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = 248;
 			end
-			8: begin // dec_acc 0
-				A = 8'($signed({24'd0, A}) - 32'sd1);
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			9: begin // set_imp 0
-				P = 8'((($signed({24'd0, P})) | (32'sd32)));
-				inst_state_base = 9'(32'sd256);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			10: begin // andt_imm 0
+			6: begin // eor_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 249;
 			end
-			11: begin // lda_m_aby 0
+			7: begin // adc_m_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 250;
 			end
-			12: begin // adct_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 251;
-			end
-			13: begin // rol_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 252;
-			end
-			14: begin // adc_m_idy 0
+			8: begin // and_m_idy 0
 				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 251;
+			end
+			9: begin // jsr_zpi 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 252;
+			end
+			10: begin // bpl_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			11: begin // bpl_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 253;
 			end
-			15: begin // lsr_m_zpx 0
+			12: begin // stx_m_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 254;
 			end
-			16: begin // nop_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			13: begin // php_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({24'd0, P})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 255;
 			end
-			17: begin // cmp_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				do_cmp($signed({24'd0, A}), $signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			14: begin // tya_imp 0
+				A = 8'($signed({24'd0, Y}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			18: begin // bpl_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			19: begin // bpl_m_rel 1
+			15: begin // adct_aby 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 256;
 			end
-			20: begin // ora_zpg 0
+			16: begin // cmpt_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 257;
 			end
-			21: begin // adc_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			17: begin // lda_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 258;
 			end
-			22: begin // jsr_spg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			18: begin // reset_m 1
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 259;
 			end
-			23: begin // ror_m_abx 0
+			19: begin // cmpt_aby 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 260;
 			end
-			24: begin // lda_zpg 0
+			20: begin // sty_m_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 261;
 			end
-			25: begin // dex_imp 0
-				X = 8'($signed({24'd0, X}) - 32'sd1);
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
+			21: begin // asl_m_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 262;
+			end
+			22: begin // adc_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 263;
+			end
+			23: begin // cmp_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 264;
+			end
+			24: begin // adct_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 265;
+			end
+			25: begin // shy_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 266;
 			end
 			26: begin // rol_m_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 262;
-			end
-			27: begin // and_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 263;
-			end
-			28: begin // cmpt_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 264;
-			end
-			29: begin // adct_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 265;
-			end
-			30: begin // tst_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 266;
-			end
-			31: begin // stx_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 267;
 			end
-			32: begin // ort_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
+			27: begin // kil_non 0
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'(32'sd65535); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 268;
 			end
-			33: begin // kil_non 0
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(32'sd65535); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			28: begin // sbct_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 269;
 			end
-			34: begin // shy_abx 0
+			29: begin // nop_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 270;
 			end
-			35: begin // stx_m_zpy 0
+			30: begin // bbs_bzr 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 271;
 			end
-			36: begin // lsr_acc 0
-				do_lsr($signed({24'd0, A}));
-				A = 8'(RET);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			37: begin // andt_aba 0
+			31: begin // ora_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 272;
 			end
-			38: begin // bmi_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			39: begin // bmi_m_rel 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			32: begin // bbc_bar 0
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 273;
 			end
-			40: begin // bcc_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			41: begin // bcc_m_rel 1
+			33: begin // lsr_m_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 274;
 			end
-			42: begin // ldt_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			34: begin // cpy_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 275;
 			end
-			43: begin // adc_zpg 0
+			35: begin // inc_m_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 276;
 			end
-			44: begin // jmp_adr 0
+			36: begin // ora_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 277;
 			end
-			45: begin // cmp_m_abx 0
+			37: begin // nop_imm 0
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			38: begin // txa_imp 0
+				A = 8'($signed({24'd0, X}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			39: begin // eor_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 278;
 			end
-			46: begin // ldt_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
+			40: begin // adct_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 279;
 			end
-			47: begin // txs_imp 0
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({24'd0, X})));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			48: begin // inx_imp 0
-				X = 8'($signed({24'd0, X}) + 32'sd1);
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			49: begin // sty_m_zpx 0
+			41: begin // cmpt_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 280;
 			end
-			50: begin // clv_imp 0
-				P = 8'((($signed({24'd0, P})) & ((~(32'sd64)))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			51: begin // sta_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			42: begin // stx_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 281;
 			end
-			52: begin // bbc_bzr 0
+			43: begin // adc_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				do_adc($signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			44: begin // andt_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 282;
 			end
-			53: begin // eor_m_zpx 0
+			45: begin // cpx_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 283;
 			end
-			54: begin // dec_m_zpg 0
+			46: begin // seb_bac 0
+				A = 8'(f_do_seb($signed({24'd0, A}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			47: begin // ldt_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 284;
 			end
-			55: begin // reset_m 1
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			48: begin // rol_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 285;
 			end
-			56: begin // ora_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			49: begin // cmp_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 286;
 			end
-			57: begin // ldy_m_zpx 0
+			50: begin // eor_m_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 287;
 			end
-			58: begin // bit_aba 0
+			51: begin // jsr_spg 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 288;
 			end
-			59: begin // bvc_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			60: begin // bvc_m_rel 1
+			52: begin // ldt_aby 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 289;
 			end
-			61: begin // eort_zpx 0
+			53: begin // dec_m_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 290;
 			end
-			62: begin // seb_bac 0
-				A = 8'(f_do_seb($signed({24'd0, A}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			63: begin // ort_imm 0
+			54: begin // sbct_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 291;
 			end
-			64: begin // ort_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
+			55: begin // andt_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 292;
 			end
-			65: begin // and_imm 0
+			56: begin // ldy_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 293;
+			end
+			57: begin // ror_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 294;
+			end
+			58: begin // and_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 295;
+			end
+			59: begin // sta_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 296;
+			end
+			60: begin // tay_imp 0
+				Y = 8'($signed({24'd0, A}));
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			61: begin // bcs_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			62: begin // bcs_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 297;
+			end
+			63: begin // plp_m_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 298;
+			end
+			64: begin // lda_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 299;
+			end
+			65: begin // eor_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 300;
+			end
+			66: begin // cmp_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 301;
+			end
+			67: begin // eor_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 302;
+			end
+			68: begin // andt_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 303;
+			end
+			69: begin // sty_m_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 304;
+			end
+			70: begin // and_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				A = 8'((($signed({24'd0, A})) & ($signed({16'd0, TMP}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			66: begin // dec_m_abx 0
+			71: begin // dec_m_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 293;
-			end
-			67: begin // and_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 294;
-			end
-			68: begin // lda_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 295;
-			end
-			69: begin // sbc_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 296;
-			end
-			70: begin // ldy_imm 0
-				Y = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			71: begin // and_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 297;
-			end
-			72: begin // eort_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 298;
-			end
-			73: begin // ora_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				A = 8'((($signed({24'd0, A})) | ($signed({16'd0, TMP}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			74: begin // eort_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 299;
-			end
-			75: begin // eor_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 300;
-			end
-			76: begin // adct_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 301;
-			end
-			77: begin // nop_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 302;
-			end
-			78: begin // cmpt_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 303;
-			end
-			79: begin // sbct_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 304;
-			end
-			80: begin // adct_imm 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 305;
 			end
-			81: begin // bit_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
+			72: begin // beq_m_rel 8
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			73: begin // beq_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 306;
 			end
-			82: begin // jmp_zpi 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			74: begin // ort_imm 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 307;
 			end
-			83: begin // sbct_idy 0
+			75: begin // ldt_idy 0
 				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 308;
 			end
-			84: begin // cmp_zpg 0
+			76: begin // lda_m_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 309;
 			end
-			85: begin // cpy_aba 0
+			77: begin // ora_m_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 310;
 			end
-			86: begin // andt_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
+			78: begin // bcc_m_rel 8
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			79: begin // bcc_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 311;
 			end
-			87: begin // ldt_aby 0
+			80: begin // ror_m_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 312;
 			end
-			88: begin // eor_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			81: begin // sed_imp 0
+				P = 8'((($signed({24'd0, P})) | (32'sd8)));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			82: begin // sec_imp 0
+				P = 8'((($signed({24'd0, P})) | (32'sd1)));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			83: begin // bra_rel 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 313;
 			end
-			89: begin // sbct_zpx 0
+			84: begin // ort_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 314;
 			end
-			90: begin // rts_m_imp 0
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			85: begin // eort_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 315;
 			end
-			91: begin // lda_m_zpx 0
+			86: begin // stx_m_zpy 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 316;
 			end
-			92: begin // ldy_m_abx 0
+			87: begin // iny_imp 0
+				Y = 8'($signed({24'd0, Y}) + 32'sd1);
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			88: begin // nop_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 317;
 			end
-			93: begin // nop_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 318;
-			end
-			94: begin // txa_imp 0
-				A = 8'($signed({24'd0, X}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			95: begin // tay_imp 0
-				Y = 8'($signed({24'd0, A}));
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			96: begin // nop_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 319;
-			end
-			97: begin // sbc_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 320;
-			end
-			98: begin // eor_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 321;
-			end
-			99: begin // ldt_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 322;
-			end
-			100: begin // sta_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 323;
-			end
-			101: begin // tya_imp 0
-				A = 8'($signed({24'd0, Y}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			102: begin // nop_imp 0
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			103: begin // sty_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 324;
-			end
-			104: begin // rol_acc 0
-				do_rol($signed({24'd0, A}));
-				A = 8'(RET);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			105: begin // bvs_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			106: begin // bvs_m_rel 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 325;
-			end
-			107: begin // cpy_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				do_cmp($signed({24'd0, Y}), $signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			108: begin // dec_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 326;
-			end
-			109: begin // sbc_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 327;
-			end
-			110: begin // ora_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 328;
-			end
-			111: begin // ldm_imz 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 329;
-			end
-			112: begin // rol_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 330;
-			end
-			113: begin // ora_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 331;
-			end
-			114: begin // clb_biz 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 332;
-			end
-			115: begin // inc_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 333;
-			end
-			116: begin // sbct_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 334;
-			end
-			117: begin // sed_imp 0
-				P = 8'((($signed({24'd0, P})) | (32'sd8)));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			118: begin // ort_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 335;
-			end
-			119: begin // bcs_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			120: begin // bcs_m_rel 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 336;
-			end
-			121: begin // adct_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 337;
-			end
-			122: begin // bbs_bzr 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 338;
-			end
-			123: begin // eort_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 339;
-			end
-			124: begin // cmpt_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 340;
-			end
-			125: begin // cmp_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 341;
-			end
-			126: begin // sec_imp 0
-				P = 8'((($signed({24'd0, P})) | (32'sd1)));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			127: begin // adct_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 342;
-			end
-			128: begin // bbc_bar 0
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 343;
-			end
-			129: begin // clc_imp 0
-				P = 8'((($signed({24'd0, P})) & ((~(32'sd1)))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			130: begin // ora_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 344;
-			end
-			131: begin // ror_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 345;
-			end
-			132: begin // brk_m_imp 4
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, SP})); dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 346;
-			end
-			133: begin // brk_m_imp 1
-				addr = 16'($signed({16'd0, SP})); dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 346;
-			end
-			134: begin // asl_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 347;
-			end
-			135: begin // rrf_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 348;
-			end
-			136: begin // sbc_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 349;
-			end
-			137: begin // andt_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 350;
-			end
-			138: begin // bra_rel 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 351;
-			end
-			139: begin // stx_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 352;
-			end
-			140: begin // cpx_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 353;
-			end
-			141: begin // pha_imp 0
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 354;
-			end
-			142: begin // dey_imp 0
-				Y = 8'($signed({24'd0, Y}) - 32'sd1);
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			143: begin // sta_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 355;
-			end
-			144: begin // cmpt_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 356;
-			end
-			145: begin // sbc_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 357;
-			end
-			146: begin // asl_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 358;
-			end
-			147: begin // sta_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 359;
-			end
-			148: begin // eor_imm 0
+			89: begin // eor_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				A = 8'((($signed({24'd0, A})) ^ ($signed({16'd0, TMP}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			149: begin // adc_imm 0
+			90: begin // lsr_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				do_adc($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 318;
+			end
+			91: begin // sta_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 319;
+			end
+			92: begin // sta_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 320;
+			end
+			93: begin // cmp_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 321;
+			end
+			94: begin // tst_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 322;
+			end
+			95: begin // dec_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 323;
+			end
+			96: begin // sta_m_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 324;
+			end
+			97: begin // inc_acc 0
+				A = 8'($signed({24'd0, A}) + 32'sd1);
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			150: begin // ror_m_aba 0
+			98: begin // bit_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 360;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 325;
 			end
-			151: begin // dec_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 361;
-			end
-			152: begin // bbs_bar 0
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 362;
-			end
-			153: begin // cld_imp 0
-				P = 8'((($signed({24'd0, P})) & ((~(32'sd8)))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			154: begin // beq_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			155: begin // beq_m_rel 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 363;
-			end
-			156: begin // adc_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 364;
-			end
-			157: begin // sta_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 365;
-			end
-			158: begin // and_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 366;
-			end
-			159: begin // ort_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 367;
-			end
-			160: begin // sbc_imm 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				do_sbc($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			161: begin // ror_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 368;
-			end
-			162: begin // lsr_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 369;
-			end
-			163: begin // ldx_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 370;
-			end
-			164: begin // cmp_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 371;
-			end
-			165: begin // clt_imp 0
-				P = 8'((($signed({24'd0, P})) & ((~(32'sd32)))));
-				inst_state_base = 9'(32'sd0);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			166: begin // ror_acc 0
-				do_ror($signed({24'd0, A}));
-				A = 8'(RET);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			167: begin // cmpt_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 372;
-			end
-			168: begin // sbct_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 373;
-			end
-			169: begin // eor_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 374;
-			end
-			170: begin // ldt_imm 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 375;
-			end
-			171: begin // cmp_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 376;
-			end
-			172: begin // adc_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 377;
-			end
-			173: begin // eort_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 378;
-			end
-			174: begin // tsx_imp 0
-				X = 8'($signed({16'd0, SP}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			175: begin // eort_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 379;
-			end
-			176: begin // and_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 380;
-			end
-			177: begin // ldy_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 381;
-			end
-			178: begin // and_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 382;
-			end
-			179: begin // ldx_imm 0
+			99: begin // ldx_imm 0
 				X = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			180: begin // ldt_aba 0
+			100: begin // eort_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 326;
+			end
+			101: begin // lda_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 383;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 327;
 			end
-			181: begin // sbct_abx 0
+			102: begin // rti_m_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 328;
+			end
+			103: begin // pha_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 329;
+			end
+			104: begin // jsr_m_adr 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 384;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 330;
 			end
-			182: begin // inc_m_abx 0
+			105: begin // dec_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 385;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 331;
 			end
-			183: begin // shx_aby 0
+			106: begin // asl_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 332;
+			end
+			107: begin // ort_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 386;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 333;
 			end
-			184: begin // php_imp 0
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({24'd0, P})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 387;
-			end
-			185: begin // inc_m_zpx 0
+			108: begin // adct_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 388;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 334;
 			end
-			186: begin // ldx_m_zpy 0
+			109: begin // cmp_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 335;
+			end
+			110: begin // and_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 336;
+			end
+			111: begin // cpy_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 389;
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 337;
 			end
-			187: begin // inc_acc 0
-				A = 8'($signed({24'd0, A}) + 32'sd1);
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			112: begin // tax_imp 0
+				X = 8'($signed({24'd0, A}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			188: begin // ldt_idy 0
+			113: begin // sbct_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 338;
+			end
+			114: begin // andt_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 339;
+			end
+			115: begin // clb_biz 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 340;
+			end
+			116: begin // shx_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 341;
+			end
+			117: begin // ldy_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 342;
+			end
+			118: begin // ora_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 343;
+			end
+			119: begin // lda_m_idy 0
 				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 390;
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 344;
 			end
-			189: begin // rol_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 391;
-			end
-			190: begin // andt_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 392;
-			end
-			191: begin // eort_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 393;
-			end
-			192: begin // cli_imp 0
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = 394;
-			end
-			193: begin // ort_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 395;
-			end
-			194: begin // sta_m_idy 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 396;
-			end
-			195: begin // lda_m_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 397;
-			end
-			196: begin // bne_m_rel 8
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			197: begin // bne_m_rel 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 398;
-			end
-			198: begin // inc_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 399;
-			end
-			199: begin // sbc_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 400;
-			end
-			200: begin // asl_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 401;
-			end
-			201: begin // ora_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 402;
-			end
-			202: begin // nop_imm 0
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			203: begin // lda_imm 0
+			120: begin // lda_imm 0
 				A = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			204: begin // com_zpg 0
+			121: begin // rrf_zpg 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 403;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 345;
 			end
-			205: begin // cmpt_aby 0
+			122: begin // cpy_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 404;
+				do_cmp($signed({24'd0, Y}), $signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
 			end
-			206: begin // cpy_zpg 0
+			123: begin // bbc_bzr 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 405;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 346;
 			end
-			207: begin // plp_m_imp 0
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 406;
+			124: begin // clc_imp 0
+				P = 8'((($signed({24'd0, P})) & ((~(32'sd1)))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
 			end
-			208: begin // cmp_m_idx 0
+			125: begin // jmp_zpi 0
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 407;
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 347;
 			end
-			209: begin // ldx_aba 0
+			126: begin // lda_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 408;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 348;
 			end
-			210: begin // cpx_imm 0
+			127: begin // cpx_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				do_cmp($signed({24'd0, X}), $signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			211: begin // ort_idx 0
+			128: begin // ort_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 349;
+			end
+			129: begin // jmp_ind 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 350;
+			end
+			130: begin // ldy_imm 0
+				Y = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			131: begin // sbc_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 351;
+			end
+			132: begin // rol_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 352;
+			end
+			133: begin // ldy_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 353;
+			end
+			134: begin // sbct_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 354;
+			end
+			135: begin // dec_acc 0
+				A = 8'($signed({24'd0, A}) - 32'sd1);
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			136: begin // dex_imp 0
+				X = 8'($signed({24'd0, X}) - 32'sd1);
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			137: begin // cmp_imm 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				do_cmp($signed({24'd0, A}), $signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			138: begin // sbc_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 355;
+			end
+			139: begin // bne_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			140: begin // bne_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 356;
+			end
+			141: begin // asl_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 357;
+			end
+			142: begin // andt_imm 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 358;
+			end
+			143: begin // pla_m_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 359;
+			end
+			144: begin // ldx_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 360;
+			end
+			145: begin // and_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 361;
+			end
+			146: begin // eor_m_idx 0
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 362;
+			end
+			147: begin // eort_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 363;
+			end
+			148: begin // com_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 364;
+			end
+			149: begin // and_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 365;
+			end
+			150: begin // adc_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 366;
+			end
+			151: begin // adc_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 367;
+			end
+			152: begin // rol_acc 0
+				do_rol($signed({24'd0, A}));
+				A = 8'(RET);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			153: begin // and_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 368;
+			end
+			154: begin // lsr_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 369;
+			end
+			155: begin // inc_m_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 370;
+			end
+			156: begin // lda_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 371;
+			end
+			157: begin // cpx_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 372;
+			end
+			158: begin // ort_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 373;
+			end
+			159: begin // ror_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 374;
+			end
+			160: begin // sty_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 375;
+			end
+			161: begin // asl_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 376;
+			end
+			162: begin // ldx_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 377;
+			end
+			163: begin // adct_imm 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 378;
+			end
+			164: begin // andt_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 379;
+			end
+			165: begin // eort_imm 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 380;
+			end
+			166: begin // sbc_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 381;
+			end
+			167: begin // eort_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 382;
+			end
+			168: begin // sbc_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 383;
+			end
+			169: begin // dey_imp 0
+				Y = 8'($signed({24'd0, Y}) - 32'sd1);
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			170: begin // clv_imp 0
+				P = 8'((($signed({24'd0, P})) & ((~(32'sd64)))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			171: begin // rts_m_imp 0
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 384;
+			end
+			172: begin // ldx_m_zpy 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 385;
+			end
+			173: begin // ort_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 386;
+			end
+			174: begin // lsr_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 387;
+			end
+			175: begin // rol_m_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 388;
+			end
+			176: begin // ldt_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 389;
+			end
+			177: begin // adc_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 390;
+			end
+			178: begin // sta_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 391;
+			end
+			179: begin // ort_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 392;
+			end
+			180: begin // andt_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 393;
+			end
+			181: begin // eort_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 394;
+			end
+			182: begin // cmp_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 395;
+			end
+			183: begin // sbc_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 396;
+			end
+			184: begin // seb_biz 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 397;
+			end
+			185: begin // ldx_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 398;
+			end
+			186: begin // ldt_imm 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 399;
+			end
+			187: begin // adc_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 400;
+			end
+			188: begin // eor_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 401;
+			end
+			189: begin // sta_m_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 402;
+			end
+			190: begin // ldy_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 403;
+			end
+			191: begin // inc_m_abx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 404;
+			end
+			192: begin // cmpt_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 405;
+			end
+			193: begin // wit_imp 0
+				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+					st = S_FETCH;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; st = 406;  // wit_imp: wait
+				end
+			end
+			194: begin // ora_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 407;
+			end
+			195: begin // sbc_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 408;
+			end
+			196: begin // sbct_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 409;
 			end
-			212: begin // andt_aby 0
+			197: begin // nop_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 410;
 			end
-			213: begin // pla_m_imp 0
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			198: begin // adc_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 411;
 			end
-			214: begin // sty_m_aba 0
+			199: begin // adct_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 412;
 			end
-			215: begin // adct_aba 0
+			200: begin // ror_m_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 413;
 			end
-			216: begin // rti_m_imp 0
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			201: begin // ora_m_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 414;
 			end
-			217: begin // cpx_zpg 0
+			202: begin // sbc_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 415;
 			end
-			218: begin // adc_m_abx 0
+			203: begin // inx_imp 0
+				X = 8'($signed({24'd0, X}) + 32'sd1);
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			204: begin // nop_imp 0
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			205: begin // cmpt_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 416;
 			end
-			219: begin // ldx_zpg 0
+			206: begin // ror_acc 0
+				do_ror($signed({24'd0, A}));
+				A = 8'(RET);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			207: begin // eort_aby 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 417;
 			end
-			220: begin // clb_bac 0
-				A = 8'(f_do_clb($signed({24'd0, A}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			208: begin // bvc_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
+			end
+			209: begin // bvc_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 418;
+			end
+			210: begin // ora_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 419;
+			end
+			211: begin // ora_imm 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				A = 8'((($signed({24'd0, A})) | ($signed({16'd0, TMP}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			212: begin // cmp_m_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 420;
+			end
+			213: begin // ort_aby 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 421;
+			end
+			214: begin // bmi_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			215: begin // bmi_m_rel 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 422;
+			end
+			216: begin // set_imp 0
+				P = 8'((($signed({24'd0, P})) | (32'sd32)));
+				inst_state_base = 9'(32'sd256);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			217: begin // and_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 423;
+			end
+			218: begin // sta_m_idy 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({24'd0, TMP2})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 424;
+			end
+			219: begin // ldt_zpx 0
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 425;
+			end
+			220: begin // cmpt_aba 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 426;
 			end
 			221: begin // asl_acc 0
 				do_asl($signed({24'd0, A}));
 				A = 8'(RET);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			222: begin // adc_m_aby 0
+			222: begin // bit_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 418;
-			end
-			223: begin // cmp_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 419;
-			end
-			224: begin // jsr_m_adr 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 420;
-			end
-			225: begin // eor_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 421;
-			end
-			226: begin // sta_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 422;
-			end
-			227: begin // stp_imp 0
-				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-					st = S_FETCH;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0; st = 423;  // stp_imp: wait
-				end
-			end
-			228: begin // ora_m_idx 0
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 424;
-			end
-			229: begin // wit_imp 0
-				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-					st = S_FETCH;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0; st = 425;  // wit_imp: wait
-				end
-			end
-			230: begin // eor_m_aby 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 426;
-			end
-			231: begin // andt_abx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 427;
 			end
-			232: begin // adct_zpg 0
+			223: begin // eort_zpx 0
 				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 428;
 			end
-			233: begin // lsr_m_zpg 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			224: begin // sei_imp 0
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = 429;
 			end
-			234: begin // jmp_ind 0
-				TMP = 16'($signed({24'd0, DIN}));
+			225: begin // brk_m_imp 4
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 430;
 			end
-			235: begin // lda_aba 0
+			226: begin // brk_m_imp 1
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 430;
+			end
+			227: begin // lsr_acc 0
+				do_lsr($signed({24'd0, A}));
+				A = 8'(RET);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			228: begin // cld_imp 0
+				P = 8'((($signed({24'd0, P})) & ((~(32'sd8)))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			229: begin // sbc_imm 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				do_sbc($signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			230: begin // adct_zpg 0
+				TMP = 16'($signed({24'd0, DIN}));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 431;
 			end
-			236: begin // sei_imp 0
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = 432;
+			231: begin // stp_imp 0
+				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+					st = S_FETCH;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; st = 432;  // stp_imp: wait
+				end
 			end
-			237: begin // and_m_zpx 0
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			232: begin // bbs_bar 0
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 433;
 			end
-			238: begin // ldt_zpx 0
+			233: begin // clt_imp 0
+				P = 8'((($signed({24'd0, P})) & ((~(32'sd32)))));
+				inst_state_base = 9'(32'sd0);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			234: begin // tsx_imp 0
+				X = 8'($signed({16'd0, SP}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			235: begin // bvs_m_rel 8
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			236: begin // bvs_m_rel 1
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, PC})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 434;
 			end
-			239: begin // lsr_m_aba 0
-				TMP = 16'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			237: begin // ldt_idx 0
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, PC})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 435;
 			end
-			240: begin // sbc_aba 0
+			238: begin // ldt_aba 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 436;
 			end
-			241: begin // eort_abx 0
+			239: begin // txs_imp 0
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({24'd0, X})));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			240: begin // jmp_adr 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 437;
 			end
-			242: begin // asl_m_abx 0
+			241: begin // clb_bac 0
+				A = 8'(f_do_clb($signed({24'd0, A}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			242: begin // adct_abx 0
 				TMP = 16'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 438;
 			end
-			243: begin // seb_biz 2
+			243: begin // andt_zpg 2
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 439;
 			end
-			244: begin // andt_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			244: begin // nop_zpx 2
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 440;
 			end
-			245: begin // lda_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			245: begin // inc_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 441;
 			end
-			246: begin // ldy_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+			246: begin // ldm_imz 2
+				TMP2 = 8'($signed({24'd0, DIN}));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, TMP2})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 442;
 			end
-			247: begin // ort_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			247: begin // sbct_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 443;
 			end
-			248: begin // jsr_zpi 1
-				addr = 16'($signed({16'd0, SP})); dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 444;
-			end
-			249: begin // andt_imm 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 445;
-			end
-			250: begin // lda_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 446;
-			end
-			251: begin // adct_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 447;
-			end
-			252: begin // rol_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 448;
-			end
-			253: begin // adc_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 449;
-			end
-			254: begin // lsr_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 450;
-			end
-			255: begin // nop_zpg 2
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			256: begin // bpl_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 451;
-			end
-			257: begin // ora_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			258: begin // adc_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 452;
-			end
-			259: begin // jsr_spg 1
-				addr = 16'($signed({16'd0, SP})); dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 453;
-			end
-			260: begin // ror_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 454;
-			end
-			261: begin // lda_zpg 2
-				A = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			262: begin // rol_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 455;
-			end
-			263: begin // and_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 456;
-			end
-			264: begin // cmpt_imm 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, TMP2}), $signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			265: begin // adct_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 457;
-			end
-			266: begin // tst_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			267: begin // stx_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 458;
-			end
-			268: begin // ort_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 459;
-			end
-			269: begin // kil_non 2
-				addr = 16'(32'sd65534); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 460;
-			end
-			270: begin // shy_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 461;
-			end
-			271: begin // stx_m_zpy 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 462;
-			end
-			272: begin // andt_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 463;
-			end
-			273: begin // bmi_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 464;
-			end
-			274: begin // bcc_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 465;
-			end
-			275: begin // ldt_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 466;
-			end
-			276: begin // adc_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			277: begin // jmp_adr 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			278: begin // cmp_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 467;
-			end
-			279: begin // ldt_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 468;
-			end
-			280: begin // sty_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 469;
-			end
-			281: begin // sta_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 470;
-			end
-			282: begin // bbc_bzr 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 471;
-			end
-			283: begin // eor_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 472;
-			end
-			284: begin // dec_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 473;
-			end
-			285: begin // reset_m 3
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 474;
-			end
-			286: begin // ora_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 475;
-			end
-			287: begin // ldy_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 476;
-			end
-			288: begin // bit_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 477;
-			end
-			289: begin // bvc_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 478;
-			end
-			290: begin // eort_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 479;
-			end
-			291: begin // ort_imm 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 480;
-			end
-			292: begin // ort_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 481;
-			end
-			293: begin // dec_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 482;
-			end
-			294: begin // and_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 483;
-			end
-			295: begin // lda_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 484;
-			end
-			296: begin // sbc_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 485;
-			end
-			297: begin // and_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 486;
-			end
-			298: begin // eort_imm 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 487;
-			end
-			299: begin // eort_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 488;
-			end
-			300: begin // eor_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 489;
-			end
-			301: begin // adct_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 490;
-			end
-			302: begin // nop_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 491;
-			end
-			303: begin // cmpt_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 492;
-			end
-			304: begin // sbct_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 493;
-			end
-			305: begin // adct_imm 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 494;
-			end
-			306: begin // bit_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_bit($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			307: begin // jmp_zpi 1
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 495;
-			end
-			308: begin // sbct_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 496;
-			end
-			309: begin // cmp_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			310: begin // cpy_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 497;
-			end
-			311: begin // andt_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 498;
-			end
-			312: begin // ldt_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 499;
-			end
-			313: begin // eor_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 500;
-			end
-			314: begin // sbct_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 501;
-			end
-			315: begin // rts_m_imp 1
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 502;
-			end
-			316: begin // lda_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 503;
-			end
-			317: begin // ldy_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 504;
-			end
-			318: begin // nop_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				if ((f_page_changing($signed({16'd0, TMP}), $signed({24'd0, X}))) == 0) begin
-					addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-					st = 505;
-				end else begin
-					addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-					st = 506;
-				end
-			end
-			319: begin // nop_zpx 2
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 507;
-			end
-			320: begin // sbc_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 508;
-			end
-			321: begin // eor_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			322: begin // ldt_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 509;
-			end
-			323: begin // sta_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 510;
-			end
-			324: begin // sty_m_zpg 2
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, Y})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 511;
-			end
-			325: begin // bvs_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 512;
-			end
-			326: begin // dec_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 513;
-			end
-			327: begin // sbc_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			328: begin // ora_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 514;
-			end
-			329: begin // ldm_imz 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({24'd0, TMP2})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 515;
-			end
-			330: begin // rol_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 516;
-			end
-			331: begin // ora_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 517;
-			end
-			332: begin // clb_biz 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 518;
-			end
-			333: begin // inc_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 519;
-			end
-			334: begin // sbct_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 520;
-			end
-			335: begin // ort_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 521;
-			end
-			336: begin // bcs_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 522;
-			end
-			337: begin // adct_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 523;
-			end
-			338: begin // bbs_bzr 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 524;
-			end
-			339: begin // eort_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 525;
-			end
-			340: begin // cmpt_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 526;
-			end
-			341: begin // cmp_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 527;
-			end
-			342: begin // adct_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 528;
-			end
-			343: begin // bbc_bar 1
-				if ((b2i(((($signed({24'd0, A})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 529;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 530;
-				end
-			end
-			344: begin // ora_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 531;
-			end
-			345: begin // ror_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 532;
-			end
-			346: begin // brk_m_imp 7
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({16'd0, PC})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 533;
-			end
-			347: begin // asl_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 534;
-			end
-			348: begin // rrf_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 535;
-			end
-			349: begin // sbc_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 536;
-			end
-			350: begin // andt_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 537;
-			end
-			351: begin // bra_rel 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 538;
-			end
-			352: begin // stx_m_zpg 2
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, X})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 539;
-			end
-			353: begin // cpx_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 540;
-			end
-			354: begin // pha_imp 1
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			355: begin // sta_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 541;
-			end
-			356: begin // cmpt_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 542;
-			end
-			357: begin // sbc_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 543;
-			end
-			358: begin // asl_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 544;
-			end
-			359: begin // sta_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 545;
-			end
-			360: begin // ror_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 546;
-			end
-			361: begin // dec_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 547;
-			end
-			362: begin // bbs_bar 1
-				if (((($signed({24'd0, A})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 548;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 549;
-				end
-			end
-			363: begin // beq_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 550;
-			end
-			364: begin // adc_m_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 551;
-			end
-			365: begin // sta_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 552;
-			end
-			366: begin // and_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 553;
-			end
-			367: begin // ort_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 554;
-			end
-			368: begin // ror_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 555;
-			end
-			369: begin // lsr_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 556;
-			end
-			370: begin // ldx_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 557;
-			end
-			371: begin // cmp_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 558;
-			end
-			372: begin // cmpt_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 559;
-			end
-			373: begin // sbct_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 560;
-			end
-			374: begin // eor_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 561;
-			end
-			375: begin // ldt_imm 2
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 562;
-			end
-			376: begin // cmp_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 563;
-			end
-			377: begin // adc_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 564;
-			end
-			378: begin // eort_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 565;
-			end
-			379: begin // eort_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 566;
-			end
-			380: begin // and_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			381: begin // ldy_zpg 2
-				Y = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			382: begin // and_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 567;
-			end
-			383: begin // ldt_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 568;
-			end
-			384: begin // sbct_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 569;
-			end
-			385: begin // inc_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 570;
-			end
-			386: begin // shx_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 571;
-			end
-			387: begin // php_imp 1
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			388: begin // inc_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 572;
-			end
-			389: begin // ldx_m_zpy 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 573;
-			end
-			390: begin // ldt_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 574;
-			end
-			391: begin // rol_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 575;
-			end
-			392: begin // andt_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 576;
-			end
-			393: begin // eort_idx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 577;
-			end
-			394: begin // cli_imp ('fetch', 1)
+			248: begin // cli_imp ('fetch', 1)
 				fetch_end;
 				P = 8'((($signed({24'd0, P})) & ((~(32'sd4)))));
 				dispatch;
 			end
-			395: begin // ort_idy 2
+			249: begin // eor_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 444;
+			end
+			250: begin // adc_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 445;
+			end
+			251: begin // and_m_idy 2
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 578;
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 446;
 			end
-			396: begin // sta_m_idy 2
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 579;
+			252: begin // jsr_zpi 1
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 447;
 			end
-			397: begin // lda_m_abx 2
+			253: begin // bpl_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 448;
+			end
+			254: begin // stx_m_aba 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 580;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 449;
 			end
-			398: begin // bne_m_rel 2
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 581;
+			255: begin // php_imp 1
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
 			end
-			399: begin // inc_m_aba 2
+			256: begin // adct_aby 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 582;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 450;
 			end
-			400: begin // sbc_zpx 2
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 583;
-			end
-			401: begin // asl_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 584;
-			end
-			402: begin // ora_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 585;
-			end
-			403: begin // com_zpg 2
+			257: begin // cmpt_imm 2
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 586;
+				do_cmp($signed({24'd0, TMP2}), $signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
 			end
-			404: begin // cmpt_aby 2
+			258: begin // lda_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 451;
+			end
+			259: begin // reset_m 3
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 452;
+			end
+			260: begin // cmpt_aby 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 587;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 453;
 			end
-			405: begin // cpy_zpg 2
+			261: begin // sty_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 454;
+			end
+			262: begin // asl_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 455;
+			end
+			263: begin // adc_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 456;
+			end
+			264: begin // cmp_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 457;
+			end
+			265: begin // adct_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 458;
+			end
+			266: begin // shy_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 459;
+			end
+			267: begin // rol_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 460;
+			end
+			268: begin // kil_non 2
+				b_addr = 16'(32'sd65534); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 461;
+			end
+			269: begin // sbct_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 462;
+			end
+			270: begin // nop_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 463;
+			end
+			271: begin // bbs_bzr 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 464;
+			end
+			272: begin // ora_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 465;
+			end
+			273: begin // bbc_bar 1
+				if ((b2i(((($signed({24'd0, A})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0)) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 466;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 467;
+				end
+			end
+			274: begin // lsr_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 468;
+			end
+			275: begin // cpy_zpg 2
 				TMP2 = 8'($signed({24'd0, DIN}));
 				do_cmp($signed({24'd0, Y}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			406: begin // plp_m_imp 1
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 588;
+			276: begin // inc_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 469;
 			end
-			407: begin // cmp_m_idx 1
+			277: begin // ora_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 470;
+			end
+			278: begin // eor_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			279: begin // adct_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 471;
+			end
+			280: begin // cmpt_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 472;
+			end
+			281: begin // stx_m_zpg 2
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, X})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 473;
+			end
+			282: begin // andt_idx 1
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 589;
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 474;
 			end
-			408: begin // ldx_aba 2
+			283: begin // cpx_aba 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 590;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 475;
 			end
-			409: begin // ort_idx 1
+			284: begin // ldt_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 476;
+			end
+			285: begin // rol_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 477;
+			end
+			286: begin // cmp_m_idx 1
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 591;
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 478;
 			end
-			410: begin // andt_aby 2
+			287: begin // eor_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 479;
+			end
+			288: begin // jsr_spg 1
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 480;
+			end
+			289: begin // ldt_aby 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 592;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 481;
 			end
-			411: begin // pla_m_imp 1
+			290: begin // dec_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 482;
+			end
+			291: begin // sbct_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 483;
+			end
+			292: begin // andt_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 484;
+			end
+			293: begin // ldy_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 485;
+			end
+			294: begin // ror_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 486;
+			end
+			295: begin // and_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 487;
+			end
+			296: begin // sta_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 488;
+			end
+			297: begin // bcs_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 489;
+			end
+			298: begin // plp_m_imp 1
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 593;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 490;
 			end
-			412: begin // sty_m_aba 2
+			299: begin // lda_aba 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 594;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 491;
 			end
-			413: begin // adct_aba 2
+			300: begin // eor_m_aby 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 595;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 492;
 			end
-			414: begin // rti_m_imp 1
+			301: begin // cmp_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 493;
+			end
+			302: begin // eor_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 494;
+			end
+			303: begin // andt_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 495;
+			end
+			304: begin // sty_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 496;
+			end
+			305: begin // dec_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 497;
+			end
+			306: begin // beq_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 498;
+			end
+			307: begin // ort_imm 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 499;
+			end
+			308: begin // ldt_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 500;
+			end
+			309: begin // lda_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 501;
+			end
+			310: begin // ora_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 502;
+			end
+			311: begin // bcc_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 503;
+			end
+			312: begin // ror_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 504;
+			end
+			313: begin // bra_rel 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 505;
+			end
+			314: begin // ort_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 506;
+			end
+			315: begin // eort_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 507;
+			end
+			316: begin // stx_m_zpy 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 508;
+			end
+			317: begin // nop_zpg 2
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			318: begin // lsr_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 509;
+			end
+			319: begin // sta_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 510;
+			end
+			320: begin // sta_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 511;
+			end
+			321: begin // cmp_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 512;
+			end
+			322: begin // tst_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			323: begin // dec_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 513;
+			end
+			324: begin // sta_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 514;
+			end
+			325: begin // bit_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_bit($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			326: begin // eort_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 515;
+			end
+			327: begin // lda_zpg 2
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			328: begin // rti_m_imp 1
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 596;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 516;
 			end
-			415: begin // cpx_zpg 2
+			329: begin // pha_imp 1
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			330: begin // jsr_m_adr 2
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 517;
+			end
+			331: begin // dec_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 518;
+			end
+			332: begin // asl_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 519;
+			end
+			333: begin // ort_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 520;
+			end
+			334: begin // adct_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 521;
+			end
+			335: begin // cmp_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 522;
+			end
+			336: begin // and_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 523;
+			end
+			337: begin // cpy_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 524;
+			end
+			338: begin // sbct_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 525;
+			end
+			339: begin // andt_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 526;
+			end
+			340: begin // clb_biz 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 527;
+			end
+			341: begin // shx_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 528;
+			end
+			342: begin // ldy_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 529;
+			end
+			343: begin // ora_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			344: begin // lda_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 530;
+			end
+			345: begin // rrf_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 531;
+			end
+			346: begin // bbc_bzr 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 532;
+			end
+			347: begin // jmp_zpi 1
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 533;
+			end
+			348: begin // lda_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 534;
+			end
+			349: begin // ort_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 535;
+			end
+			350: begin // jmp_ind 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 536;
+			end
+			351: begin // sbc_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 537;
+			end
+			352: begin // rol_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 538;
+			end
+			353: begin // ldy_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 539;
+			end
+			354: begin // sbct_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 540;
+			end
+			355: begin // sbc_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			356: begin // bne_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 541;
+			end
+			357: begin // asl_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 542;
+			end
+			358: begin // andt_imm 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 543;
+			end
+			359: begin // pla_m_imp 1
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 544;
+			end
+			360: begin // ldx_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 545;
+			end
+			361: begin // and_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			362: begin // eor_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 546;
+			end
+			363: begin // eort_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 547;
+			end
+			364: begin // com_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 548;
+			end
+			365: begin // and_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 549;
+			end
+			366: begin // adc_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_adc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			367: begin // adc_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 550;
+			end
+			368: begin // and_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 551;
+			end
+			369: begin // lsr_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 552;
+			end
+			370: begin // inc_m_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 553;
+			end
+			371: begin // lda_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 554;
+			end
+			372: begin // cpx_zpg 2
 				TMP2 = 8'($signed({24'd0, DIN}));
 				do_cmp($signed({24'd0, X}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			416: begin // adc_m_abx 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 597;
-			end
-			417: begin // ldx_zpg 2
-				X = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			418: begin // adc_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 598;
-			end
-			419: begin // cmp_m_aby 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 599;
-			end
-			420: begin // jsr_m_adr 2
-				addr = 16'($signed({16'd0, SP})); dout = 8'((($signed({16'd0, PC})) >>> (32'sd8))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 600;
-			end
-			421: begin // eor_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 601;
-			end
-			422: begin // sta_m_zpg 2
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 602;
-			end
-			423: begin // stp_imp ('eat', 4)
-				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-					st = S_FETCH;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0; st = 423;  // stp_imp: wait
-				end
-			end
-			424: begin // ora_m_idx 1
+			373: begin // ort_idx 1
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 603;
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 555;
 			end
-			425: begin // wit_imp ('eat', 4)
+			374: begin // ror_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 556;
+			end
+			375: begin // sty_m_zpg 2
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, Y})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 557;
+			end
+			376: begin // asl_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 558;
+			end
+			377: begin // ldx_zpg 2
+				X = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			378: begin // adct_imm 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 559;
+			end
+			379: begin // andt_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 560;
+			end
+			380: begin // eort_imm 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 561;
+			end
+			381: begin // sbc_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 562;
+			end
+			382: begin // eort_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 563;
+			end
+			383: begin // sbc_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 564;
+			end
+			384: begin // rts_m_imp 1
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 565;
+			end
+			385: begin // ldx_m_zpy 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 566;
+			end
+			386: begin // ort_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 567;
+			end
+			387: begin // lsr_m_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 568;
+			end
+			388: begin // rol_m_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X})))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 569;
+			end
+			389: begin // ldt_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 570;
+			end
+			390: begin // adc_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 571;
+			end
+			391: begin // sta_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 572;
+			end
+			392: begin // ort_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 573;
+			end
+			393: begin // andt_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 574;
+			end
+			394: begin // eort_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 575;
+			end
+			395: begin // cmp_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			396: begin // sbc_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 576;
+			end
+			397: begin // seb_biz 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 577;
+			end
+			398: begin // ldx_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 578;
+			end
+			399: begin // ldt_imm 2
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 579;
+			end
+			400: begin // adc_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 580;
+			end
+			401: begin // eor_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 581;
+			end
+			402: begin // sta_m_zpg 2
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 582;
+			end
+			403: begin // ldy_zpg 2
+				Y = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			404: begin // inc_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 583;
+			end
+			405: begin // cmpt_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 584;
+			end
+			406: begin // wit_imp ('eat', 4)
 				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 					st = S_FETCH;
 				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0; st = 425;  // wit_imp: wait
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; st = 406;  // wit_imp: wait
 				end
 			end
-			426: begin // eor_m_aby 2
+			407: begin // ora_m_aby 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 585;
+			end
+			408: begin // sbc_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 586;
+			end
+			409: begin // sbct_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 587;
+			end
+			410: begin // nop_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				if ((f_page_changing($signed({16'd0, TMP}), $signed({24'd0, X}))) == 0) begin
+					b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+					st = 588;
+				end else begin
+					b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+					st = 589;
+				end
+			end
+			411: begin // adc_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 590;
+			end
+			412: begin // adct_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 591;
+			end
+			413: begin // ror_m_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 592;
+			end
+			414: begin // ora_m_idx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 593;
+			end
+			415: begin // sbc_zpx 2
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 594;
+			end
+			416: begin // cmpt_abx 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 595;
+			end
+			417: begin // eort_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 596;
+			end
+			418: begin // bvc_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 597;
+			end
+			419: begin // ora_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 598;
+			end
+			420: begin // cmp_m_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 599;
+			end
+			421: begin // ort_aby 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 600;
+			end
+			422: begin // bmi_m_rel 2
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 601;
+			end
+			423: begin // and_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 602;
+			end
+			424: begin // sta_m_idy 2
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 603;
+			end
+			425: begin // ldt_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 604;
 			end
-			427: begin // andt_abx 2
+			426: begin // cmpt_aba 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 605;
 			end
-			428: begin // adct_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			427: begin // bit_aba 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 606;
 			end
-			429: begin // lsr_m_zpg 2
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			428: begin // eort_zpx 1
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 607;
 			end
-			430: begin // jmp_ind 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 608;
-			end
-			431: begin // lda_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 609;
-			end
-			432: begin // sei_imp ('fetch', 1)
+			429: begin // sei_imp ('fetch', 1)
 				fetch_end;
 				P = 8'((($signed({24'd0, P})) | (32'sd4)));
 				dispatch;
 			end
-			433: begin // and_m_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 610;
+			430: begin // brk_m_imp 7
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({16'd0, PC})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 608;
 			end
-			434: begin // ldt_zpx 1
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 611;
+			431: begin // adct_zpg 2
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 609;
 			end
-			435: begin // lsr_m_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+			432: begin // stp_imp ('eat', 4)
+				if ((b2i(($signed({31'd0, irq})) == 0)) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+					st = S_FETCH;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0; st = 432;  // stp_imp: wait
+				end
+			end
+			433: begin // bbs_bar 1
+				if (((($signed({24'd0, A})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 610;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 611;
+				end
+			end
+			434: begin // bvs_m_rel 2
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 612;
 			end
-			436: begin // sbc_aba 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+			435: begin // ldt_idx 1
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				TMP2 = 8'((($signed({24'd0, TMP2})) + ($signed({24'd0, X}))));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 613;
 			end
-			437: begin // eort_abx 2
+			436: begin // ldt_aba 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 614;
 			end
-			438: begin // asl_m_abx 2
+			437: begin // jmp_adr 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			438: begin // adct_abx 2
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 615;
 			end
-			439: begin // seb_biz 3
-				TMP2 = 8'(f_do_seb($signed({24'd0, TMP2}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			439: begin // andt_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 616;
 			end
-			440: begin // andt_zpx 3
+			440: begin // nop_zpx 3
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			441: begin // inc_m_zpx 4
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 617;
 			end
-			441: begin // lda_m_idy 3
+			442: begin // ldm_imz 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			443: begin // sbct_idy 3
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 618;
 			end
-			442: begin // ldy_aba 4
-				Y = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			443: begin // ort_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			444: begin // eor_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 619;
 			end
-			444: begin // jsr_zpi 2
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({16'd0, PC})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 620;
-			end
-			445: begin // andt_imm 3
-				TMP2 = 8'((($signed({24'd0, TMP2})) & ($signed({16'd0, TMP}))));
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 621;
-			end
-			446: begin // lda_m_aby 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 622;
-			end
-			447: begin // adct_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 623;
-			end
-			448: begin // rol_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 624;
-			end
-			449: begin // adc_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 625;
-			end
-			450: begin // lsr_m_zpx 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 626;
-			end
-			451: begin // bpl_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			452: begin // adc_m_zpx 3
+			445: begin // adc_m_zpx 3
 				TMP2 = 8'($signed({24'd0, DIN}));
 				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			453: begin // jsr_spg 2
+			446: begin // and_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 620;
+			end
+			447: begin // jsr_zpi 2
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({16'd0, PC})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({16'd0, PC})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 621;
+			end
+			448: begin // bpl_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			449: begin // stx_m_aba 4
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, X})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 622;
+			end
+			450: begin // adct_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 623;
+			end
+			451: begin // lda_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 624;
+			end
+			452: begin // reset_m 5
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'(32'sd65534); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 625;
+			end
+			453: begin // cmpt_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 626;
+			end
+			454: begin // sty_m_zpx 3
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_dout = 8'($signed({24'd0, Y})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 627;
 			end
-			454: begin // ror_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			455: begin // asl_m_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 628;
 			end
-			455: begin // rol_m_aba 4
+			456: begin // adc_aba 4
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				do_adc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			457: begin // cmp_m_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			458: begin // adct_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 629;
 			end
-			456: begin // and_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 630;
-			end
-			457: begin // adct_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 631;
-			end
-			458: begin // stx_m_aba 4
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, X})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 632;
-			end
-			459: begin // ort_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 633;
-			end
-			460: begin // kil_non 3
-				addr = 16'(32'sd65534); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 634;
-			end
-			461: begin // shy_abx 4
+			459: begin // shy_abx 4
 				TMP2 = 8'((($signed({24'd0, Y})) & ((((($signed({16'd0, TMP})) >>> (32'sd8))) + (32'sd1)))));
 				if ((f_page_changing($signed({16'd0, TMP}), $signed({24'd0, X}))) == 0) begin
 					TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-					addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-					st = 635;
+					b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+					st = 630;
 				end else begin
 					TMP = 16'(f_set_h((($signed({16'd0, TMP})) + ($signed({24'd0, X}))), $signed({24'd0, TMP2})));
-					addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+					b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+					st = 630;
+				end
+			end
+			460: begin // rol_m_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 631;
+			end
+			461: begin // kil_non 3
+				b_addr = 16'(32'sd65534); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 632;
+			end
+			462: begin // sbct_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 633;
+			end
+			463: begin // nop_aba 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			464: begin // bbs_bzr 3
+				if (((($signed({24'd0, TMP2})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 634;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 					st = 635;
 				end
 			end
-			462: begin // stx_m_zpy 3
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); dout = 8'($signed({24'd0, X})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			465: begin // ora_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			466: begin // bbc_bar 10
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			467: begin // bbc_bar 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 636;
 			end
-			463: begin // andt_aba 4
+			468: begin // lsr_m_aba 4
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 637;
 			end
-			464: begin // bmi_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			465: begin // bcc_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			466: begin // ldt_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			469: begin // inc_m_zpg 3
+				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 638;
 			end
-			467: begin // cmp_m_abx 4
+			470: begin // ora_m_abx 4
 				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 639;
 			end
-			468: begin // ldt_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			471: begin // adct_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 640;
 			end
-			469: begin // sty_m_zpx 3
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); dout = 8'($signed({24'd0, Y})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			472: begin // cmpt_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			473: begin // stx_m_zpg 3
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			474: begin // andt_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 641;
 			end
-			470: begin // sta_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			475: begin // cpx_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, X}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			476: begin // ldt_zpg 3
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 642;
 			end
-			471: begin // bbc_bzr 3
-				if ((b2i(((($signed({24'd0, TMP2})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0)) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 643;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 644;
-				end
+			477: begin // rol_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 643;
 			end
-			472: begin // eor_m_zpx 3
+			478: begin // cmp_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 644;
+			end
+			479: begin // eor_m_zpx 3
 				TMP2 = 8'($signed({24'd0, DIN}));
 				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			473: begin // dec_m_zpg 3
-				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			480: begin // jsr_spg 2
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({16'd0, PC})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 645;
 			end
-			474: begin // reset_m 5
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'(32'sd65534); wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			481: begin // ldt_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 646;
 			end
-			475: begin // ora_m_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			482: begin // dec_m_zpg 3
+				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 647;
 			end
-			476: begin // ldy_m_zpx 3
-				Y = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			477: begin // bit_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_bit($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			478: begin // bvc_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			479: begin // eort_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			483: begin // sbct_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 648;
 			end
-			480: begin // ort_imm 3
-				TMP2 = 8'((($signed({24'd0, TMP2})) | ($signed({16'd0, TMP}))));
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			484: begin // andt_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 649;
 			end
-			481: begin // ort_abx 4
+			485: begin // ldy_m_abx 4
 				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 650;
 			end
-			482: begin // dec_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			486: begin // ror_m_zpg 3
+				do_ror($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 651;
 			end
-			483: begin // and_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			487: begin // and_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 652;
 			end
-			484: begin // lda_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			488: begin // sta_m_abx 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 653;
 			end
-			485: begin // sbc_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			489: begin // bcs_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			490: begin // plp_m_imp 3
+				TMP = 16'((($signed({24'd0, DIN})) | (32'sd16)));
+				inst_state_base = 9'(((((($signed({16'd0, TMP})) & (32'sd32))) != 0) ? (32'sd256) : (32'sd0)));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = 654;
 			end
-			486: begin // and_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 655;
-			end
-			487: begin // eort_imm 3
-				TMP2 = 8'((($signed({24'd0, TMP2})) ^ ($signed({16'd0, TMP}))));
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 656;
-			end
-			488: begin // eort_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 657;
-			end
-			489: begin // eor_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 658;
-			end
-			490: begin // adct_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 659;
-			end
-			491: begin // nop_aba 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			492: begin // cmpt_zpg 3
-				TMP = 16'($signed({24'd0, DIN}));
-				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			493: begin // sbct_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 660;
-			end
-			494: begin // adct_imm 3
-				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 661;
-			end
-			495: begin // jmp_zpi 2
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				PC = 16'($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			496: begin // sbct_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 662;
-			end
-			497: begin // cpy_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, Y}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			498: begin // andt_zpg 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 663;
-			end
-			499: begin // ldt_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 664;
-			end
-			500: begin // eor_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 665;
-			end
-			501: begin // sbct_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 666;
-			end
-			502: begin // rts_m_imp 3
-				PC = 16'($signed({24'd0, DIN}));
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 667;
-			end
-			503: begin // lda_m_zpx 3
+			491: begin // lda_aba 4
 				A = 8'($signed({24'd0, DIN}));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			504: begin // ldy_m_abx 4
+			492: begin // eor_m_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 655;
+			end
+			493: begin // cmp_m_abx 4
 				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 656;
+			end
+			494: begin // eor_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			495: begin // andt_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 657;
+			end
+			496: begin // sty_m_aba 4
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, Y})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 658;
+			end
+			497: begin // dec_m_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 659;
+			end
+			498: begin // beq_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			499: begin // ort_imm 3
+				TMP2 = 8'((($signed({24'd0, TMP2})) | ($signed({16'd0, TMP}))));
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 660;
+			end
+			500: begin // ldt_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 661;
+			end
+			501: begin // lda_m_zpx 3
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			502: begin // ora_m_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			503: begin // bcc_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			504: begin // ror_m_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 662;
+			end
+			505: begin // bra_rel 3
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			506: begin // ort_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 663;
+			end
+			507: begin // eort_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 664;
+			end
+			508: begin // stx_m_zpy 3
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_dout = 8'($signed({24'd0, X})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 665;
+			end
+			509: begin // lsr_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 666;
+			end
+			510: begin // sta_m_zpx 3
+				b_addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 667;
+			end
+			511: begin // sta_m_aby 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 668;
 			end
-			505: begin // nop_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			506: begin // nop_abx 5
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 505;
-			end
-			507: begin // nop_zpx 3
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			508: begin // sbc_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 669;
-			end
-			509: begin // ldt_zpg 3
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 670;
-			end
-			510: begin // sta_m_aby 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 671;
-			end
-			511: begin // sty_m_zpg 3
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			512: begin // bvs_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			512: begin // cmp_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
 			513: begin // dec_m_zpx 4
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 672;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 669;
 			end
-			514: begin // ora_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 673;
+			514: begin // sta_m_aba 4
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 670;
 			end
-			515: begin // ldm_imz 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			516: begin // rol_m_zpg 3
-				do_rol($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 674;
-			end
-			517: begin // ora_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			518: begin // clb_biz 3
-				TMP2 = 8'(f_do_clb($signed({24'd0, TMP2}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 675;
-			end
-			519: begin // inc_m_zpg 3
-				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 676;
-			end
-			520: begin // sbct_zpg 3
+			515: begin // eort_idx 4
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 677;
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 671;
 			end
-			521: begin // ort_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 678;
-			end
-			522: begin // bcs_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			523: begin // adct_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 679;
-			end
-			524: begin // bbs_bzr 3
-				if (((($signed({24'd0, TMP2})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0) begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 680;
-				end else begin
-					addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 681;
-				end
-			end
-			525: begin // eort_zpg 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 682;
-			end
-			526: begin // cmpt_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 683;
-			end
-			527: begin // cmp_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			528: begin // adct_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 684;
-			end
-			529: begin // bbc_bar 10
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			530: begin // bbc_bar 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 685;
-			end
-			531: begin // ora_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 686;
-			end
-			532: begin // ror_m_zpx 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 687;
-			end
-			533: begin // brk_m_imp 9
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); dout = 8'(((($signed({31'd0, irq_taken})) != 0) ? ((($signed({24'd0, P})) & ((~(32'sd16))))) : ($signed({24'd0, P})))); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 688;
-			end
-			534: begin // asl_m_zpg 3
-				do_asl($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 689;
-			end
-			535: begin // rrf_zpg 3
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 690;
-			end
-			536: begin // sbc_m_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 691;
-			end
-			537: begin // andt_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 692;
-			end
-			538: begin // bra_rel 3
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			539: begin // stx_m_zpg 3
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			540: begin // cpx_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, X}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			541: begin // sta_m_abx 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 693;
-			end
-			542: begin // cmpt_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 694;
-			end
-			543: begin // sbc_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 695;
-			end
-			544: begin // asl_m_zpx 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 696;
-			end
-			545: begin // sta_m_aba 4
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 697;
-			end
-			546: begin // ror_m_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 698;
-			end
-			547: begin // dec_m_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 699;
-			end
-			548: begin // bbs_bar 10
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			549: begin // bbs_bar 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 700;
-			end
-			550: begin // beq_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			551: begin // adc_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 701;
-			end
-			552: begin // sta_m_zpx 3
-				addr = 16'(u8((($signed({16'd0, TMP})) + ($signed({24'd0, X}))))); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 702;
-			end
-			553: begin // and_m_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 703;
-			end
-			554: begin // ort_zpg 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 704;
-			end
-			555: begin // ror_m_zpg 3
-				do_ror($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 705;
-			end
-			556: begin // lsr_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 706;
-			end
-			557: begin // ldx_m_aby 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 707;
-			end
-			558: begin // cmp_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 708;
-			end
-			559: begin // cmpt_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 709;
-			end
-			560: begin // sbct_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 710;
-			end
-			561: begin // eor_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 711;
-			end
-			562: begin // ldt_imm 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			563: begin // cmp_m_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			564: begin // adc_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			565: begin // eort_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 712;
-			end
-			566: begin // eort_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 713;
-			end
-			567: begin // and_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			568: begin // ldt_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 714;
-			end
-			569: begin // sbct_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 715;
-			end
-			570: begin // inc_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 716;
-			end
-			571: begin // shx_aby 4
-				TMP2 = 8'((($signed({24'd0, X})) & ((((($signed({16'd0, TMP})) >>> (32'sd8))) + (32'sd1)))));
-				if ((f_page_changing($signed({16'd0, TMP}), $signed({24'd0, Y}))) == 0) begin
-					TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-					addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-					st = 717;
-				end else begin
-					TMP = 16'(f_set_h((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))), $signed({24'd0, TMP2})));
-					addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-					st = 717;
-				end
-			end
-			572: begin // inc_m_zpx 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 718;
-			end
-			573: begin // ldx_m_zpy 3
-				X = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			574: begin // ldt_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 719;
-			end
-			575: begin // rol_m_zpx 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 720;
-			end
-			576: begin // andt_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 721;
-			end
-			577: begin // eort_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 722;
-			end
-			578: begin // ort_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 723;
-			end
-			579: begin // sta_m_idy 3
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 724;
-			end
-			580: begin // lda_m_abx 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 725;
-			end
-			581: begin // bne_m_rel 4
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			582: begin // inc_m_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 726;
-			end
-			583: begin // sbc_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			584: begin // asl_m_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 727;
-			end
-			585: begin // ora_m_zpx 3
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			586: begin // com_zpg 3
-				TMP2 = 8'((($signed({24'd0, TMP2})) ^ (32'sd255)));
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 728;
-			end
-			587: begin // cmpt_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 729;
-			end
-			588: begin // plp_m_imp 3
-				TMP = 16'((($signed({24'd0, DIN})) | (32'sd16)));
-				inst_state_base = 9'(((((($signed({16'd0, TMP})) & (32'sd32))) != 0) ? (32'sd256) : (32'sd0)));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = 730;
-			end
-			589: begin // cmp_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 731;
-			end
-			590: begin // ldx_aba 4
-				X = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			591: begin // ort_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 732;
-			end
-			592: begin // andt_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 733;
-			end
-			593: begin // pla_m_imp 3
-				A = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			594: begin // sty_m_aba 4
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, Y})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 734;
-			end
-			595: begin // adct_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 735;
-			end
-			596: begin // rti_m_imp 3
+			516: begin // rti_m_imp 3
 				P = 8'((($signed({24'd0, DIN})) | (32'sd16)));
 				inst_state_base = 9'(((((($signed({24'd0, P})) & (32'sd32))) != 0) ? (32'sd256) : (32'sd0)));
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 672;
+			end
+			517: begin // jsr_m_adr 3
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'($signed({16'd0, PC})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 673;
+			end
+			518: begin // dec_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 674;
+			end
+			519: begin // asl_m_zpx 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 675;
+			end
+			520: begin // ort_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 676;
+			end
+			521: begin // adct_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 677;
+			end
+			522: begin // cmp_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 678;
+			end
+			523: begin // and_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 679;
+			end
+			524: begin // cpy_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, Y}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			525: begin // sbct_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 680;
+			end
+			526: begin // andt_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 681;
+			end
+			527: begin // clb_biz 3
+				TMP2 = 8'(f_do_clb($signed({24'd0, TMP2}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 682;
+			end
+			528: begin // shx_aby 4
+				TMP2 = 8'((($signed({24'd0, X})) & ((((($signed({16'd0, TMP})) >>> (32'sd8))) + (32'sd1)))));
+				if ((f_page_changing($signed({16'd0, TMP}), $signed({24'd0, Y}))) == 0) begin
+					TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+					b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+					st = 683;
+				end else begin
+					TMP = 16'(f_set_h((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))), $signed({24'd0, TMP2})));
+					b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+					st = 683;
+				end
+			end
+			529: begin // ldy_aba 4
+				Y = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			530: begin // lda_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 684;
+			end
+			531: begin // rrf_zpg 3
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 685;
+			end
+			532: begin // bbc_bzr 3
+				if ((b2i(((($signed({24'd0, TMP2})) & (((32'sd1) << ((((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))))))) == 0)) == 0) begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 686;
+				end else begin
+					b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 687;
+				end
+			end
+			533: begin // jmp_zpi 2
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				PC = 16'($signed({16'd0, TMP}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			534: begin // lda_m_abx 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 688;
+			end
+			535: begin // ort_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 689;
+			end
+			536: begin // jmp_ind 4
+				PC = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 690;
+			end
+			537: begin // sbc_m_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 691;
+			end
+			538: begin // rol_m_zpg 3
+				do_rol($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 692;
+			end
+			539: begin // ldy_m_zpx 3
+				Y = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, Y}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			540: begin // sbct_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 693;
+			end
+			541: begin // bne_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			542: begin // asl_m_zpg 3
+				do_asl($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 694;
+			end
+			543: begin // andt_imm 3
+				TMP2 = 8'((($signed({24'd0, TMP2})) & ($signed({16'd0, TMP}))));
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 695;
+			end
+			544: begin // pla_m_imp 3
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			545: begin // ldx_m_aby 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 696;
+			end
+			546: begin // eor_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 697;
+			end
+			547: begin // eort_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 698;
+			end
+			548: begin // com_zpg 3
+				TMP2 = 8'((($signed({24'd0, TMP2})) ^ (32'sd255)));
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 699;
+			end
+			549: begin // and_m_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			550: begin // adc_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 700;
+			end
+			551: begin // and_m_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 701;
+			end
+			552: begin // lsr_m_zpx 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 702;
+			end
+			553: begin // inc_m_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 703;
+			end
+			554: begin // lda_m_aby 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 704;
+			end
+			555: begin // ort_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 705;
+			end
+			556: begin // ror_m_zpx 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 706;
+			end
+			557: begin // sty_m_zpg 3
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			558: begin // asl_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 707;
+			end
+			559: begin // adct_imm 3
+				do_adct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 708;
+			end
+			560: begin // andt_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 709;
+			end
+			561: begin // eort_imm 3
+				TMP2 = 8'((($signed({24'd0, TMP2})) ^ ($signed({16'd0, TMP}))));
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 710;
+			end
+			562: begin // sbc_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 711;
+			end
+			563: begin // eort_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 712;
+			end
+			564: begin // sbc_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 713;
+			end
+			565: begin // rts_m_imp 3
+				PC = 16'($signed({24'd0, DIN}));
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 714;
+			end
+			566: begin // ldx_m_zpy 3
+				X = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			567: begin // ort_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 715;
+			end
+			568: begin // lsr_m_zpg 3
+				do_lsr($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 716;
+			end
+			569: begin // rol_m_zpx 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 717;
+			end
+			570: begin // ldt_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 718;
+			end
+			571: begin // adc_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 719;
+			end
+			572: begin // sta_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 720;
+			end
+			573: begin // ort_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 721;
+			end
+			574: begin // andt_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 722;
+			end
+			575: begin // eort_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 723;
+			end
+			576: begin // sbc_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 724;
+			end
+			577: begin // seb_biz 3
+				TMP2 = 8'(f_do_seb($signed({24'd0, TMP2}), (((($signed({24'd0, IR})) >>> (32'sd5))) & (32'sd7))));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 725;
+			end
+			578: begin // ldx_aba 4
+				X = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			579: begin // ldt_imm 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			580: begin // adc_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 726;
+			end
+			581: begin // eor_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 727;
+			end
+			582: begin // sta_m_zpg 3
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			583: begin // inc_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 728;
+			end
+			584: begin // cmpt_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 729;
+			end
+			585: begin // ora_m_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 730;
+			end
+			586: begin // sbc_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			587: begin // sbct_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 731;
+			end
+			588: begin // nop_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			589: begin // nop_abx 5
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 588;
+			end
+			590: begin // adc_m_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 732;
+			end
+			591: begin // adct_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 733;
+			end
+			592: begin // ror_m_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 734;
+			end
+			593: begin // ora_m_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 735;
+			end
+			594: begin // sbc_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			595: begin // cmpt_abx 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 736;
 			end
-			597: begin // adc_m_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			596: begin // eort_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 737;
 			end
-			598: begin // adc_m_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			597: begin // bvc_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			598: begin // ora_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 738;
 			end
 			599: begin // cmp_m_aby 4
 				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 739;
 			end
-			600: begin // jsr_m_adr 3
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'($signed({16'd0, SP})); dout = 8'($signed({16'd0, PC})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			600: begin // ort_aby 4
+				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 740;
 			end
-			601: begin // eor_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			601: begin // bmi_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			602: begin // sta_m_zpg 3
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			603: begin // ora_m_idx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 741;
-			end
-			604: begin // eor_m_aby 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 742;
-			end
-			605: begin // andt_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 743;
-			end
-			606: begin // adct_zpg 3
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 744;
-			end
-			607: begin // lsr_m_zpg 3
-				do_lsr($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 745;
-			end
-			608: begin // jmp_ind 4
-				PC = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 746;
-			end
-			609: begin // lda_aba 4
-				A = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			610: begin // and_m_zpx 3
+			602: begin // and_aba 4
 				TMP2 = 8'($signed({24'd0, DIN}));
 				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			611: begin // ldt_zpx 3
+			603: begin // sta_m_idy 3
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'(f_set_l($signed({16'd0, TMP}), (($signed({16'd0, TMP})) + ($signed({24'd0, Y}))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 741;
+			end
+			604: begin // ldt_zpx 3
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 742;
+			end
+			605: begin // cmpt_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 743;
+			end
+			606: begin // bit_aba 4
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_bit($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			607: begin // eort_zpx 3
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 744;
+			end
+			608: begin // brk_m_imp 9
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'($signed({16'd0, SP})); b_dout = 8'(((($signed({31'd0, irq_taken})) != 0) ? ((($signed({24'd0, P})) & ((~(32'sd16))))) : ($signed({24'd0, P})))); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 745;
+			end
+			609: begin // adct_zpg 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 746;
+			end
+			610: begin // bbs_bar 10
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			611: begin // bbs_bar 3
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 747;
 			end
-			612: begin // lsr_m_aba 4
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			612: begin // bvs_m_rel 4
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			613: begin // ldt_idx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 748;
 			end
-			613: begin // sbc_aba 4
+			614: begin // ldt_aba 4
 				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			614: begin // eort_abx 4
-				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 749;
 			end
-			615: begin // asl_m_abx 4
+			615: begin // adct_abx 4
 				TMP = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X}))));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 750;
 			end
-			616: begin // seb_biz 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			617: begin // andt_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			616: begin // andt_zpg 4
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 751;
 			end
-			618: begin // lda_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			617: begin // inc_m_zpx 5
+				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 752;
 			end
-			619: begin // ort_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			618: begin // sbct_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 753;
 			end
-			620: begin // jsr_zpi 4
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			619: begin // eor_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			620: begin // and_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 754;
 			end
-			621: begin // andt_imm 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			622: begin // lda_m_aby 5
-				A = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			623: begin // adct_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			621: begin // jsr_zpi 4
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = 16'((($signed({24'd0, TMP2})) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 755;
 			end
-			624: begin // rol_m_abx 6
+			622: begin // stx_m_aba 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			623: begin // adct_aby 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 756;
 			end
-			625: begin // adc_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			624: begin // lda_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 757;
 			end
-			626: begin // lsr_m_zpx 5
-				do_lsr($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			625: begin // reset_m 7
+				PC = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(32'sd65535); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 758;
 			end
-			627: begin // jsr_spg 4
+			626: begin // cmpt_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 759;
+			end
+			627: begin // sty_m_zpx 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			628: begin // asl_m_aba 5
+				do_asl($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 760;
+			end
+			629: begin // adct_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 761;
+			end
+			630: begin // shy_abx 12
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			631: begin // rol_m_aba 5
+				do_rol($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 762;
+			end
+			632: begin // kil_non 4
+				b_addr = 16'(32'sd65535); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 763;
+			end
+			633: begin // sbct_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 764;
+			end
+			634: begin // bbs_bzr 12
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			635: begin // bbs_bzr 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 765;
+			end
+			636: begin // bbc_bar 4
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 766;
+			end
+			637: begin // lsr_m_aba 5
+				do_lsr($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 767;
+			end
+			638: begin // inc_m_zpg 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			639: begin // ora_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			640: begin // adct_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 768;
+			end
+			641: begin // andt_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 769;
+			end
+			642: begin // ldt_zpg 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			643: begin // rol_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 770;
+			end
+			644: begin // cmp_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 771;
+			end
+			645: begin // jsr_spg 4
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), 32'sd255));
 				PC = 16'($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			628: begin // ror_m_abx 6
+			646: begin // ldt_aby 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 759;
-			end
-			629: begin // rol_m_aba 5
-				do_rol($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 760;
-			end
-			630: begin // and_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 761;
-			end
-			631: begin // adct_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 762;
-			end
-			632: begin // stx_m_aba 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			633: begin // ort_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 763;
-			end
-			634: begin // kil_non 4
-				addr = 16'(32'sd65535); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 764;
-			end
-			635: begin // shy_abx 12
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			636: begin // stx_m_zpy 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			637: begin // andt_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 765;
-			end
-			638: begin // ldt_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 766;
-			end
-			639: begin // cmp_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			640: begin // ldt_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 767;
-			end
-			641: begin // sty_m_zpx 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			642: begin // sta_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 768;
-			end
-			643: begin // bbc_bzr 12
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			644: begin // bbc_bzr 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 769;
-			end
-			645: begin // dec_m_zpg 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			646: begin // reset_m 7
-				PC = 16'($signed({24'd0, DIN}));
-				addr = 16'(32'sd65535); wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 770;
-			end
-			647: begin // ora_m_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			648: begin // eort_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 771;
-			end
-			649: begin // ort_imm 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			650: begin // ort_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 772;
 			end
-			651: begin // dec_m_abx 6
+			647: begin // dec_m_zpg 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			648: begin // sbct_abx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 773;
 			end
-			652: begin // and_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			649: begin // andt_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 774;
 			end
-			653: begin // lda_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 775;
-			end
-			654: begin // sbc_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 776;
-			end
-			655: begin // and_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			656: begin // eort_imm 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			657: begin // eort_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 777;
-			end
-			658: begin // eor_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			659: begin // adct_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 778;
-			end
-			660: begin // sbct_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 779;
-			end
-			661: begin // adct_imm 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			662: begin // sbct_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 780;
-			end
-			663: begin // andt_zpg 4
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 781;
-			end
-			664: begin // ldt_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 782;
-			end
-			665: begin // eor_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 783;
-			end
-			666: begin // sbct_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 784;
-			end
-			667: begin // rts_m_imp 5
-				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, PC})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 785;
-			end
-			668: begin // ldy_m_abx 6
+			650: begin // ldy_m_abx 6
 				Y = 8'($signed({24'd0, DIN}));
 				set_nz($signed({24'd0, Y}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			669: begin // sbc_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			651: begin // ror_m_zpg 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			670: begin // ldt_zpg 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			671: begin // sta_m_aby 5
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 786;
-			end
-			672: begin // dec_m_zpx 5
-				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 787;
-			end
-			673: begin // ora_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 788;
-			end
-			674: begin // rol_m_zpg 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			675: begin // clb_biz 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			676: begin // inc_m_zpg 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			677: begin // sbct_zpg 4
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 789;
-			end
-			678: begin // ort_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 790;
-			end
-			679: begin // adct_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 791;
-			end
-			680: begin // bbs_bzr 12
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			681: begin // bbs_bzr 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 792;
-			end
-			682: begin // eort_zpg 4
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 793;
-			end
-			683: begin // cmpt_zpx 4
-				TMP = 16'($signed({24'd0, DIN}));
-				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			684: begin // adct_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 794;
-			end
-			685: begin // bbc_bar 4
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 795;
-			end
-			686: begin // ora_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			687: begin // ror_m_zpx 5
-				do_ror($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 796;
-			end
-			688: begin // brk_m_imp 11
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				if (($signed({31'd0, irq_taken})) == 0) begin
-					addr = 16'($signed({16'd0, irq_vector})); wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 797;
-				end else begin
-					addr = 16'($signed({16'd0, irq_vector})); wr = 1'b0; sync = 1'b0; tap = 1'b0;
-					st = 797;
-				end
-			end
-			689: begin // asl_m_zpg 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			690: begin // rrf_zpg 4
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 798;
-			end
-			691: begin // sbc_m_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			692: begin // andt_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 799;
-			end
-			693: begin // sta_m_abx 5
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 800;
-			end
-			694: begin // cmpt_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 801;
-			end
-			695: begin // sbc_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 802;
-			end
-			696: begin // asl_m_zpx 5
-				do_asl($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 803;
-			end
-			697: begin // sta_m_aba 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			698: begin // ror_m_aba 5
-				do_ror($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 804;
-			end
-			699: begin // dec_m_aba 5
-				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 805;
-			end
-			700: begin // bbs_bar 4
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 806;
-			end
-			701: begin // adc_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 807;
-			end
-			702: begin // sta_m_zpx 4
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			703: begin // and_m_aby 6
+			652: begin // and_m_abx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
 				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			704: begin // ort_zpg 4
-				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 808;
+			653: begin // sta_m_abx 5
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, X})))); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 775;
 			end
-			705: begin // ror_m_zpg 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			706: begin // lsr_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 809;
-			end
-			707: begin // ldx_m_aby 5
-				X = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, X}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			708: begin // cmp_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 810;
-			end
-			709: begin // cmpt_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			710: begin // sbct_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 811;
-			end
-			711: begin // eor_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 812;
-			end
-			712: begin // eort_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 813;
-			end
-			713: begin // eort_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 814;
-			end
-			714: begin // ldt_aba 5
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 815;
-			end
-			715: begin // sbct_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 816;
-			end
-			716: begin // inc_m_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 817;
-			end
-			717: begin // shx_aby 12
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			718: begin // inc_m_zpx 5
-				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 818;
-			end
-			719: begin // ldt_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 819;
-			end
-			720: begin // rol_m_zpx 5
-				do_rol($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 820;
-			end
-			721: begin // andt_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 821;
-			end
-			722: begin // eort_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 822;
-			end
-			723: begin // ort_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 823;
-			end
-			724: begin // sta_m_idy 4
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 824;
-			end
-			725: begin // lda_m_abx 5
-				A = 8'($signed({24'd0, DIN}));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			726: begin // inc_m_aba 5
-				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 825;
-			end
-			727: begin // asl_m_aba 5
-				do_asl($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 826;
-			end
-			728: begin // com_zpg 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			729: begin // cmpt_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 827;
-			end
-			730: begin // plp_m_imp ('fetch', 5)
+			654: begin // plp_m_imp ('fetch', 5)
 				fetch_end;
 				P = 8'($signed({16'd0, TMP}));
 				dispatch;
 			end
-			731: begin // cmp_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 828;
-			end
-			732: begin // ort_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 829;
-			end
-			733: begin // andt_aby 6
+			655: begin // eor_m_aby 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 830;
-			end
-			734: begin // sty_m_aba 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			735: begin // adct_aba 5
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 831;
+			656: begin // cmp_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
 			end
-			736: begin // rti_m_imp 6
+			657: begin // andt_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 776;
+			end
+			658: begin // sty_m_aba 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			659: begin // dec_m_aba 5
+				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 777;
+			end
+			660: begin // ort_imm 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			661: begin // ldt_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 778;
+			end
+			662: begin // ror_m_aba 5
+				do_ror($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 779;
+			end
+			663: begin // ort_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 780;
+			end
+			664: begin // eort_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 781;
+			end
+			665: begin // stx_m_zpy 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			666: begin // lsr_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 782;
+			end
+			667: begin // sta_m_zpx 4
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			668: begin // sta_m_aby 5
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 783;
+			end
+			669: begin // dec_m_zpx 5
+				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 784;
+			end
+			670: begin // sta_m_aba 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			671: begin // eort_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 785;
+			end
+			672: begin // rti_m_imp 6
 				PC = 16'($signed({24'd0, DIN}));
 				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) + 32'sd1));
-				addr = 16'($signed({16'd0, SP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 832;
+				b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 786;
 			end
-			737: begin // adc_m_abx 6
+			673: begin // jsr_m_adr 5
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+				st = 787;
+			end
+			674: begin // dec_m_abx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 788;
+			end
+			675: begin // asl_m_zpx 5
+				do_asl($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 789;
+			end
+			676: begin // ort_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 790;
+			end
+			677: begin // adct_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 791;
+			end
+			678: begin // cmp_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 792;
+			end
+			679: begin // and_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 793;
+			end
+			680: begin // sbct_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 794;
+			end
+			681: begin // andt_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 795;
+			end
+			682: begin // clb_biz 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			738: begin // adc_m_aby 6
+			683: begin // shx_aby 12
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			684: begin // lda_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 796;
+			end
+			685: begin // rrf_zpg 4
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 797;
+			end
+			686: begin // bbc_bzr 12
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			687: begin // bbc_bzr 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (32'sd1)))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 798;
+			end
+			688: begin // lda_m_abx 5
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			689: begin // ort_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 799;
+			end
+			690: begin // jmp_ind 5
+				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			691: begin // sbc_m_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			692: begin // rol_m_zpg 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			693: begin // sbct_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 800;
+			end
+			694: begin // asl_m_zpg 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			695: begin // andt_imm 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			696: begin // ldx_m_aby 5
+				X = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, X}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			697: begin // eor_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 801;
+			end
+			698: begin // eort_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 802;
+			end
+			699: begin // com_zpg 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			700: begin // adc_m_abx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
 				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
+			end
+			701: begin // and_m_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			702: begin // lsr_m_zpx 5
+				do_lsr($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 803;
+			end
+			703: begin // inc_m_aba 5
+				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 804;
+			end
+			704: begin // lda_m_aby 5
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			705: begin // ort_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 805;
+			end
+			706: begin // ror_m_zpx 5
+				do_ror($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 806;
+			end
+			707: begin // asl_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 807;
+			end
+			708: begin // adct_imm 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			709: begin // andt_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 808;
+			end
+			710: begin // eort_imm 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			711: begin // sbc_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 809;
+			end
+			712: begin // eort_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 810;
+			end
+			713: begin // sbc_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			714: begin // rts_m_imp 5
+				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, PC})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 811;
+			end
+			715: begin // ort_zpg 4
+				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 812;
+			end
+			716: begin // lsr_m_zpg 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			717: begin // rol_m_zpx 5
+				do_rol($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 813;
+			end
+			718: begin // ldt_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 814;
+			end
+			719: begin // adc_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 815;
+			end
+			720: begin // sta_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 816;
+			end
+			721: begin // ort_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 817;
+			end
+			722: begin // andt_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 818;
+			end
+			723: begin // eort_zpg 4
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 819;
+			end
+			724: begin // sbc_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 820;
+			end
+			725: begin // seb_biz 5
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			726: begin // adc_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 821;
+			end
+			727: begin // eor_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 822;
+			end
+			728: begin // inc_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 823;
+			end
+			729: begin // cmpt_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			730: begin // ora_m_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			731: begin // sbct_zpg 4
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 824;
+			end
+			732: begin // adc_m_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_adc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			733: begin // adct_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 825;
+			end
+			734: begin // ror_m_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 826;
+			end
+			735: begin // ora_m_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 827;
+			end
+			736: begin // cmpt_abx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 828;
+			end
+			737: begin // eort_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 829;
+			end
+			738: begin // ora_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 830;
 			end
 			739: begin // cmp_m_aby 6
 				TMP2 = 8'($signed({24'd0, DIN}));
 				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			740: begin // jsr_m_adr 5
-				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
-				addr = PC; wr = 1'b0; sync = 1'b0; tap = 1'b0;
+			740: begin // ort_aby 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 831;
+			end
+			741: begin // sta_m_idy 4
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 832;
+			end
+			742: begin // ldt_zpx 4
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 833;
 			end
-			741: begin // ora_m_idx 5
-				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			743: begin // cmpt_aba 5
+				TMP = 16'($signed({24'd0, DIN}));
+				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			744: begin // eort_zpx 4
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 834;
 			end
-			742: begin // eor_m_aby 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
+			745: begin // brk_m_imp 11
+				SP = 16'(f_set_l($signed({16'd0, SP}), $signed({16'd0, SP}) - 32'sd1));
+				if (($signed({31'd0, irq_taken})) == 0) begin
+					b_addr = 16'($signed({16'd0, irq_vector})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 835;
+				end else begin
+					b_addr = 16'($signed({16'd0, irq_vector})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
+					st = 835;
+				end
 			end
-			743: begin // andt_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 835;
-			end
-			744: begin // adct_zpg 4
+			746: begin // adct_zpg 4
 				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 836;
 			end
-			745: begin // lsr_m_zpg 5
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			746: begin // jmp_ind 5
-				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			747: begin // ldt_zpx 4
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			747: begin // bbs_bar 4
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 837;
 			end
-			748: begin // lsr_m_aba 5
-				do_lsr($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			748: begin // ldt_idx 5
+				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 838;
 			end
-			749: begin // eort_abx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			749: begin // ldt_aba 5
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 839;
 			end
-			750: begin // asl_m_abx 6
+			750: begin // adct_abx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 840;
 			end
-			751: begin // andt_zpx 5
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			751: begin // andt_zpg 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			752: begin // inc_m_zpx 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			753: begin // sbct_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 841;
 			end
-			752: begin // lda_m_idy 5
-				A = 8'($signed({24'd0, DIN}));
+			754: begin // and_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			753: begin // ort_aby 7
+			755: begin // jsr_zpi 6
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 842;
 			end
-			754: begin // jsr_zpi 6
+			756: begin // adct_aby 7
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'((((($signed({24'd0, TMP2})) + (32'sd1))) & (32'sd255))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 843;
 			end
-			755: begin // adct_abx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 844;
-			end
-			756: begin // rol_m_abx 7
-				do_rol($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 845;
-			end
-			757: begin // adc_m_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			758: begin // lsr_m_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			759: begin // ror_m_abx 7
-				do_ror($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 846;
-			end
-			760: begin // rol_m_aba 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			761: begin // and_m_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			762: begin // adct_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 847;
-			end
-			763: begin // ort_aba 6
-				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 848;
-			end
-			764: begin // kil_non 6
-				addr = 16'(32'sd65535); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 764;
-			end
-			765: begin // andt_aba 6
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 849;
-			end
-			766: begin // ldt_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 850;
-			end
-			767: begin // ldt_abx 7
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 851;
-			end
-			768: begin // sta_m_idx 6
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 852;
-			end
-			769: begin // bbc_bzr 6
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 853;
-			end
-			770: begin // reset_m 8
-				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			771: begin // eort_zpx 5
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 854;
-			end
-			772: begin // ort_abx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 855;
-			end
-			773: begin // dec_m_abx 7
-				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 856;
-			end
-			774: begin // and_m_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			775: begin // lda_m_idx 6
+			757: begin // lda_m_idx 6
 				A = 8'($signed({24'd0, DIN}));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			776: begin // sbc_m_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			758: begin // reset_m 8
+				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			777: begin // eort_aby 7
+			759: begin // cmpt_aby 7
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 857;
-			end
-			778: begin // adct_aby 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 858;
-			end
-			779: begin // sbct_aba 6
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 859;
-			end
-			780: begin // sbct_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 860;
-			end
-			781: begin // andt_zpg 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			782: begin // ldt_aby 7
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 861;
-			end
-			783: begin // eor_m_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			760: begin // asl_m_aba 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			784: begin // sbct_zpx 5
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 862;
+			761: begin // adct_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 844;
 			end
-			785: begin // rts_m_imp 6
+			762: begin // rol_m_aba 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			763: begin // kil_non 6
+				b_addr = 16'(32'sd65535); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 763;
+			end
+			764: begin // sbct_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 845;
+			end
+			765: begin // bbs_bzr 6
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 846;
+			end
+			766: begin // bbc_bar 6
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			786: begin // sta_m_aby 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			767: begin // lsr_m_aba 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			787: begin // dec_m_zpx 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			788: begin // ora_m_idy 5
+			768: begin // adct_idy 5
 				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 847;
+			end
+			769: begin // andt_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 848;
+			end
+			770: begin // rol_m_abx 7
+				do_rol($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 849;
+			end
+			771: begin // cmp_m_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			789: begin // sbct_zpg 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			772: begin // ldt_aby 7
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 850;
+			end
+			773: begin // sbct_abx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 851;
+			end
+			774: begin // andt_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 852;
+			end
+			775: begin // sta_m_abx 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			790: begin // ort_zpx 5
+			776: begin // andt_abx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 853;
+			end
+			777: begin // dec_m_aba 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			778: begin // ldt_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 854;
+			end
+			779: begin // ror_m_aba 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			780: begin // ort_zpx 5
 				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
 				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 863;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 855;
 			end
-			791: begin // adct_zpx 5
-				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 864;
-			end
-			792: begin // bbs_bzr 6
-				PC = 16'($signed({16'd0, PC}) + 32'sd1);
-				addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 865;
-			end
-			793: begin // eort_zpg 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			794: begin // adct_idy 5
+			781: begin // eort_idy 5
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 866;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 856;
 			end
-			795: begin // bbc_bar 6
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			796: begin // ror_m_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			797: begin // brk_m_imp 18
-				PC = 16'($signed({24'd0, DIN}));
-				addr = 16'((($signed({16'd0, irq_vector})) + (32'sd1))); wr = 1'b0; sync = 1'b0; tap = 1'b0;
-				st = 867;
-			end
-			798: begin // rrf_zpg 5
-				addr = 16'($signed({16'd0, TMP})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 868;
-			end
-			799: begin // andt_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 869;
-			end
-			800: begin // sta_m_abx 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			801: begin // cmpt_abx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			802: begin // sbc_m_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_sbc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			803: begin // asl_m_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			804: begin // ror_m_aba 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			805: begin // dec_m_aba 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			806: begin // bbs_bar 6
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			807: begin // adc_m_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_adc($signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			808: begin // ort_zpg 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			809: begin // lsr_m_abx 7
+			782: begin // lsr_m_abx 7
 				do_lsr($signed({24'd0, TMP2}));
 				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 870;
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 857;
 			end
-			810: begin // cmp_m_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			783: begin // sta_m_aby 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			811: begin // sbct_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 871;
-			end
-			812: begin // eor_m_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			784: begin // dec_m_zpx 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			813: begin // eort_aba 6
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 872;
-			end
-			814: begin // eort_idy 5
+			785: begin // eort_idx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 873;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 858;
 			end
-			815: begin // ldt_aba 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			816: begin // sbct_abx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 874;
-			end
-			817: begin // inc_m_abx 7
-				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 875;
-			end
-			818: begin // inc_m_zpx 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			819: begin // ldt_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 876;
-			end
-			820: begin // rol_m_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			821: begin // andt_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 877;
-			end
-			822: begin // eort_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 878;
-			end
-			823: begin // ort_idy 5
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 879;
-			end
-			824: begin // sta_m_idy 5
-				addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); dout = 8'($signed({24'd0, A})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 880;
-			end
-			825: begin // inc_m_aba 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			826: begin // asl_m_aba 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			827: begin // cmpt_aby 7
-				TMP = 16'($signed({24'd0, DIN}));
-				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			828: begin // cmp_m_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			829: begin // ort_idx 6
-				TMP2 = 8'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 881;
-			end
-			830: begin // andt_aby 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 882;
-			end
-			831: begin // adct_aba 6
-				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 883;
-			end
-			832: begin // rti_m_imp 8
+			786: begin // rti_m_imp 8
 				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			833: begin // jsr_m_adr 7
+			787: begin // jsr_m_adr 7
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, PC}) + 32'sd1);
 				PC = 16'($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			834: begin // ora_m_idx 6
+			788: begin // dec_m_abx 7
+				TMP2 = 8'($signed({24'd0, TMP2}) - 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 859;
+			end
+			789: begin // asl_m_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			790: begin // ort_aba 6
+				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 860;
+			end
+			791: begin // adct_aba 6
+				do_adct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 861;
+			end
+			792: begin // cmp_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_cmp($signed({24'd0, A}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			793: begin // and_m_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			794: begin // sbct_aba 6
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 862;
+			end
+			795: begin // andt_aby 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 863;
+			end
+			796: begin // lda_m_idy 5
+				A = 8'($signed({24'd0, DIN}));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			797: begin // rrf_zpg 5
+				b_addr = 16'($signed({16'd0, TMP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 864;
+			end
+			798: begin // bbc_bzr 6
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = 16'(f_set_l($signed({16'd0, PC}), (($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 865;
+			end
+			799: begin // ort_abx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 866;
+			end
+			800: begin // sbct_zpx 5
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 867;
+			end
+			801: begin // eor_m_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			802: begin // eort_abx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 868;
+			end
+			803: begin // lsr_m_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			804: begin // inc_m_aba 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			805: begin // ort_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 869;
+			end
+			806: begin // ror_m_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			807: begin // asl_m_abx 7
+				do_asl($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 870;
+			end
+			808: begin // andt_zpx 5
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 871;
+			end
+			809: begin // sbc_m_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			810: begin // eort_aba 6
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 872;
+			end
+			811: begin // rts_m_imp 6
+				PC = 16'($signed({16'd0, PC}) + 32'sd1);
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			812: begin // ort_zpg 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			813: begin // rol_m_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			814: begin // ldt_abx 7
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 873;
+			end
+			815: begin // adc_m_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_adc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			816: begin // sta_m_idx 6
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 874;
+			end
+			817: begin // ort_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 875;
+			end
+			818: begin // andt_aba 6
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 876;
+			end
+			819: begin // eort_zpg 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			820: begin // sbc_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_sbc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			821: begin // adc_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				do_adc($signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			822: begin // eor_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			823: begin // inc_m_abx 7
+				TMP2 = 8'($signed({24'd0, TMP2}) + 32'sd1);
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 877;
+			end
+			824: begin // sbct_zpg 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			825: begin // adct_zpx 5
+				do_adct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 878;
+			end
+			826: begin // ror_m_abx 7
+				do_ror($signed({24'd0, TMP2}));
+				TMP2 = 8'(RET);
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 879;
+			end
+			827: begin // ora_m_idx 6
 				TMP2 = 8'($signed({24'd0, DIN}));
 				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
 				set_nz($signed({24'd0, A}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			835: begin // andt_abx 7
+			828: begin // cmpt_abx 7
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				do_cmp($signed({16'd0, TMP}), $signed({24'd0, TMP2}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			829: begin // eort_aby 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 880;
+			end
+			830: begin // ora_m_idy 5
+				TMP2 = 8'($signed({24'd0, DIN}));
+				A = 8'((($signed({24'd0, A})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({24'd0, A}));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			831: begin // ort_aby 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 881;
+			end
+			832: begin // sta_m_idy 5
+				b_addr = 16'((($signed({16'd0, TMP})) + ($signed({24'd0, Y})))); b_dout = 8'($signed({24'd0, A})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 882;
+			end
+			833: begin // ldt_zpx 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			834: begin // eort_zpx 5
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 883;
+			end
+			835: begin // brk_m_imp 18
+				PC = 16'($signed({24'd0, DIN}));
+				b_addr = 16'((($signed({16'd0, irq_vector})) + (32'sd1))); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b0;
 				st = 884;
 			end
 			836: begin // adct_zpg 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			837: begin // ldt_zpx 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			837: begin // bbs_bar 6
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			838: begin // lsr_m_aba 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			839: begin // eort_abx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			838: begin // ldt_idx 6
+				TMP2 = 8'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 885;
 			end
-			840: begin // asl_m_abx 7
-				do_asl($signed({24'd0, TMP2}));
-				TMP2 = 8'(RET);
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			839: begin // ldt_aba 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			840: begin // adct_abx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 886;
 			end
-			841: begin // andt_zpx 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			842: begin // ort_aby 8
-				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			841: begin // sbct_idy 6
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 887;
 			end
-			843: begin // jsr_zpi 7
+			842: begin // jsr_zpi 7
 				TMP = 16'(f_set_h($signed({16'd0, TMP}), $signed({24'd0, DIN})));
 				PC = 16'($signed({16'd0, TMP}));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			844: begin // adct_abx 8
+			843: begin // adct_aby 8
 				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 888;
 			end
-			845: begin // rol_m_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			846: begin // ror_m_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			847: begin // adct_idx 7
+			844: begin // adct_idx 7
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 889;
 			end
-			848: begin // ort_aba 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			849: begin // andt_aba 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			850: begin // ldt_idx 7
-				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			845: begin // sbct_idx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 890;
 			end
-			851: begin // ldt_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			852: begin // sta_m_idx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			853: begin // bbc_bzr 8
+			846: begin // bbs_bzr 8
 				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			854: begin // eort_zpx 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			855: begin // ort_abx 8
-				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			847: begin // adct_idy 6
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 891;
 			end
-			856: begin // dec_m_abx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			857: begin // eort_aby 8
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			848: begin // andt_idx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 892;
 			end
-			858: begin // adct_aby 8
-				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			849: begin // rol_m_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			850: begin // ldt_aby 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			851: begin // sbct_abx 8
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 893;
 			end
-			859: begin // sbct_aba 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			860: begin // sbct_idy 6
+			852: begin // andt_idy 6
 				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 				st = 894;
 			end
-			861: begin // ldt_aby 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			862: begin // sbct_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			863: begin // ort_zpx 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			864: begin // adct_zpx 7
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			865: begin // bbs_bzr 8
-				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			866: begin // adct_idy 6
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
+			853: begin // andt_abx 8
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 895;
 			end
-			867: begin // brk_m_imp 19
+			854: begin // ldt_idy 6
+				set_nz($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 896;
+			end
+			855: begin // ort_zpx 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			856: begin // eort_idy 6
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 897;
+			end
+			857: begin // lsr_m_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			858: begin // eort_idx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 898;
+			end
+			859: begin // dec_m_abx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			860: begin // ort_aba 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			861: begin // adct_aba 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			862: begin // sbct_aba 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			863: begin // andt_aby 8
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 899;
+			end
+			864: begin // rrf_zpg 6
+				TMP2 = 8'(f_do_rrf($signed({24'd0, TMP2})));
+				b_addr = 16'($signed({16'd0, TMP})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 900;
+			end
+			865: begin // bbc_bzr 8
+				PC = 16'((($signed({16'd0, PC})) + (s8($signed({16'd0, TMP})))));
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			866: begin // ort_abx 8
+				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 901;
+			end
+			867: begin // sbct_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			868: begin // eort_abx 8
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 902;
+			end
+			869: begin // ort_idx 7
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 903;
+			end
+			870: begin // asl_m_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			871: begin // andt_zpx 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			872: begin // eort_aba 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			873: begin // ldt_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			874: begin // sta_m_idx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			875: begin // ort_idy 6
+				TMP = 16'($signed({24'd0, DIN}));
+				b_addr = 16'($signed({24'd0, X})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
+				st = 904;
+			end
+			876: begin // andt_aba 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			877: begin // inc_m_abx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			878: begin // adct_zpx 7
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			879: begin // ror_m_abx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			880: begin // eort_aby 8
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 905;
+			end
+			881: begin // ort_aby 8
+				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 906;
+			end
+			882: begin // sta_m_idy 6
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			883: begin // eort_zpx 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			884: begin // brk_m_imp 19
 				PC = 16'(f_set_h($signed({16'd0, PC}), $signed({24'd0, DIN})));
 				irq_taken = 1'(32'sd0);
 				P = 8'((($signed({24'd0, P})) | (32'sd4)));
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			868: begin // rrf_zpg 6
-				TMP2 = 8'(f_do_rrf($signed({24'd0, TMP2})));
-				addr = 16'($signed({16'd0, TMP})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 896;
-			end
-			869: begin // andt_idy 6
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 897;
-			end
-			870: begin // lsr_m_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			871: begin // sbct_idx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 898;
-			end
-			872: begin // eort_aba 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			873: begin // eort_idy 6
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 899;
-			end
-			874: begin // sbct_abx 8
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 900;
-			end
-			875: begin // inc_m_abx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			876: begin // ldt_idy 6
+			885: begin // ldt_idx 7
 				set_nz($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({24'd0, TMP2})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 901;
-			end
-			877: begin // andt_idx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 902;
-			end
-			878: begin // eort_idx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 903;
-			end
-			879: begin // ort_idy 6
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 904;
-			end
-			880: begin // sta_m_idy 6
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			881: begin // ort_idx 7
-				TMP = 16'($signed({24'd0, DIN}));
-				addr = 16'($signed({24'd0, X})); wr = 1'b0; sync = 1'b0; tap = 1'b1;
-				st = 905;
-			end
-			882: begin // andt_aby 8
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 906;
-			end
-			883: begin // adct_aba 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			884: begin // andt_abx 8
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({24'd0, TMP2})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 907;
 			end
-			885: begin // eort_abx 8
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			886: begin // adct_abx 8
+				do_adct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 908;
 			end
-			886: begin // asl_m_abx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
+			887: begin // sbct_idy 7
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 909;
 			end
-			887: begin // ort_aby 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			888: begin // adct_abx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			888: begin // adct_aby 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
 			889: begin // adct_idx 8
 				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 909;
-			end
-			890: begin // ldt_idx 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			891: begin // ort_abx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			892: begin // eort_aby 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			893: begin // adct_aby 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			894: begin // sbct_idy 7
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 910;
 			end
-			895: begin // adct_idy 7
-				do_adct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			890: begin // sbct_idx 8
+				do_sbct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 911;
 			end
-			896: begin // rrf_zpg 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			897: begin // andt_idy 7
-				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+			891: begin // adct_idy 7
+				do_adct($signed({24'd0, TMP2}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 912;
 			end
-			898: begin // sbct_idx 8
-				do_sbct($signed({24'd0, TMP2}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 913;
-			end
-			899: begin // eort_idy 7
-				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 914;
-			end
-			900: begin // sbct_abx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			901: begin // ldt_idy 8
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
-				st = S_FETCH;
-			end
-			902: begin // andt_idx 8
+			892: begin // andt_idx 8
 				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
 				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 915;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 913;
 			end
-			903: begin // eort_idx 8
+			893: begin // sbct_abx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			894: begin // andt_idy 7
+				TMP = 16'((($signed({16'd0, TMP})) & ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 914;
+			end
+			895: begin // andt_abx 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			896: begin // ldt_idy 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			897: begin // eort_idy 7
 				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
 				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 915;
+			end
+			898: begin // eort_idx 8
+				TMP = 16'((($signed({16'd0, TMP})) ^ ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 916;
+			end
+			899: begin // andt_aby 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			900: begin // rrf_zpg 8
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			901: begin // ort_abx 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			902: begin // eort_abx 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			903: begin // ort_idx 8
+				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
+				set_nz($signed({16'd0, TMP}));
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
+				st = 917;
 			end
 			904: begin // ort_idy 7
 				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
 				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
-				st = 917;
-			end
-			905: begin // ort_idx 8
-				TMP = 16'((($signed({16'd0, TMP})) | ($signed({24'd0, TMP2}))));
-				set_nz($signed({16'd0, TMP}));
-				addr = 16'($signed({24'd0, X})); dout = 8'($signed({16'd0, TMP})); wr = 1'b1; sync = 1'b0; tap = 1'b1;
+				b_addr = 16'($signed({24'd0, X})); b_dout = 8'($signed({16'd0, TMP})); b_wr = 1'b1; b_sync = 1'b0; b_tap = 1'b1;
 				st = 918;
 			end
-			906: begin // andt_aby 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			905: begin // eort_aby 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			907: begin // andt_abx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			906: begin // ort_aby 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			908: begin // eort_abx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			907: begin // ldt_idx 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			909: begin // adct_idx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			908: begin // adct_abx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			910: begin // sbct_idy 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			909: begin // sbct_idy 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			911: begin // adct_idy 9
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			910: begin // adct_idx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			912: begin // andt_idy 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			911: begin // sbct_idx 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			913: begin // sbct_idx 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			912: begin // adct_idy 9
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			914: begin // eort_idy 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			913: begin // andt_idx 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			915: begin // andt_idx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			914: begin // andt_idy 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
+				st = S_FETCH;
+			end
+			915: begin // eort_idy 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
 			916: begin // eort_idx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			917: begin // ort_idy 10
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			917: begin // ort_idx 11
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
-			918: begin // ort_idx 11
-				addr = PC; wr = 1'b0; sync = 1'b1; tap = 1'b0;
+			918: begin // ort_idy 10
+				b_addr = PC; b_wr = 1'b0; b_sync = 1'b1; b_tap = 1'b0;
 				st = S_FETCH;
 			end
 			S_FETCH: begin
@@ -7331,5 +7334,7 @@ module ns2_m740 (
 			default: st = S_FETCH;
 			endcase
 		end
+		// the bus outputs: registered, so the other blocks see this cycle's until the edge
+		addr <= b_addr; dout <= b_dout; wr <= b_wr; sync <= b_sync; tap <= b_tap;
 	end
 endmodule

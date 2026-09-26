@@ -593,6 +593,13 @@ on 68,000+ frames and on flip through the model. For M3:
   access over 1,500,000 accesses.
 - The 6809's first 60,000 writes match, and so do all 65,817 of the MCU's
   DPRAM writes (to frame 1184). NS2-8 has the details.
+- With MAME's CPUs interleaved finely, the master matches 8,000,000
+  accesses and the C140 all 298,700 samples (14 s).
+- The board's pictures, replayed from MAME's writes line by line: 675 of
+  678 frames exact, and the rest are writes within a line's own fetch
+  window (NS2-10).
+- The C68 (Super World Stadium '92): all 3,000,000 cycles in its harness,
+  and all 14,846 DPRAM writes on the board (NS2-9).
 
 `sim/rtl/ns2_frames`:
 - both 68000s, the 6809, the MCU (D2), the sound, the video; the ROMs as

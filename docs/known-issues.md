@@ -439,6 +439,14 @@ every cycle: address, direction, data. The DPRAM reads return MAME's values
 (the 68000s are not in the harness).
 - **Super World Stadium '92:** all 3,000,000 cycles match (89 frames from
   the release, every VBL and A/D interrupt).
+- **On the board:** all of the C68's 14,846 DPRAM writes match MAME's, to
+  frame 400, the Start press included.
+- **A simulation race, fixed.** The generated core first set its bus outputs
+  with blocking assignments in its clocked block. The peripherals, clocked by
+  the same edge, could then see the next cycle's address and data, depending
+  on the simulator's order. The harness happened to work; the board lost
+  pushes. The core now computes into internal variables and registers its
+  outputs.
 
 **MAME's timing.**
 - MAME checks for an interrupt at the end of an opcode fetch cycle, and a
@@ -449,3 +457,32 @@ every cycle: address, direction, data. The DPRAM reads return MAME's values
   of 89 frames). The harness moves each frame's line 200 to MAME's entry
   when one lies within two cycles. On the board, a VBL can land one
   instruction apart from MAME's: MS1-22's allowance.
+
+## NS2-10 — The board's pictures, replayed from MAME's writes (closed for Assault, measured)
+
+`sim/rtl/ns2_frames` with `PICS=` compares the board's pictures with
+MAME's. MAME's picture F is captured at (F + 1) × 811,008 clocks, when the
+board's frame F finishes. MAME draws its picture in bands, at the POSIRQ
+line and at vblank, from the video state of those moments (NS2-2), so a
+game that writes the video during the frame shows up differently from the
+board's raster.
+
+Assault, 700 frames from power-on, with MAME's fine quantum (NS2-8):
+- **Against MAME's pictures:** 521 of 700 exact. The others are:
+  - MAME's boot screen (1–21, a MAME artifact);
+  - text written during frame 79 (the board shows it on the lines drawn
+    after the writes; MAME's picture shows it partly);
+  - the Start-press screens and the play frames from 326 on, whose writes
+    fall during the frame.
+
+**The replay** (`tools/ns2_replay.py`). The capture logs every video write
+with its clock (`writes.txt`). For each line of the board's frame F, the
+replay takes MAME's state at the frame's start, plus:
+- the writes made before the line's fetch (during the line before it), for
+  its tiles, sprites, ROZ and registers;
+- those made before its output, for its colours.
+
+The model renders each distinct state once.
+- **675 of 678 frames exact, line for line.** The other 3 frames have 4
+  lines between them, each with a write inside that line's own fetch
+  window, so the board may show either value. No line differs without one.
