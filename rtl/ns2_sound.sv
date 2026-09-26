@@ -19,6 +19,8 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	input      [7:0]  rom_data,
 	input             rom_ready,
 	output            rom_rd,
+	output            rom_hold,       // this clock, the cycle waits for the ROM's cache
+	input             stop,           // every CPU stops (any one's rom_hold)
 	output            rom_smp,        // rom_rd and the address have settled (ns2_rom_cache SAMPLED)
 	// the DPRAM's sound port
 	output reg [10:0] dp_addr,
@@ -46,10 +48,12 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 );
 	// E and Q: quarters of 6 clocks; falling E starts a cycle
 	reg [4:0] ph;
-	// a ROM read not ready holds the cycle at its last clock
+	// a ROM read not ready holds the cycle at its last clock (rom_hold); any
+	// CPU's hold stops every CPU (stop: the board's lockstep, NS2-14)
 	wire rom_wait;
-	always @(posedge clk) ph <= (ph == 5'd23) ? (rom_wait ? 5'd23 : 5'd0) : ph + 1'd1;
-	wire fallE = ph == 5'd0, fallQ = ph == 5'd18;
+	assign rom_hold = ph == 5'd23 && rom_wait;
+	always @(posedge clk) ph <= stop ? ph : ph == 5'd23 ? 5'd0 : ph + 1'd1;
+	wire fallE = ph == 5'd0 && !stop, fallQ = ph == 5'd18 && !stop;
 	// the CPU's registers change on fallE; its address also follows its data
 	// input (ADDR = addr_nxt). From five clocks after fallE to the cycle's end
 	// the cache takes it, and is ready only for the address it took

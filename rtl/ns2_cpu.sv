@@ -19,6 +19,7 @@ module ns2_cpu #(parameter MASTER = 1) (
 	input      [15:0] rom_data,
 	input             rom_ready,
 	output            rom_rd,         // a program ROM read is on the bus
+	output            rom_hold,       // this clock, a ROM read waits for its cache (ns2_main stops both CPUs' phases)
 	// the EEPROM's load (the download's default NVRAM, master only)
 	input             nv_we,
 	input      [12:0] nv_addr,
@@ -130,6 +131,9 @@ module ns2_cpu #(parameter MASTER = 1) (
 	// DTACK: local devices two clocks after the start (the RAM and ROM have
 	// answered), shared ones when the grant completes
 	reg [2:0] lat;
+	// a read only: a write to the program ROM (Rolling Thunder 2's slave
+	// writes 001000) asks nothing of the cache, and the board ignores it
+	assign rom_hold = lat == 3'd1 && sel_rom && !iack && eRWn && !rom_ready;
 	always @(posedge clk) begin
 		if (cpu_reset) begin dtack <= 1'b0; sh_req <= 1'b0; busy <= 1'b0; lat <= 0; end
 		else begin
@@ -145,7 +149,7 @@ module ns2_cpu #(parameter MASTER = 1) (
 				end
 			end
 			// a ROM read waits at its last count until the ROM is ready
-			if (lat != 0 && !(lat == 3'd1 && sel_rom && !iack && !rom_ready)) begin
+			if (lat != 0 && !rom_hold) begin
 				lat <= lat - 1'd1;
 				if (lat == 3'd1) begin
 					dtack <= 1'b1;

@@ -33,6 +33,8 @@ module ns2_main (
 	input      [7:0]  nv_data,
 	output     [7:0]  nv_q,
 	output            nv_cpu_we,      // the master writes the EEPROM
+	output            cpu_hold,       // this clock, a 68000's ROM read waits for its cache
+	input             stop,           // every CPU stops (any one's hold)
 	// events
 	input             vblank,
 	input             posirq,
@@ -61,10 +63,20 @@ module ns2_main (
 	output     [15:0] m_rdata, s_rdata,
 	output            m_dtack, s_dtack
 );
-	// 12.288 MHz: PHI1 and PHI2 alternate every two clocks
+	// 12.288 MHz: PHI1 and PHI2 alternate every two clocks. The phases stop,
+	// for both CPUs, on a clock where a ROM read waits for its cache (a
+	// program ROM's or the data ROM's): on the board the ROMs never make
+	// either CPU wait, and the games' master / slave handshakes depend on
+	// their lockstep (Rolling Thunder 2, NS2-14). Each CPU's DTACK counts
+	// clocks, so a stop only brings a DTACK earlier in its phases, and a
+	// DTACK is never late without the caches: their timing is M2's.
+	// The stop covers every CPU (the board's: the MCU and the 6809 too, whose
+	// timing against the 68000s the DPRAM handshakes see).
 	reg [1:0] ph;
-	always @(posedge clk) ph <= reset ? 2'd0 : ph + 1'd1;
-	wire en_phi1 = ph == 2'd0, en_phi2 = ph == 2'd2;
+	wire       m_hold, s_hold, drom_hold;
+	assign cpu_hold = m_hold || s_hold || drom_hold;
+	always @(posedge clk) ph <= reset ? 2'd0 : stop ? ph : ph + 1'd1;
+	wire en_phi1 = ph == 2'd0 && !stop, en_phi2 = ph == 2'd2 && !stop;
 
 	wire        m_req, s_req, m_we, s_we, m_uds, s_uds, m_lds, s_lds;
 	wire [23:1] m_sa, s_sa;
@@ -78,7 +90,7 @@ module ns2_main (
 
 	ns2_cpu #(.MASTER(1)) u_master (
 		.clk(clk), .reset(reset), .run(1'b1), .en_phi1(en_phi1), .en_phi2(en_phi2),
-		.rom_addr(mrom_addr), .rom_data(mrom_data), .rom_ready(mrom_ready), .rom_rd(mrom_rd),
+		.rom_addr(mrom_addr), .rom_data(mrom_data), .rom_ready(mrom_ready), .rom_rd(mrom_rd), .rom_hold(m_hold),
 		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(s_irq), .cpuirq_out(m_irq), .ext1(ext1), .ext2(ext2),
 		.sh_req(m_req), .sh_addr(m_sa), .sh_we(m_we), .sh_uds(m_uds), .sh_lds(m_lds), .sh_dout(m_sd),
@@ -86,7 +98,7 @@ module ns2_main (
 		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack));
 	ns2_cpu #(.MASTER(0)) u_slave (
 		.clk(clk), .reset(reset), .run(ext2[0]), .en_phi1(en_phi1), .en_phi2(en_phi2),
-		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd),
+		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd), .rom_hold(s_hold),
 		.nv_we(1'b0), .nv_addr(13'd0), .nv_data(8'd0), .nv_q(), .nv_cpu_we(),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(m_irq), .cpuirq_out(s_irq), .ext1(), .ext2(),
 		.sh_req(s_req), .sh_addr(s_sa), .sh_we(s_we), .sh_uds(s_uds), .sh_lds(s_lds), .sh_dout(s_sd),
@@ -150,6 +162,8 @@ module ns2_main (
 	endfunction
 	assign drom_addr = ga[20:1];
 	assign drom_rd = busy && step != 2'd0 && dev == D_DROM && v_rnw;
+	// the capture step waiting for the data ROM's cache (the arbiter's hold)
+	assign drom_hold = busy && step == 2'd2 && dev == D_DROM && v_rnw && !drom_ready;
 
 	// its ports in Intel's RAM template: written with the grant, read every
 	// clock (the grant's read is taken at step 1)

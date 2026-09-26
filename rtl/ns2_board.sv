@@ -22,6 +22,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	input      [7:0]  mcub, mcuc, mcuh, dsw,
 	input      [31:0] dials,
 	input      [63:0] analog,
+	input             dbg_stall,      // ROMS = 0: the master's ROM not ready (M2's stall experiment)
+	output     [3:0]  dbg_holds,      // the lockstep's sources: {6809, C68, C65, 68000s}
 	// video out
 	output     [7:0]  red, green, blue,
 	output            ce_pix,         // the pixel clock enable (red/green/blue are the pixel at hcnt/vcnt)
@@ -87,6 +89,11 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire [7:0]  arq, irq_q, erq;
 	wire        m_rd, s_rd, d_rd, a_rd, mcu_rd;
 	wire        m_ready, s_ready, d_ready, a_ready, mcu_ready;
+	// the CPUs' lockstep (NS2-14): any CPU waiting for its ROM's cache stops
+	// them all, so the caches never change the CPUs' timing against each other
+	wire        hold_main, hold_65, hold_68, hold_snd;
+	wire        cpu_stop = hold_main || hold_65 || hold_68 || hold_snd;
+	assign dbg_holds = {hold_snd, hold_68, hold_65, hold_main};
 	wire        a_smp, smp_65, smp_68;     // the slow CPUs' ROM address phases (ns2_rom_cache SAMPLED)
 	wire        mcu_smp = mcu_c68 ? smp_68 : smp_65;
 	wire [15:0] a_65, a_68;
@@ -113,7 +120,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 			vr_valid <= vr_req; vr_q <= vrom[vr_addr];
 		end
 		assign {mrq, srq, drq, arq, irq_q, erq} = {mrq_r, srq_r, drq_r, arq_r, irq_r, erq_r};
-		assign {m_ready, s_ready, d_ready, a_ready, mcu_ready} = 5'b11111;
+		// dbg_stall (simulation): the master's ROM as a cache that misses
+		assign {m_ready, s_ready, d_ready, a_ready, mcu_ready} = {!dbg_stall, 4'b1111};
 		assign {mprog_req, sprog_req, drom_req, aud_req, mcu_req, c140_req} = 6'd0;
 		assign mprog_addr = 0; assign sprog_addr = 0; assign drom_addr = 0; assign aud_addr = 0; assign mcu_addr_m = 0; assign c140_addr = 0;
 	end else begin : g_caches
@@ -220,7 +228,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.mrom_addr(mra), .mrom_data(mrq), .mrom_ready(m_ready), .mrom_rd(m_rd),
 		.srom_addr(sra), .srom_data(srq), .srom_ready(s_ready), .srom_rd(s_rd),
 		.drom_addr(dra), .drom_data(drq), .drom_ready(d_ready), .drom_rd(d_rd),
-		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we),
+		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we), .cpu_hold(hold_main), .stop(cpu_stop),
 		.vblank(ev_vbl), .posirq(ev_pos), .sound_run(sound_run), .sub_run(sub_run),
 		.v_addr(v_addr), .v_dout(v_dout), .v_rnw(v_rnw), .v_uds(v_uds), .v_lds(v_lds),
 		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),
@@ -259,13 +267,13 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire        rd_65, rd_68;
 	assign mcu_rd = mcu_c68 ? rd_68 : rd_65;
 	ns2_c65 u_mcu (
-		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65),
+		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65), .rom_hold(hold_65), .stop(cpu_stop),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
 		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
 	ns2_c68 u_c68 (
-		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68),
+		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68), .rom_hold(hold_68), .stop(cpu_stop),
 		.rom_addr(ira68), .rom_data(irq_q),
 		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -280,7 +288,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
 		.clk(clk), .reset(reset), .run(sound_run),
-		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp),
+		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),

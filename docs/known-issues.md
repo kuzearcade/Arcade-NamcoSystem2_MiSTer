@@ -716,7 +716,9 @@ SDRAM write with the last real write's address and the new word's data.
 - On the board, Super World Stadium '92 now reaches its menus. Burning
   Force and Dragon Saber run their attracts.
 
-**Timing.** Later builds missed by 0.38, 0.03 and 0.10 ns on clk_sd. Seeds 2
+**Timing.** Later builds missed by 0.38, 0.03 and 0.10 ns on clk_sd. The
+lockstep build meets both core clocks (clk_sd +0.305, clk +1.696); the
+framework's HDMI clock misses by 0.145 ns. Seeds 2
 to 4 were worse (-1.0 to -1.3 ns), and three effort settings made no
 difference.
 - The miss was in `jtframe_sdram64`'s decode of the next command into A12/A11
@@ -727,12 +729,36 @@ difference.
 - The miss is now -0.09 ns, in the bank arbitration into the command
   register.
 
-**Still wrong on the board:**
-- **Rolling Thunder 2** stays black after its boot. M3 reproduces it: from
-  frame 351, where MAME shows the story intro.
-  - M2 and M3's master accesses agree for 14 M accesses. Then they part at
-    a DPRAM poll, M3 seeing the MCU's bit a loop earlier: a timing
-    difference, not yet the cause.
+**Rolling Thunder 2: a write the ROM cache waited for.** After its boot the
+game stayed black, in M3 and on the board, where MAME plays the story
+intro. The cause:
+- Its slave writes to 001000, inside its program ROM. MAME ignores the
+  write.
+- `ns2_cpu` held any access to the program ROM at its last DTACK count
+  until the cache was ready. The cache is asked only on reads, so the slave
+  waited forever.
+- The master then waited for the slave to clear a flag in the tilemap RAM
+  (409002), and never released the sound CPU.
+- The hold is now for reads only. The intro plays in M3, and on the board.
+
+The trail:
+- `MDUMP` and `MDUMP_S` (M2 against M3) and `UDUMP` / `SDUMP` found that
+  the 6809 was never released again.
+- They then found the master's poll and the slave's stall.
+- A probe of the lockstep's sources caught the slave held at a write
+  (`s_rd` 0 at 001000).
+
+**The CPUs' lockstep.** On the board no ROM makes a CPU wait. Here a cache
+miss stops one CPU, which moves the races between the CPUs (the
+master / slave and DPRAM handshakes).
+- Every CPU now stops on any CPU's miss:
+  - `ns2_main`: the 68000s' phases, `en_phi*` gated;
+  - `ns2_c65` / `ns2_c68`: `div`;
+  - `ns2_sound`: `ph`, with `fallE` and `fallQ` gated.
+- Their timing against each other is then M2's. Against the video it moves
+  by the misses, about 0.01% of the time.
+- M2 with injected master stalls (`STALL=`, `dbg_stall`) still plays
+  Rolling Thunder 2's intro, with small sprite differences from frame 350.
 - **Final Lap** stops at "RAM OK / ROM OK". The FL boards have not been
   through M2's whole-board capture yet.
   - A suspect: the top gives every analog channel 0xFF.

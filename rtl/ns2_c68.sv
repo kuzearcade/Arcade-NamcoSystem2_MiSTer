@@ -28,6 +28,8 @@ module ns2_c68 (
 	input             irq_line200,    // one clock pulse
 	input             rom_ready,      // the ROM's cache has the byte (1 with the arrays)
 	output            rom_rd,         // a ROM read is on the bus
+	output            rom_hold,       // this clock, the cycle waits for the ROM's cache
+	input             stop,           // every CPU stops (any one's rom_hold)
 	output            rom_smp,        // rom_rd and the address have settled (ns2_rom_cache SAMPLED)
 	// the ROM: c68.bin (32 KB), data one clock after the address
 	output     [14:0] rom_addr,
@@ -52,10 +54,13 @@ module ns2_c68 (
 );
 	// 2.048 MHz
 	reg [4:0] div;
-	// a ROM read not ready (a cache over the SDRAM) holds the cycle
+	// a ROM read not ready (a cache over the SDRAM) holds the cycle at its
+	// last clock (rom_hold); any CPU's hold stops every CPU (stop: the
+	// board's lockstep, NS2-14)
 	wire rom_wait;
-	always @(posedge clk) div <= reset ? 5'd0 : div == 5'd23 ? (rom_wait ? 5'd23 : 5'd0) : div + 1'd1;
-	wire cen = div == 5'd23 && !rom_wait;
+	assign rom_hold = div == 5'd23 && rom_wait;
+	always @(posedge clk) div <= reset ? 5'd0 : stop ? div : div == 5'd23 ? 5'd0 : div + 1'd1;
+	wire cen = div == 5'd23 && !stop;
 	// the CPU's outputs change on cen (div 23): from five clocks later to the
 	// cycle's end the cache takes them (the SDC's 4-cycle multicycle paths
 	// from the CPU)

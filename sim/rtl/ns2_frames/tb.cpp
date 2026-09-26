@@ -146,6 +146,9 @@ int main(int argc, char **argv) {
 		uint64_t f = (cyc > 64 ? cyc - 64 : 0) / 811008;
 		unsigned clr = (f > boot_start && f <= boot_start + 6) ? start_mask : 0;
 		t->mcub = start_port == ":MCUB" ? mcub0 & ~clr : mcub0;
+		// STALL=period,len: the master's ROM "misses" for len clocks every period (M3's caches, in M2)
+		{ static long sp = getenv("STALL") ? atol(getenv("STALL")) : 0, sl = getenv("STALL") && strchr(getenv("STALL"), ',') ? atol(strchr(getenv("STALL"), ',') + 1) : 0;
+		  t->dbg_stall = sp && (long)(cyc % sp) < sl; }
 		t->mcuc = start_port == ":MCUC" ? mcuc0 & ~clr : mcuc0;
 		t->mcuh = start_port == ":MCUH" ? mcuh0 & ~clr : mcuh0;
 	};
@@ -275,6 +278,17 @@ int main(int argc, char **argv) {
 			if (asn && !asd && !t->m_rnw && (wa >> 16) == 0x44 && (((wa - 0x440000) >> 1) & 0x1800) == 0x1800)
 				fprintf(wl, "%llu %06x %04x\n", (unsigned long long)(cyc - 64), wa, t->m_wdata);
 			asd = asn; }
+		// MDUMP_S=file: the slave's accesses, as MDUMP
+		{
+			static FILE *sdm = getenv("MDUMP_S") ? fopen(getenv("MDUMP_S"), "w") : nullptr;
+			static bool s_as_d = false, s_pend = false; static char s_rw; static unsigned s_a, s_d, s_m;
+			if (sdm) {
+				if (t->s_as && !s_as_d) { s_pend = true; s_rw = t->s_rnw ? 'R' : 'W'; s_a = t->s_addr << 1; s_d = t->s_wdata;
+				                          s_m = (t->s_ds & 2 ? 0xff00 : 0) | (t->s_ds & 1 ? 0xff : 0); }
+				s_as_d = t->s_as;
+				if (s_pend && t->s_dtack) { s_pend = false; fprintf(sdm, "%c %06x %04x %04x\n", s_rw, s_a, s_rw == 'R' ? (unsigned)t->s_rdata : s_d, s_m); }
+			}
+		}
 		// MDUMP=file: the master's accesses (R/W, address, data, mask) at DTACK, to
 		// diff two harnesses
 		{
@@ -290,6 +304,13 @@ int main(int argc, char **argv) {
 		// UDUMP=file: the MCU's DPRAM writes (clock from the release, address, data)
 		{
 			static FILE *ud = getenv("UDUMP") ? fopen(getenv("UDUMP"), "w") : nullptr;
+			// STRACE=frame,n: the 6809's address changes and sound_run for n clocks from a frame
+			static long st_f = getenv("STRACE") ? atol(getenv("STRACE")) : -1, st_n = getenv("STRACE") && strchr(getenv("STRACE"), ',') ? atol(strchr(getenv("STRACE"), ',') + 1) : 0;
+			static unsigned st_a = 0x10000; static int st_r = -1;
+			if (st_f >= 0 && (long)((cyc - 64) / 811008) >= st_f && st_n > 0) {
+				st_n--;
+				if (t->snd_addr != st_a || (int)t->sound_run != st_r) { printf("snd %llu %04x run %d\n", (unsigned long long)(cyc - 64), t->snd_addr, t->sound_run); st_a = t->snd_addr; st_r = t->sound_run; }
+			}
 			static FILE *sd = getenv("SDUMP") ? fopen(getenv("SDUMP"), "w") : nullptr;
 			if (sd && t->snd_wr && (t->snd_addr & 0xf000) == 0x7000) fprintf(sd, "%llu %04x %02x\n", (unsigned long long)(cyc - 64), t->snd_addr, t->snd_dout);
 			if (ud && t->mcu_wr && (t->mcu_addr & 0xf800) == 0x5000) fprintf(ud, "%llu %04x %02x\n", (unsigned long long)(cyc - 64), t->mcu_addr, t->mcu_dout);

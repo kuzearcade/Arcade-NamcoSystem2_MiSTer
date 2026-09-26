@@ -146,6 +146,17 @@ int main(int argc, char **argv) {
 			}
 			if ((cyc & 0xffffff) == 0) printf("  streams: %ld tile bursts (%ld bad), %ld mask bytes (%ld bad)\n", tn, tbad, mn, mbad);
 		}
+		// MDUMP_S=file: the slave's accesses, as MDUMP
+		{
+			static FILE *sdm = getenv("MDUMP_S") ? fopen(getenv("MDUMP_S"), "w") : nullptr;
+			static bool s_as_d = false, s_pend = false; static char s_rw; static unsigned s_a, s_d, s_m;
+			if (sdm) {
+				if (t->s_as && !s_as_d) { s_pend = true; s_rw = t->s_rnw ? 'R' : 'W'; s_a = t->s_addr << 1; s_d = t->s_wdata;
+				                          s_m = (t->s_ds & 2 ? 0xff00 : 0) | (t->s_ds & 1 ? 0xff : 0); }
+				s_as_d = t->s_as;
+				if (s_pend && t->s_dtack) { s_pend = false; fprintf(sdm, "%c %06x %04x %04x\n", s_rw, s_a, s_rw == 'R' ? (unsigned)t->s_rdata : s_d, s_m); }
+			}
+		}
 		// MDUMP=file: the master's accesses (R/W, address, data, mask) at DTACK, to
 		// diff two harnesses
 		{
@@ -161,9 +172,23 @@ int main(int argc, char **argv) {
 		// UDUMP=file: the MCU's DPRAM writes (clock from the release, address, data)
 		{
 			static FILE *ud = getenv("UDUMP") ? fopen(getenv("UDUMP"), "w") : nullptr;
+			// STRACE=frame,n: the 6809's address changes and sound_run for n clocks from a frame
+			static long st_f = getenv("STRACE") ? atol(getenv("STRACE")) : -1, st_n = getenv("STRACE") && strchr(getenv("STRACE"), ',') ? atol(strchr(getenv("STRACE"), ',') + 1) : 0;
+			static unsigned st_a = 0x10000; static int st_r = -1;
+			if (st_f >= 0 && (long)((cyc - base) / 811008) >= st_f && st_n > 0) {
+				st_n--;
+				if (t->snd_addr != st_a || (int)t->sound_run != st_r) { printf("snd %llu %04x run %d\n", (unsigned long long)(cyc - base), t->snd_addr, t->sound_run); st_a = t->snd_addr; st_r = t->sound_run; }
+			}
 			static FILE *sd = getenv("SDUMP") ? fopen(getenv("SDUMP"), "w") : nullptr;
 			if (sd && t->snd_wr && (t->snd_addr & 0xf000) == 0x7000) fprintf(sd, "%llu %04x %02x\n", (unsigned long long)(cyc - base), t->snd_addr, t->snd_dout);
 			if (ud && t->mcu_wr && (t->mcu_addr & 0xf800) == 0x5000) fprintf(ud, "%llu %04x %02x\n", (unsigned long long)(cyc - base), t->mcu_addr, t->mcu_dout);
+		}
+		// HOLDS=1: per frame, the clocks each lockstep source held the CPUs
+		if (getenv("HOLDS")) {
+			static long hc[4] = {0, 0, 0, 0}, hf = 0;
+			for (int i = 0; i < 4; i++) if (t->dbg_holds >> i & 1) hc[i]++;
+			long f = (long)((cyc - base) / 811008);
+			if (f != hf) { printf("holds frame %ld: 68000s %ld, C65 %ld, C68 %ld, 6809 %ld, run %d\n", hf, hc[0], hc[1], hc[2], hc[3], t->sound_run); hc[0] = hc[1] = hc[2] = hc[3] = 0; hf = f; }
 		}
 		// UTRACE=n: the MCU's first n cycles (address, write) and how long each took
 		{
