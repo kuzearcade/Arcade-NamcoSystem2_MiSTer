@@ -37,7 +37,7 @@ module ns2_mem (
 	output reg [1:0]  class_data,
 	// the video's streams (bursts: 64-bit, byte n at [8n +: 8])
 	input             tile_req,  input [18:0] tile_addr,  output tile_ack,  output tile_valid,  output [63:0] tile_data,
-	input             tmask_req, input [18:0] tmask_addr, output tmask_ack, output tmask_valid, output [7:0]  tmask_data,
+	input             tmask_req, input [15:0] tmask_addr, output tmask_ack, output tmask_valid, output [63:0] tmask_data,   // a tile code's 8 mask bytes (ns2_tile_filter)
 	input             roz_req,   input [18:0] roz_addr,   output roz_ack,   output roz_valid,   output [63:0] roz_data,
 	input             c169_req,  input [20:0] c169_addr,  output c169_ack,  output c169_valid,  output [63:0] c169_data,
 	input             c169m_req, input [18:0] c169m_addr, output c169m_ack, output c169m_valid, output [7:0]  c169m_data,
@@ -265,28 +265,25 @@ module ns2_mem (
 	// bank 2: tiles, the tile mask, the C169 mask (byte streams: the byte of the burst)
 	wire [2:0]  a2_ack, a2_val;
 	wire [63:0] b2_data;
-	reg  [2:0]  tm_byte, cm_byte;             // the byte of the burst each mask stream waits for
 	ns2_bank_arb #(.N(3)) u_b2 (.clk(clk), .rst(rst),
 		.req({c169m_req, tmask_req, tile_req}),
-		.addr({22'h240000 + {3'd0, c169m_addr[18:3], 2'b00}, 22'h200000 + {3'd0, tmask_addr[18:3], 2'b00}, {1'b0, tile_addr, 2'b00}}),
+		.addr({22'h240000 + {3'd0, c169m_addr[18:3], 2'b00}, 22'h200000 + {4'd0, tmask_addr, 2'b00}, {1'b0, tile_addr, 2'b00}}),
 		.ack(a2_ack), .valid(a2_val), .data(b2_data),
 		.push(sd_push[2]), .paddr(sd_addr2), .full(sd_full[2]), .vtog(sd_valid_t[2]), .vdata(sd_data2));
 	assign {c169m_ack, tmask_ack, tile_ack} = a2_ack;
 	assign {c169m_valid, tmask_valid, tile_valid} = a2_val;
 	assign tile_data = b2_data;
-	// the byte streams' offsets, in request order
-	reg [2:0]  tm_q [0:7], cm_q [0:7];
-	reg [3:0]  tm_w, tm_r, cm_w, cm_r;
+	// the C169 mask: a byte stream (the byte of the burst, in request order)
+	reg [2:0]  cm_q [0:7];
+	reg [3:0]  cm_w, cm_r;
 	always @(posedge clk) begin
-		if (rst) begin tm_w <= 0; tm_r <= 0; cm_w <= 0; cm_r <= 0; end
+		if (rst) begin cm_w <= 0; cm_r <= 0; end
 		else begin
-			if (a2_ack[1]) begin tm_q[tm_w[2:0]] <= tmask_addr[2:0]; tm_w <= tm_w + 1'd1; end
-			if (a2_val[1]) tm_r <= tm_r + 1'd1;
 			if (a2_ack[2]) begin cm_q[cm_w[2:0]] <= c169m_addr[2:0]; cm_w <= cm_w + 1'd1; end
 			if (a2_val[2]) cm_r <= cm_r + 1'd1;
 		end
 	end
-	assign tmask_data = b2_data[8 * tm_q[tm_r[2:0]] +: 8];
+	assign tmask_data = b2_data;
 	assign c169m_data = b2_data[8 * cm_q[cm_r[2:0]] +: 8];
 
 	// bank 3: sprites (Metal Hawk's rot90: bit 19, the transposed copy)

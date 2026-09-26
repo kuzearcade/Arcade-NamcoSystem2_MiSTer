@@ -4,7 +4,8 @@
 // TRACE_DIR: a capture (tools/ns2_capture.py: pNNNNN.raw, ports.txt); the
 // board's frame F is compared with MAME's picture F, as sim/rtl/ns2_frames.
 // KEY, BOARD, SPR_FL, TILE_FL2 as there; MH_WIRING, LW_WIRING the download's
-// wiring; DL_SKIP0=1 skips the image's zero words (the model starts at 0);
+// wiring; DL_SKIP0=1 skips the image's zero words outside the masks (the
+// model starts at 0; the class table needs every mask word);
 // PICS_DUMP=dir writes the board's pictures.
 #include "Vtop.h"
 #include "verilated.h"
@@ -12,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
@@ -74,13 +76,35 @@ int main(int argc, char **argv) {
 	uint64_t c0 = cyc, words = 0;
 	for (size_t a = 0; a < img.size(); a += 2) {
 		uint16_t w = img[a] | img[a + 1] << 8;
-		if (skip0 && w == 0) continue;
+		// (never in the masks: the tile class table is built from every word)
+		if (skip0 && w == 0 && !(a >= 0x500000 && a < 0x600000)) continue;
 		t->dl_addr = a; t->dl_data = w; t->dl_wr = 1; slow(); t->dl_wr = 0;
 		do slow(); while (t->dl_wait);
 		words++;
 		if ((words & 0xfffff) == 0) { printf("  download at %06zx\n", a); fflush(stdout); }
 	}
 	t->dl = 0;
+	// DL_VERIFY=1: the SDRAM's contents against the image (the plain regions)
+	if (getenv("DL_VERIFY")) {
+		auto *r = t->rootp;
+		struct { const char *n; uint32_t img, len, ba, word; } reg[] = {
+			{"master", 0x0000000, 0x040000, 0, 0x300000}, {"slave", 0x0040000, 0x040000, 0, 0x320000},
+			{"audio", 0x0080000, 0x040000, 0, 0x340000}, {"mcu", 0x00C0000, 0x010000, 0, 0x360000},
+			{"data", 0x0100000, 0x200000, 0, 0x200000}, {"c140", 0x0300000, 0x200000, 1, 0x200000},
+			{"tmask", 0x0500000, 0x080000, 2, 0x200000}, {"tiles", 0x0600000, 0x400000, 2, 0x000000},
+			{"roz A", 0x0E00000, 0x400000, 0, 0x000000}, {"roz B", 0x0E00000, 0x400000, 1, 0x000000}};
+		for (auto &g : reg) {
+			uint32_t bad = 0, first = 0;
+			for (uint32_t o = 0; o < g.len; o += 2) {
+				uint16_t want = img[g.img + o] | img[g.img + o + 1] << 8;
+				uint16_t got = r->top__DOT__u_model__DOT__mem[(g.ba << 22) | (g.word + o / 2)];
+				if (got != want) { if (!bad) first = o; bad++; }
+			}
+			printf("  verify %-6s %8u of %8u words differ%s", g.n, bad, g.len / 2, bad ? "" : "\n");
+			if (bad) printf(" (first at +%06x: sdram %04x, image %04x)\n", first,
+			                r->top__DOT__u_model__DOT__mem[(g.ba << 22) | (g.word + first / 2)], img[g.img + first] | img[g.img + first + 1] << 8);
+		}
+	}
 	printf("download: %llu words in %llu clocks (%.1f per word); violations %u\n", (unsigned long long)words,
 	       (unsigned long long)(cyc - c0), (double)(cyc - c0) / (words ? words : 1), t->violations);
 	fflush(stdout);
@@ -93,8 +117,29 @@ int main(int argc, char **argv) {
 	while ((long)((cyc - base) / 811008) <= last) {
 		slow();
 		if (t->out_valid && t->out_y < 224 && t->out_x < 288) pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue;
-		static long overruns = 0;
-		if (t->overrun) { if (overruns++ < 5) printf("overrun at line %d (frame %llu): busy %02x\n", t->vcnt, (unsigned long long)((cyc - base) / 811008), t->overrun_src); }
+		// STREAM_CHECK=1: every tile burst and mask byte against the image
+		if (getenv("STREAM_CHECK")) {
+			static std::deque<uint32_t> tq, mq; static long tbad = 0, mbad = 0, tn = 0, mn = 0;
+			if (t->dbg_t_ack) tq.push_back(t->dbg_t_addr);
+			if (t->dbg_m_ack) mq.push_back(t->dbg_m_addr);
+			if (t->dbg_t_valid && !tq.empty()) {
+				uint32_t a = tq.front(); tq.pop_front(); tn++;
+				uint64_t want = 0; for (int i = 0; i < 8; i++) want |= (uint64_t)img[0x600000 + a * 8 + i] << (8 * i);
+				if (want != t->dbg_t_data && tbad++ < 5) printf("tile burst %05x: got %016llx want %016llx\n", a, (unsigned long long)t->dbg_t_data, (unsigned long long)want);
+			}
+			if (t->dbg_m_valid && !mq.empty()) {
+				uint32_t a = mq.front(); mq.pop_front(); mn++;
+				if (img[0x500000 + a] != t->dbg_m_data && mbad++ < 5) printf("mask byte %05x: got %02x want %02x\n", a, t->dbg_m_data, img[0x500000 + a]);
+			}
+			if ((cyc & 0xffffff) == 0) printf("  streams: %ld tile bursts (%ld bad), %ld mask bytes (%ld bad)\n", tn, tbad, mn, mbad);
+		}
+		static long overruns = 0, ov_frame = 0; static long ov_last_f = -1;
+		if (t->overrun) {
+			long f = (long)((cyc - base) / 811008);
+			if (overruns++ < 5) printf("overrun at line %d (frame %ld): busy %02x\n", t->vcnt, f, t->overrun_src);
+			if (f != ov_last_f) { if (ov_last_f >= 0) printf("  frame %ld: %ld overruns\n", ov_last_f, ov_frame); ov_last_f = f; ov_frame = 0; }
+			ov_frame++;
+		}
 		if ((int)t->vcnt != lastv) {
 			if (t->vcnt == 224 && cyc - base > 811008) {
 				long F = (long)((cyc - base) / 811008) - 1;
@@ -129,6 +174,8 @@ int main(int argc, char **argv) {
 		{"data", r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_wait},
 		{"audio", r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_wait},
 		{"mcu", r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_wait}};
+	printf("filter: tiles %u (%u fetched, %.1f%%), masks %u (%u fetched, %.1f%%)\n", t->flt_t, t->flt_t_miss, t->flt_t ? 100.0 * t->flt_t_miss / t->flt_t : 0.0,
+	       t->flt_m, t->flt_m_miss, t->flt_m ? 100.0 * t->flt_m_miss / t->flt_m : 0.0);
 	for (auto &x : c) printf("cache %-6s %10u reads, %8u misses (%.2f%%), %10u clocks waited (%.2f%% of %llu)\n", x.n, x.rd, x.ms,
 	                         x.rd ? 100.0 * x.ms / x.rd : 0.0, x.wt, 100.0 * x.wt / (cyc - base), (unsigned long long)(cyc - base));
 	delete t;

@@ -264,6 +264,13 @@ int main(int argc, char **argv) {
 			}
 			continue;
 		}
+		// WLOG=file: the master's writes to the C116 registers (0x44xxxx, offset & 0x1800 == 0x1800) at their clocks
+		if (getenv("WLOG")) { static FILE *wl = fopen(getenv("WLOG"), "w"); static bool asd = false;
+			bool asn = t->m_as;
+			unsigned wa = (unsigned)t->m_addr << 1;
+			if (asn && !asd && !t->m_rnw && (wa >> 16) == 0x44 && (((wa - 0x440000) >> 1) & 0x1800) == 0x1800)
+				fprintf(wl, "%llu %06x %04x\n", (unsigned long long)(cyc - 64), wa, t->m_wdata);
+			asd = asn; }
 		bool as = slave ? t->s_as : t->m_as, rnw = slave ? t->s_rnw : t->m_rnw;
 		unsigned ds = slave ? t->s_ds : t->m_ds;
 		if (as && !as_d) {

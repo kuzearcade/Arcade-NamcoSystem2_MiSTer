@@ -51,6 +51,12 @@ class Live:
                     return
                 i = (a - a0) // 2
                 self.b[n][i] = (int(self.b[n][i]) & ~m) | (d & m)
+                if n == 'pal' and (i & 0x1800) == 0x1800:
+                    # the C116's registers answer in every 0x2000-word bank
+                    # (namco_c116.cpp: offset & 0x1800): the model reads them
+                    # at 0x1800, so a write through a mirror lands there too
+                    j = 0x1800 | (i & 0xf)
+                    self.b[n][j] = (int(self.b[n][j]) & ~m) | (d & m)
                 return
 
     def state(self):

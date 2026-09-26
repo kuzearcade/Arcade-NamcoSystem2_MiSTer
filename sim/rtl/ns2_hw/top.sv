@@ -41,8 +41,17 @@ module top (
 	output     [31:0] violations,
 	output            overrun,
 	output     [5:0]  overrun_src,
-	output     [11:0] line_busy_max
+	output     [11:0] line_busy_max,
+	// the tile and mask streams (the testbench checks them against the image)
+	output            dbg_t_ack, dbg_t_valid, dbg_m_ack, dbg_m_valid,
+	output     [18:0] dbg_t_addr, dbg_m_addr,
+	output     [63:0] dbg_t_data,
+	output     [7:0]  dbg_m_data,
+	output     [31:0] flt_t, flt_t_miss, flt_m, flt_m_miss
 );
+	assign {flt_t, flt_t_miss, flt_m, flt_m_miss} = {n_t, n_t_miss, n_m, n_m_miss};
+	assign dbg_t_ack = tile_ack; assign dbg_t_valid = tile_valid; assign dbg_t_addr = tile_addr; assign dbg_t_data = tile_data;
+	assign dbg_m_ack = tmask_ack; assign dbg_m_valid = tmask_valid; assign dbg_m_addr = tmask_addr; assign dbg_m_data = tmask_data;
 	// the board
 	wire        tile_req, tmask_req, roz_req, c169_req, c169m_req, spr_req;
 	wire [18:0] tile_addr, tmask_addr, roz_addr, c169m_addr;
@@ -60,6 +69,12 @@ module top (
 	wire        mprog_valid, sprog_valid, drom_valid, aud_valid, mcu_valid, c140_valid;
 	wire [63:0] bank0_data, bank1_data;
 	wire        clut_we, nv_we, class_we;
+	// the filter's side of bank 2 (ns2_tile_filter)
+	wire        ft_req, ft_ack, ft_valid, fm_req, fm_ack, fm_valid;
+	wire [18:0] ft_addr;
+	wire [15:0] fm_addr;
+	wire [63:0] ft_data, fm_data;
+	wire [31:0] n_t, n_t_miss, n_m, n_m_miss;
 	wire [7:0]  clut_addr, clut_data, nv_data;
 	wire [12:0] nv_addr;
 	wire [15:0] class_addr;
@@ -102,8 +117,8 @@ module top (
 		.dl(dl), .dl_wr(dl_wr), .dl_addr(dl_addr), .dl_data(dl_data), .dl_wait(dl_wait),
 		.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data), .nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.class_we(class_we), .class_addr(class_addr), .class_data(class_data),
-		.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
-		.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
+		.tile_req(ft_req), .tile_addr(ft_addr), .tile_ack(ft_ack), .tile_valid(ft_valid), .tile_data(ft_data),
+		.tmask_req(fm_req), .tmask_addr(fm_addr), .tmask_ack(fm_ack), .tmask_valid(fm_valid), .tmask_data(fm_data),
 		.roz_req(roz_req), .roz_addr(roz_addr), .roz_ack(roz_ack), .roz_valid(roz_valid), .roz_data(roz_data),
 		.c169_req(c169_req), .c169_addr(c169_addr), .c169_ack(c169_ack), .c169_valid(c169_valid), .c169_data(c169_data),
 		.c169m_req(c169m_req), .c169m_addr(c169m_addr), .c169m_ack(c169m_ack), .c169m_valid(c169m_valid), .c169m_data(c169m_data),
@@ -119,6 +134,14 @@ module top (
 		.sd_push(sd_push), .sd_full(sd_full), .sd_valid_t(sd_valid_t),
 		.sd_data0(sd_data0), .sd_data1(sd_data1), .sd_data2(sd_data2), .sd_data3(sd_data3),
 		.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t));
+
+	ns2_tile_filter u_filter (.clk(clk), .rst(rst), .tile_fl2(tile_fl2),
+		.class_we(class_we), .class_addr(class_addr), .class_data(class_data),
+		.t_req(tile_req), .t_addr(tile_addr), .t_ack(tile_ack), .t_valid(tile_valid), .t_data(tile_data),
+		.m_req(tmask_req), .m_addr(tmask_addr), .m_ack(tmask_ack), .m_valid(tmask_valid), .m_data(tmask_data),
+		.dt_req(ft_req), .dt_addr(ft_addr), .dt_ack(ft_ack), .dt_valid(ft_valid), .dt_data(ft_data),
+		.dm_req(fm_req), .dm_addr(fm_addr), .dm_ack(fm_ack), .dm_valid(fm_valid), .dm_data(fm_data),
+		.n_t(n_t), .n_t_miss(n_t_miss), .n_m(n_m), .n_m_miss(n_m_miss));
 
 	wire [15:0] dq_q, sdram_din, dq;
 	wire        dq_oe, dqml, dqmh, nwe, ncas, nras, ncs, cke;

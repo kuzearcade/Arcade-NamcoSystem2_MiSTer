@@ -519,3 +519,40 @@ banks busy and a quarter of the time refreshing. The depth of the queue
 does not change it (1: 30.9; 2-6: 29.7), so this is the controller's
 random-row rate. M0's replayed streams, with their row locality, are the
 bandwidth gate (NS2-3).
+
+## NS2-12 — M3: the board from the SDRAM (open: the other sets, the NB boards)
+
+`sim/rtl/ns2_hw` runs the whole board from the SDRAM (`ns2_board ROMS = 1`,
+`ns2_mem`, `ns2_sdram`, the burst model), after the real download of the
+set's image (`tools/ns2_image.py`).
+
+- **The download** (`ns2_mem`) lays the image into the four banks:
+  - it applies the board wiring MAME applies after loading: Metal Hawk's
+    sprite reorder (one byte lands twice, one never) with its transposed
+    copy, and Lucky & Wild's bit-reversed mask;
+  - it writes the ROZ ROM twice;
+  - it fills the tile class table.
+  `DL_VERIFY` checks every region against the image: all exact.
+- **The CPUs' ROMs** are behind caches (`ns2_rom_cache`: 16 bursts, the next
+  one prefetched). On Assault's first 90 frames the misses cost 1,624
+  clocks on the master, 64 on the slave, 6,702 on the audio CPU and 15,553
+  on the MCU, of 73.8 M. That is 0.02% at most.
+- **The C123 cannot run straight from the SDRAM.** A line asks for 444 tile
+  rows and masks in bank 2, at about 15 clocks a burst for random rows:
+  every other line overran (112 a frame) and text lost pixels.
+  `ns2_tile_filter` (NS2-3's additions) answers most of them itself:
+  - the class table: no mask for an opaque tile, nothing for a transparent
+    one;
+  - a 256-entry tile-row cache and a 256-tile mask cache;
+  - each stream stays in request order, with several misses in flight.
+
+  Only 0.5% of tile rows and almost no masks reach the SDRAM; the busiest
+  line takes 2,818 of 3,072 clocks.
+- **MAME wraps graphics codes** (`code % elements`). The image repeats a
+  smaller graphics region through its slot (Golly Ghost's tiles are 384 KB),
+  so the core's fetches wrap as MAME's do.
+
+**Result, Assault's first 90 frames:** the pictures are M2's, frame for
+frame: 67 exact, the same two tearing frames (24: 448 pixels; 79: 332),
+and MAME's boot screen (1–21). There are no overruns and no SDRAM timing
+violations, and every tile burst and mask byte equals the image.
