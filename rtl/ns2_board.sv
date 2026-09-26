@@ -1,5 +1,6 @@
 // The whole board for M2's simulation (sim/rtl/ns2_frames): the two 68000s
-// (ns2_main), the video (ns2_video), the C65 (ns2_c65), the sound board
+// (ns2_main), the video (ns2_video), the I/O MCU (ns2_c65, or ns2_c68 with
+// mcu_c68), the sound board
 // (ns2_sound) and the 2 KB DPRAM they share. The ROMs are arrays here
 // (public, loaded by the testbench); the graphics ROM streams are the
 // testbench's, as in M1. M3 replaces the arrays with the SDRAM path.
@@ -9,6 +10,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
+	input             mcu_c68,       // the I/O MCU is a C68 (M37450) instead of a C65
 	input             tile_fl2,
 	input             spr_fl,
 	input      [135:0] key_table,
@@ -43,6 +45,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	output            m_dtack, s_dtack,
 	output     [15:0] mcu_addr, snd_addr,
 	output            mcu_wr, snd_wr,
+	output            mcu_tap, mcu_sync, mcu_cen,  // the C68's bus (debug)
 	output     [7:0]  mcu_dout, snd_dout,
 	output            sound_run, sub_run
 );
@@ -52,18 +55,19 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	reg [15:0] drom [0:1048575] /*verilator public_flat_rw*/;
 	reg [7:0]  arom [0:262143] /*verilator public_flat_rw*/;     // the sound ROM
 	reg [15:0] vrom [0:1048575] /*verilator public_flat_rw*/;    // the C140's voices (the region's words)
-	reg [7:0]  irom [0:8191]   /*verilator public_flat_rw*/;     // the MCU's internal ROM
+	reg [7:0]  irom [0:32767]  /*verilator public_flat_rw*/;     // the MCU's ROM: the C65's internal (8 KB) or c68.bin
 	reg [7:0]  erom [0:32767]  /*verilator public_flat_rw*/;     // its EPROM
 	wire [17:1] mra, sra;
 	wire [20:1] dra;
 	wire [17:0] ara;
 	wire [12:0] ira;
+	wire [14:0] ira68;
 	wire [14:0] era;
 	reg  [15:0] mrq, srq, drq;
 	reg  [7:0]  arq, irq_q, erq;
 	always @(posedge clk) begin
 		mrq <= mrom[mra]; srq <= srom[sra]; drq <= drom[dra];
-		arq <= arom[ara]; irq_q <= irom[ira]; erq <= erom[era];
+		arq <= arom[ara]; irq_q <= irom[mcu_c68 ? ira68 : {2'b00, ira}]; erq <= erom[era];
 	end
 
 	// line events
@@ -130,13 +134,31 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 		.spr_req(spr_req), .spr_addr(spr_addr), .spr_ack(spr_ack), .spr_valid(spr_valid), .spr_data(spr_data),
 		.overrun(), .overrun_src(), .line_busy_max());
 
-	// the I/O MCU
+	// the I/O MCU: the C65 or the C68
+	wire [10:0] dpa_65, dpa_68;
+	wire [7:0]  dpd_65, dpd_68;
+	wire        dpw_65, dpw_68;
+	wire [15:0] a_65, a_68;
+	wire        w_65, w_68;
+	wire [7:0]  d_65, d_68;
 	ns2_c65 u_mcu (
-		.clk(clk), .por(reset), .reset(reset || !sub_run), .irq_line200(ev_mcu),
+		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
-		.dp_addr(dpa_u), .dp_dout(dpd_u), .dp_we(dpw_u), .dp_din(dpq_u),
+		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
-		.dbg_addr(mcu_addr), .dbg_wr(mcu_wr), .dbg_dout(mcu_dout));
+		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
+	ns2_c68 u_c68 (
+		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu),
+		.rom_addr(ira68), .rom_data(irq_q),
+		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
+		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
+		.dbg_addr(a_68), .dbg_wr(w_68), .dbg_dout(d_68), .dbg_tap(mcu_tap), .dbg_sync(mcu_sync), .dbg_cen(mcu_cen), .dbg_din());
+	assign dpa_u = mcu_c68 ? dpa_68 : dpa_65;
+	assign dpd_u = mcu_c68 ? dpd_68 : dpd_65;
+	assign dpw_u = mcu_c68 ? dpw_68 : dpw_65;
+	assign mcu_addr = mcu_c68 ? a_68 : a_65;
+	assign mcu_wr   = mcu_c68 ? w_68 : w_65;
+	assign mcu_dout = mcu_c68 ? d_68 : d_65;
 
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (

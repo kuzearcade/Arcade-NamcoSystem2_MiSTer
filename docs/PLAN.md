@@ -570,11 +570,18 @@ on 68,000+ frames and on flip through the model. For M3:
 **Order (decided in M2):**
 1. The C65 core first (done, NS2-7: MAME's trace and timing).
 2. The whole board on the C65 sets (44 of 61).
-3. The C68, whose 740 core is jt65c02's microcode extended to a 512-entry
-   table (T mode as a ninth opcode bit). Its cycles come from MAME's own
-   instruction lists (`om6502.lst`, `om740.lst`: one cycle per bus call).
-   Counting cycles from its bus trace does not work: MAME's taps miss the
-   dummy `read_pc` cycles.
+3. The C68. Its cycles come from MAME's own instruction lists
+   (`om6502.lst`, `om740.lst`: one cycle per bus call). Counting cycles from
+   its bus trace does not work: MAME's taps miss the dummy `read_pc` cycles.
+   - **Changed in M2:** jt65c02's microcode fixes one cycle count per
+     opcode, but MAME's 6502 family adds conditional cycles (a page
+     crossing, a taken branch).
+   - So `tools/ns2_740gen.py` generates the core (`rtl/ns2_m740.sv`) from
+     MAME's lists instead. Each bus call becomes a state, so every path takes
+     MAME's cycles by construction, and all 512 table entries are covered
+     (T mode is the table's second half).
+   - Every C68 set runs the device's own `c68.bin`: the per-set
+     `c68mcu:external` region is never mapped.
 
 **Progress (step 2, Assault):**
 - Each 68000's first 3,000,000 bus accesses match MAME's, data included

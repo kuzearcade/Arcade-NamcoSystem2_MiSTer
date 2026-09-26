@@ -23,7 +23,7 @@ Where every file came from. Third-party files keep their own licence notices.
 |---|---|
 | `tools/ns2_romdata.py` | the ROM table, parsed from MAME's driver; the board-wiring transforms (NS2-1) |
 | `tools/ns2_regions.py`, `sim/oracle/ns2_regions.lua` | the region proof against MAME (NS2-1) |
-| `tools/mame-patches/ns2-oracle.patch` | MAME 0.289: the key custom's `rand()` reads replaced by a seeded LFSR (D5); `NS2_MUTE_YM` / `NS2_MUTE_C140`; `NS2_SLAVE_RAM64`; `NS2_C140_DUMP` (the C140's mixer sums per sample, `src/devices/sound/c140.cpp`) |
+| `tools/mame-patches/ns2-oracle.patch` | MAME 0.289: the key custom's `rand()` reads replaced by a seeded LFSR (D5); `NS2_MUTE_YM` / `NS2_MUTE_C140`; `NS2_SLAVE_RAM64`; `NS2_C140_DUMP` (the C140's mixer sums per sample, `src/devices/sound/c140.cpp`); `NS2_QUANTUM_HZ` (a finer CPU interleave, NS2-8) |
 | `sim/oracle/ns2_capture.lua`, `ns2_boot.lua`, `tools/ns2_capture.py` | the oracle capture: state, pictures, per-line register writes of both 68000s (NS2-2) |
 | `tools/ns2_model.py` | the reference renderer, exact against MAME (NS2-2) |
 | `tools/ns2_load.py` | Q3: the graphics fetch load per line, the caches, the replay streams (NS2-3) |
@@ -44,6 +44,9 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/ns2_sound.sv`, `rtl/ns2_c140.sv` | the sound board; the C140, a port of MAME's `sound/c140.cpp` (voices, key status, INT1 timer) |
 | `sim/rtl/ns2_frames/`, `sim/oracle/ns2_bustrace.lua` | M2's testbench: each CPU's bus (and timing) against MAME's traces; the C140 against `NS2_C140_DUMP` |
 | `sim/rtl/ns2_c140/` | the C140 alone, MAME's 6809 writes replayed at MAME's clocks, against `NS2_C140_DUMP` |
+| `tools/ns2_740gen.py`, `rtl/ns2_m740.sv` | the C68's 740 core, generated from MAME's `dm740.lst`, `om740.lst` and `om6502.lst` (BSD-3-Clause, Olivier Galibert); the helpers transcribed from `m6502.cpp` and `m740.cpp` (NS2-9) |
+| `rtl/ns2_c68.sv` | the C68: MAME's `namco68.cpp` map and `m3745x.cpp` peripherals |
+| `sim/rtl/c68/` | the C68 against MAME's cycle trace of it (NS2-9) |
 | `tools/ns2_740cycles.py` | measures the C68's cycles from MAME's traces. It showed that the taps miss dummy cycles (docs/PLAN.md M2) |
 | `tools/gen_ucode.sh` | rebuilds jt680x's microcode with jtframe's generator |
 | `tools/ns2_romdump.py` | the graphics ROMs for the testbenches (git-ignored output) |

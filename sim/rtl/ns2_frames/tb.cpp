@@ -103,7 +103,9 @@ int main(int argc, char **argv) {
 	for (size_t i = 0; i < drom.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__drom[i] = drom[2 * i] << 8 | drom[2 * i + 1];
 	for (size_t i = 0; i < (1u << 18); i++) r->ns2_board__DOT__arom[i] = arom.empty() ? 0xff : arom[i % arom.size()];
 	for (size_t i = 0; i < vro.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__vrom[i] = vro[2 * i] << 8 | vro[2 * i + 1];
-	for (size_t i = 0; i < 8192; i++) r->ns2_board__DOT__irom[i] = irom[i];
+	// the MCU: the C65's internal ROM (8 KB) or the C68's c68.bin (32 KB)
+	for (size_t i = 0; i < irom.size() && i < 32768; i++) r->ns2_board__DOT__irom[i] = irom[i];
+	t->mcu_c68 = irom.size() == 32768;
 	for (size_t i = 0; i < 32768; i++) r->ns2_board__DOT__erom[i] = erom[i];
 	for (size_t i = 0; i < 8192; i++) r->ns2_board__DOT__u_main__DOT__u_master__DOT__eep[i] = nv.size() == 8192 ? nv[i] : 0xff;
 	t->board = 0; t->tile_fl2 = 0; t->spr_fl = 0;
@@ -155,12 +157,21 @@ int main(int argc, char **argv) {
 		tick();
 		if ((int)t->vcnt != lastv) { if (t->vcnt == 224) frame++; lastv = t->vcnt; }
 		// a bus cycle: its address at AS, its data at DTACK
+		if (getenv("SNDDUMP")) { static unsigned la3 = 0x10000; static uint64_t c0 = 0; unsigned a = t->snd_addr;
+			if (t->sound_run && !c0) { c0 = cyc; printf("sound_run at %llu\n", (unsigned long long)(cyc - 64)); }
+			if (c0 && cyc < c0 + atol(getenv("SNDDUMP")) && a != la3) printf("snd %04x at %llu\n", a, (unsigned long long)(cyc - 64));
+			la3 = a; }
 		if (getenv("MCUDUMP")) { static unsigned la2 = 0x10000; static uint64_t c0 = 0; unsigned a = t->mcu_addr;
 			if (t->sub_run && !c0) { c0 = cyc; printf("sub_run at %llu\n", (unsigned long long)(cyc - 64)); }
 			if (c0 && cyc < c0 + atol(getenv("MCUDUMP")) && a != la2) printf("mcu %04x at %llu\n", a, (unsigned long long)(cyc - 64));
 			la2 = a; }
 		{ static unsigned la = 0; unsigned a = t->mcu_addr; if (a != la && (a == 0x1ff8 || a == 0x1fea || a == 0x1ffe || a == 0x1fff || a == 0x02a0 || a == 0x02a1) && getenv("DBGVEC")) printf("vec %04x cyc %llu vcnt %u frame %u mi %zu\n", a, (unsigned long long)cyc, (unsigned)t->vcnt, frame, mi); la = a; }
 		if (cpu == "c140") {
+			// C140LOG=file: the 6809's C140 writes as the board makes them, in the
+			// harness's trace format (sim/rtl/ns2_c140)
+			static FILE *clog = getenv("C140LOG") ? fopen(getenv("C140LOG"), "w") : nullptr;
+			if (clog && t->snd_wr && ((t->snd_addr & 0xf000) == 0x5000 || (t->snd_addr & 0xf000) == 0x6000))
+				fprintf(clog, "W %06x %04x 00ff %u %llu\n", t->snd_addr, t->snd_dout, frame, (unsigned long long)(cyc - 64));
 			if (t->c140_sample) {
 				const Acc &m = mame[mi];
 				int16_t ml = (int16_t)(m.data >> 16), mr = (int16_t)(m.data & 0xffff), rl = (int16_t)t->c140_raw_l, rr = (int16_t)t->c140_raw_r;

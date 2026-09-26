@@ -107,7 +107,7 @@ module ns2_cpu #(parameter MASTER = 1) (
 		.din(oEdb[7:0]), .dout(c148_q),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(cpuirq_in), .cpuirq_out(cpuirq_out),
 		.iack(start && iack), .iack_lvl(eab[3:1]), .ipl(ipl),
-		.ext_in(3'b001), .ext1(ext1), .ext2(ext2), .bus_ctrl());
+		.ext_in(3'b111), .ext1(ext1), .ext2(ext2), .bus_ctrl());   // ext_in: MAME leaves it unconnected (7)
 
 	// DTACK: local devices two clocks after the start (the RAM and ROM have
 	// answered), shared ones when the grant completes

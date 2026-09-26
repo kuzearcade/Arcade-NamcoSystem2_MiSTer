@@ -60,10 +60,10 @@ index c3cdb51d315..3302212d5ad 100644
  	u16 dpram_word_r(offs_t offset);
  	virtual void dpram_word_w(offs_t offset, u16 data, u16 mem_mask = ~0);
 diff --git a/src/mame/namco/namcos2_m.cpp b/src/mame/namco/namcos2_m.cpp
-index 49ad1821084..26ed7dc96c9 100644
+index 49ad1821084..74791c47fd9 100644
 --- a/src/mame/namco/namcos2_m.cpp
 +++ b/src/mame/namco/namcos2_m.cpp
-@@ -75,12 +75,28 @@ void namcos2_base_state::machine_start()
+@@ -75,12 +75,34 @@ void namcos2_base_state::machine_start()
  		m_audiobank->configure_entry(i, memregion("audiocpu")->base() + (i % max) * 0x4000);
  
  	save_item(NAME(m_sendval));
@@ -75,6 +75,12 @@ index 49ad1821084..26ed7dc96c9 100644
 +		subdevice<device_sound_interface>("ymsnd")->set_output_gain(ALL_OUTPUTS, 0.0);
 +	if (getenv("NS2_MUTE_C140"))
 +		m_c140->set_output_gain(ALL_OUTPUTS, 0.0);
++
++	// ORACLE PATCH: NS2_QUANTUM_HZ=n interleaves the CPUs every 1/n s, finer
++	// than the driver's quantum, so a handshake between CPUs resolves at the
++	// times the board's would (Arcade-NamcoSystem2_MiSTer NS2-8)
++	if (const char *q = getenv("NS2_QUANTUM_HZ"))
++		machine().scheduler().add_quantum(attotime::from_hz(atoi(q)), attotime::never);
 +}
 +
 +u16 namcos2_base_state::key_rng()
@@ -92,7 +98,7 @@ index 49ad1821084..26ed7dc96c9 100644
  
  	m_audiocpu->set_input_line(INPUT_LINE_RESET, ASSERT_LINE );
  
-@@ -281,7 +297,7 @@ u16 namcos2_base_state::namcos2_68k_key_r(offs_t offset)
+@@ -281,7 +303,7 @@ u16 namcos2_base_state::namcos2_68k_key_r(offs_t offset)
  		{
  	//  case 3: return 0x142;
  		case 4: return 0x142;
@@ -101,7 +107,7 @@ index 49ad1821084..26ed7dc96c9 100644
  		}
  
  	case NAMCOS2_SUPER_WSTADIUM_92:
-@@ -335,7 +351,7 @@ u16 namcos2_base_state::namcos2_68k_key_r(offs_t offset)
+@@ -335,7 +357,7 @@ u16 namcos2_base_state::namcos2_68k_key_r(offs_t offset)
  		break;
  	}
  

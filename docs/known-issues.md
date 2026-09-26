@@ -324,6 +324,11 @@ has MAME's clock for every access, so timing is compared too.
 - **MCU:** all of its 65,817 DPRAM writes match (to frame 1184), including
   the boot script's Start press.
 
+- **Master, with MAME's CPUs interleaved finely** (`NS2_QUANTUM_HZ=12288000`,
+  below): its first 8,000,000 accesses match (to frame 169), at MAME's
+  clock + 24 throughout.
+- **C140 on the board:** the same run's 298,700 samples (14 s, the first
+  sounds included) equal MAME's.
 - **C140 alone** (`sim/rtl/ns2_c140`): replaying MAME's 6809 writes at
   MAME's clocks, all 419,849 samples (19.7 s) equal MAME's mixer sums
   (`NS2_C140_DUMP`). That includes the voices, compressed and linear, loops
@@ -373,7 +378,74 @@ write never reaches a sample whose edge has passed.
   its edges fall every 2304.03 clocks. `MAME_RATE = 1` (the testbenches)
   places the edges as MAME does; the board uses the exact 2304.
 
+**MAME's quantum is the oracle's error.** With the driver's quantum MAME
+runs each CPU for a slice before the next. At access 3,399,559 the master
+polls 0x40fffe for the slave's reply to a handshake. The slave writes it
+at 60,481,040, before the master's read (about 60,481,100), but MAME
+runs the master's whole slice first, so the master reads the old value.
+The board is concurrent, as the RTL is. From that point MAME's
+timeline runs about 570 clocks behind: the sound CPU's release and every
+sound follow.
+- The oracle patch's `NS2_QUANTUM_HZ=n` (MAME's `add_quantum`) interleaves
+  the CPUs every 1/n s; one 68000 clock (12288000) resolves the handshake
+  as the RTL does.
+- It costs little (Assault's 14 s: 5 s), so the M2 traces use it.
+- The C148's ext input: MAME leaves it unconnected and reads 7 (was 1).
+
 **The boot script's Start press.** `ns2_boot.lua` sets the button in
 frames 300-305, but MAME's ports read it from the next frame's input
 update. The testbench presses it from frame 301 (`ports.txt` records the
 port, mask and frame).
+
+## NS2-9 — The C68: MAME's 740 core, generated (closed for the core, measured)
+
+The C68 is a Mitsubishi M37450 (the 740 family). Every C68 set runs the
+same firmware, the device's `c68.bin` at 0x8000–0xffff; MAME never maps
+the per-set `c68mcu:external` region. Super World Stadium '92 was traced:
+the C68 uses 69 instruction forms. They include the 740's `ldm`,
+`seb`/`clb`, `bra`, `inc a`, decimal mode, and T mode (`set`, then `ldt`,
+`ort`: LDA and ORA on the byte at X).
+
+**Why not jt65c02.** Its microcode fixes one cycle count per opcode. MAME's
+6502 family adds cycles on a page crossing and a taken branch, and the
+740's own instructions (BBS/BBC, SEB/CLB, LDM, COM, TST, RRF, the T-mode
+ALU forms) are not the 65C02's.
+
+**The generator.** `tools/ns2_740gen.py` turns MAME's own lists into
+`rtl/ns2_m740.sv`:
+- `dm740.lst` gives 512 entries; T mode is the second half.
+- The instruction bodies are `om740.lst` over `om6502.lst`.
+- Each bus call is one state, as in MAME's `m6502make.py`. The statements
+  between two calls run in C's order within the cycle: blocking
+  assignments, with expressions as C's 32-bit signed ints, truncated to
+  the variable's width.
+- The helpers (`do_adc`, `set_nz`, the T-mode `do_adct`, ...) are hand
+  transcriptions of `m6502.cpp` and `m740.cpp`.
+- Statements after a `prefetch()` run after its interrupt check:
+  `cli`, `sei` and `plp` change I there, the 6502's one-instruction delay.
+- 919 states cover the 233 bodies.
+
+**The peripherals** (`rtl/ns2_c68.sv`), as MAME's `m3745x.cpp`:
+- ports P3–P6 with their direction registers; P3 bit 7 selects the player
+  half P5 reads;
+- the 50-cycle A/D;
+- the two request/enable register pairs, mapped to m740 lines, with the
+  lowest line's vector;
+- the VBL acknowledge at 0x6000.
+
+**The check** (`sim/rtl/c68`). MAME's taps see every M37450 cycle,
+opcode fetches included, each stamped at its start, so the harness compares
+every cycle: address, direction, data. The DPRAM reads return MAME's values
+(the 68000s are not in the harness).
+- **Super World Stadium '92:** all 3,000,000 cycles match (89 frames from
+  the release, every VBL and A/D interrupt).
+
+**MAME's timing.**
+- MAME checks for an interrupt at the end of an opcode fetch cycle, and a
+  bus access happens at its cycle's start. The A/D therefore completes 50
+  cycles after the start of its control write's cycle.
+- MAME's scheduler lets the MCU run up to a cycle past an event. Its VBL
+  entries land 0, -24, +24 or +48 clocks from line 200 (26, 24, 26 and 13
+  of 89 frames). The harness moves each frame's line 200 to MAME's entry
+  when one lies within two cycles. On the board, a VBL can land one
+  instruction apart from MAME's: MS1-22's allowance.
