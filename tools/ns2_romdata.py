@@ -27,7 +27,7 @@ LAYOUT = [
     ('c45_road:clut',    0x00D0000, 0x000100),
     ('nvram',            0x00D1000, 0x002000),   # MAME's default .nv, where the set has one
     ('zoomlut',          0x00D4000, 0x002000),
-    ('config',           0x00D6000, 0x000020),   # the core's per-set configuration (config_block)
+    ('config',           0x00D6000, 0x000030),   # the core's per-set configuration (config_block)
     ('data_rom',         0x0100000, 0x200000),
     ('c140',             0x0300000, 0x200000),
     ('c123tmap:mask',    0x0500000, 0x080000),
@@ -175,7 +175,7 @@ BOARDS = {'finallap': 1, 'finallap_c68': 1, 'finalap2': 1, 'finalap3': 1, 'base_
 
 
 def config_block(name, sets=None, gm=None):
-    """The core's configuration of a set, 32 bytes at image 0x00D6000 (the
+    """The core's configuration of a set, 48 bytes at image 0x00D6000 (the
     MiSTer top latches it from the download; not ROM data):
       0-1  'N2'
       2    board code [2:0], C68 [3], finalap2/3 tiles [4], Final Lap
@@ -183,7 +183,8 @@ def config_block(name, sets=None, gm=None):
       3    the key custom's mode [1:0]; the data ROM's second megabyte has
            its even [4] / odd [5] bytes 0 (MAME loads the other lane only,
            rthun2 and suzuka8h: ns2_mem drom_empty)
-      4-20 its table: entry i's {valid, value[15:0]} at bits 17i.. (LSB first)"""
+      4-20 its table: entry i's {valid, value[15:0]} at bits 17i.. (LSB first)
+      21-32 MAME's power-on AN0-AN7 and MCUDI0-MCUDI3 (tools/ns2_ports.py)"""
     import ns2_keys
     sets = sets or parse()
     gm = gm or games()
@@ -202,7 +203,8 @@ def config_block(name, sets=None, gm=None):
     bits = 0
     for i, (ok, v) in enumerate(tab):
         bits |= ((int(ok) << 16) | (v & 0xffff)) << (17 * i)
-    return b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(11)
+    import ns2_ports
+    return b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(ns2_ports.ports(name)) + bytes(15)
 
 
 def build_region(region, files):

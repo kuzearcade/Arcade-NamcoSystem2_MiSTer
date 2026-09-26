@@ -183,17 +183,17 @@ end
 wire wait_switches = ~sw_seen & ~&sw_tmo;
 
 // ------------------------------------------------------------------
-// The set's configuration: image 0x00D6000-0x00D601F (config_block)
+// The set's configuration: image 0x00D6000-0x00D602F (config_block)
 // ------------------------------------------------------------------
 wire       dl_rom = ioctl_download && ioctl_index == 16'd0;
-reg [7:0]  cfg [0:31];
+reg [7:0]  cfg [0:63];
 reg        cfg_ok = 1'b0;
 integer    ci;
-initial for (ci = 0; ci < 32; ci = ci + 1) cfg[ci] = 8'h00;
+initial for (ci = 0; ci < 64; ci = ci + 1) cfg[ci] = 8'h00;
 always @(posedge clk_sys) begin
-	if (dl_rom && ioctl_wr && ioctl_addr[24:5] == 20'h06B00) begin
-		cfg[{ioctl_addr[4:1], 1'b0}] <= ioctl_dout[7:0];
-		cfg[{ioctl_addr[4:1], 1'b1}] <= ioctl_dout[15:8];
+	if (dl_rom && ioctl_wr && ioctl_addr[24:6] == 19'h03580) begin
+		cfg[{ioctl_addr[5:1], 1'b0}] <= ioctl_dout[7:0];
+		cfg[{ioctl_addr[5:1], 1'b1}] <= ioctl_dout[15:8];
 	end
 end
 always @(posedge clk_sys) if (!ioctl_download) cfg_ok <= cfg[0] == "N" && cfg[1] == "2";
@@ -204,6 +204,9 @@ wire         cfg_sprfl  = cfg[2][5];
 wire         cfg_mh     = cfg[2][6];
 wire         cfg_lw     = cfg[2][7];
 wire [1:0]   cfg_kmode  = cfg[3][1:0];
+// MAME's power-on analog and dial values (M5 maps the controls onto them)
+wire [63:0]  cfg_analog = {cfg[28], cfg[27], cfg[26], cfg[25], cfg[24], cfg[23], cfg[22], cfg[21]};
+wire [31:0]  cfg_dials  = {cfg[32], cfg[31], cfg[30], cfg[29]};
 wire [135:0] cfg_ktable = {cfg[20], cfg[19], cfg[18], cfg[17], cfg[16], cfg[15], cfg[14], cfg[13], cfg[12],
                            cfg[11], cfg[10], cfg[9], cfg[8], cfg[7], cfg[6], cfg[5], cfg[4]};
 
@@ -363,7 +366,7 @@ wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
 ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
-	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(32'hFFFFFFFF), .analog(64'hFFFFFFFFFFFFFFFF), .dbg_stall(1'b0), .dbg_holds(),
+	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(cfg_analog), .dbg_stall(1'b0), .dbg_holds(),
 	.red(core_r), .green(core_g), .blue(core_b), .ce_pix(ce_pix), .out_x(), .out_y(), .out_valid(), .hcnt(hcnt), .vcnt(vcnt),
 	.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 	.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),

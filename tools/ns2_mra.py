@@ -135,7 +135,7 @@ def image_parts(name, sets, gm):
             rlen = slot
         placed.append((off, rlen, tag, parts))
     placed.append((0x00C8000, size, 'mcu_int', [('file', fn, crc, size)]))
-    placed.append((0x00D6000, 0x20, 'config', [('hex', R.config_block(name, sets, gm))]))
+    placed.append((0x00D6000, 0x30, 'config', [('hex', R.config_block(name, sets, gm))]))
     if 'nvram' not in regs:
         # MAME's EEPROM without a default table is all 1s (NVRAM DEFAULT_ALL_1)
         placed.append((0x00D1000, 0x2000, 'nvram (MAME: all 1s)', [('fill', 0xFF, 0x2000)]))
