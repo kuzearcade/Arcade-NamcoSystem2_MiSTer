@@ -486,3 +486,36 @@ The model renders each distinct state once.
 - **675 of 678 frames exact, line for line.** The other 3 frames have 4
   lines between them, each with a write inside that line's own fetch
   window, so the board may show either value. No line differs without one.
+
+## NS2-11 — M3: the SDRAM front end and two refresh races (closed, measured)
+
+`rtl/ns2_sdram.sv` runs `jtframe_sdram64` at 98.304 MHz, twice the core's
+clock, from one PLL. Each bank takes requests through a four-entry FIFO
+written at 49.152 MHz, and returns each 64-bit burst with a toggle. The
+download writes through the controller's programming port.
+`sim/rtl/ns2_sdram` downloads a pattern into all four banks under refresh,
+then reads random bursts from every bank and checks every word.
+
+**Found on the way:**
+- **The model ignored the write burst mode.** jtframe sets the mode
+  register's A9 (single-location writes); `sdram_model_burst.sv` wrote a
+  whole burst of four, wrapping. It now honours A9.
+- **Two refresh races in the programming path**, both local fixes in
+  `jtframe_sdram64.v` (provenance):
+  - the programming bank had `help` tied low, so an overdue refresh (which
+    proceeds on `help`) could close its row between its ACTIVE and WRITE;
+  - `noreq` is registered, so between two download words the controller
+    could grant the refresh and the programmer in the same cycle, and the
+    ACTIVE met the refresh's PRECHARGE ALL (tRAS). No bank is now granted in
+    the cycle the refresh is.
+- **Burst assembly.** A variable part-select inside a loop over banks
+  assembled wrongly in the `-O2` build and correctly at `-O1`. The
+  assembly is now one plain block per bank.
+
+**Result:** 65,536 words downloaded under refresh, then 80,000 random bursts
+(20,000 per bank, up to six in flight): 0 bad words, 0 timing violations.
+Random rows cost about 30 fast clocks per burst per bank with all four
+banks busy and a quarter of the time refreshing. The depth of the queue
+does not change it (1: 30.9; 2-6: 29.7), so this is the controller's
+random-row rate. M0's replayed streams, with their row locality, are the
+bandwidth gate (NS2-3).

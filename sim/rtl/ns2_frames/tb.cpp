@@ -57,7 +57,12 @@ int main(int argc, char **argv) {
 	auto mrom = load(rd + "maincpu.bin"), srom = load(rd + "slave.bin"), drom = load(rd + "data.bin"),
 	     arom = load(rd + "audio.bin"), irom = load(rd + "mcu_int.bin"), erom = load(rd + "mcu_ext.bin"),
 	     tiles = load(rd + "tiles.bin"), tmask = load(rd + "tmask.bin"), roz = load(rd + "roz.bin"),
-	     spr = load(rd + "sprite.bin"), nv = load(rd + "nvram.bin"), vro = load(rd + "c140.bin");
+	     spr = load(rd + "sprite.bin"), nv = load(rd + "nvram.bin"), vro = load(rd + "c140.bin"),
+	     c169 = load(rd + "c169.bin"), c169m = load(rd + "c169mask.bin"), c355 = load(rd + "c355.bin"), clut = load(rd + "clut.bin");
+	if (c169.empty()) c169.assign(8, 0);
+	if (c169m.empty()) c169m.assign(8, 0);
+	if (spr.empty()) spr = c355;                      // the C355 boards: their sprites on the same stream
+	if (spr.empty()) spr.assign(8, 0);
 	if (mrom.empty() || srom.empty() || irom.empty() || erom.empty()) { fprintf(stderr, "ROMs missing (tools/ns2_romdump.py)\n"); return 1; }
 	if (roz.empty()) roz.assign(8, 0xff);
 	const std::string cpu = getenv("CPU") ? getenv("CPU") : "maincpu";
@@ -108,7 +113,12 @@ int main(int argc, char **argv) {
 	t->mcu_c68 = irom.size() == 32768;
 	for (size_t i = 0; i < 32768; i++) r->ns2_board__DOT__erom[i] = erom[i];
 	for (size_t i = 0; i < 8192; i++) r->ns2_board__DOT__u_main__DOT__u_master__DOT__eep[i] = nv.size() == 8192 ? nv[i] : 0xff;
-	t->board = 0; t->tile_fl2 = 0; t->spr_fl = 0;
+	// the graphics board and the Final Lap variants (tools/ns2_romdata.py's
+	// config: BOARD 0 standard, 1 Final Lap, 2 Metal Hawk, 3 Steel Gunner 2,
+	// 4 Suzuka 8 Hours, 5 Lucky & Wild; SPR_FL, TILE_FL2)
+	t->board = getenv("BOARD") ? atoi(getenv("BOARD")) : 0;
+	t->tile_fl2 = getenv("TILE_FL2") != nullptr; t->spr_fl = getenv("SPR_FL") != nullptr;
+	for (size_t i = 0; i < 256 && i < clut.size(); i++) r->ns2_board__DOT__u_video__DOT__clut[i] = clut[i];
 	auto port = [&](const char *n, unsigned d) { return ports.count(n) ? ports[n] : d; };
 	t->mcub = port(":MCUB", 0xff); t->mcuc = port(":MCUC", 0xff); t->mcuh = port(":MCUH", 0xff); t->dsw = port(":DSW", 0xff);
 	t->dials = port(":MCUDI0", 0xff) | port(":MCUDI1", 0xff) << 8 | port(":MCUDI2", 0xff) << 16 | port(":MCUDI3", 0xff) << 24;
@@ -139,7 +149,7 @@ int main(int argc, char **argv) {
 		t->mcuc = start_port == ":MCUC" ? mcuc0 & ~clr : mcuc0;
 		t->mcuh = start_port == ":MCUH" ? mcuh0 & ~clr : mcuh0;
 	};
-	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8};
+	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8}, st_c169{&c169, 8}, st_c169m{&c169m, 1};
 
 	size_t mi = 0; bool bad = false; bool as_d = false; unsigned frame = 0; int lastv = -1;
 	Acc pend{}; bool have_pend = false; uint64_t pend_cyc = 0;
@@ -149,6 +159,8 @@ int main(int argc, char **argv) {
 		st_mask.serve(t->tmask_req, t->tmask_addr, a, v, d); t->tmask_ack = a; t->tmask_valid = v; if (v) t->tmask_data = d;
 		st_roz.serve(t->roz_req, t->roz_addr, a, v, d); t->roz_ack = a; t->roz_valid = v; if (v) t->roz_data = d;
 		st_spr.serve(t->spr_req, t->spr_addr, a, v, d); t->spr_ack = a; t->spr_valid = v; if (v) t->spr_data = d;
+		st_c169.serve(t->c169_req, t->c169_addr, a, v, d); t->c169_ack = a; t->c169_valid = v; if (v) t->c169_data = d;
+		st_c169m.serve(t->c169m_req, t->c169m_addr, a, v, d); t->c169m_ack = a; t->c169m_valid = v; if (v) t->c169m_data = d;
 		if ((cyc & 1023) == 0) inputs();
 		t->clk = 1; t->eval(); t->clk = 0; t->eval(); cyc++;
 	};

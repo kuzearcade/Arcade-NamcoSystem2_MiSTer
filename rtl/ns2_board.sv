@@ -31,6 +31,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	output            tmask_req, output [18:0] tmask_addr, input tmask_ack, input tmask_valid, input [7:0]  tmask_data,
 	output            roz_req,   output [18:0] roz_addr,   input roz_ack,   input roz_valid,   input [63:0] roz_data,
 	output            spr_req,   output [19:0] spr_addr,   input spr_ack,   input spr_valid,   input [63:0] spr_data,
+	output            c169_req,  output [20:0] c169_addr,  input c169_ack,  input c169_valid,  input [63:0] c169_data,
+	output            c169m_req, output [18:0] c169m_addr, input c169m_ack, input c169m_valid, input [7:0]  c169m_data,
 	// audio
 	output signed [15:0] ym_left, ym_right,
 	output signed [15:0] c140_left, c140_right, c140_raw_l, c140_raw_r,
@@ -105,13 +107,15 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	wire [20:1] v_addr;
 	wire [15:0] v_dout, v_din;
 	wire        v_rnw, v_uds, v_lds, cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl;
+	wire        cs_c169, cs_c169ctl, cs_c355, cs_c355pos;
 	ns2_main u_main (
 		.clk(clk), .reset(reset), .board(board), .key_table(key_table), .key_mode(key_mode),
 		.mrom_addr(mra), .mrom_data(mrq), .srom_addr(sra), .srom_data(srq), .drom_addr(dra), .drom_data(drq),
 		.vblank(ev_vbl), .posirq(ev_pos), .sound_run(sound_run), .sub_run(sub_run),
 		.v_addr(v_addr), .v_dout(v_dout), .v_rnw(v_rnw), .v_uds(v_uds), .v_lds(v_lds),
 		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),
-		.cs_roz(cs_roz), .cs_rozctl(cs_rozctl), .v_din(v_din),
+		.cs_roz(cs_roz), .cs_rozctl(cs_rozctl), .cs_c169(cs_c169), .cs_c169ctl(cs_c169ctl), .cs_c355(cs_c355), .cs_c355pos(cs_c355pos),
+		.v_din(v_din),
 		.dp_addr(dpa_m), .dp_dout(dpd_m), .dp_we(dpw_m), .dp_din(dpq_m),
 		.m_as(m_as), .s_as(s_as), .m_addr(m_addr), .s_addr(s_addr), .m_rnw(m_rnw), .s_rnw(s_rnw),
 		.m_wdata(m_wdata), .s_wdata(s_wdata), .m_ds(m_ds), .s_ds(s_ds),
@@ -125,13 +129,13 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 		.posirq_line(pos_here),
 		.cpu_addr(v_addr), .cpu_dout(v_dout), .cpu_rnw(v_rnw), .cpu_uds(v_uds), .cpu_lds(v_lds),
 		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),
-		.cs_roz(cs_roz), .cs_rozctl(cs_rozctl), .cs_c169ctl(1'b0), .cs_c169(1'b0), .cs_c355(1'b0), .cs_c355pos(1'b0),
+		.cs_roz(cs_roz), .cs_rozctl(cs_rozctl), .cs_c169ctl(cs_c169ctl), .cs_c169(cs_c169), .cs_c355(cs_c355), .cs_c355pos(cs_c355pos),
 		.cpu_din(v_din),
 		.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 		.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
 		.roz_req(roz_req), .roz_addr(roz_addr), .roz_ack(roz_ack), .roz_valid(roz_valid), .roz_data(roz_data),
-		.c169_req(), .c169_addr(), .c169_ack(1'b0), .c169_valid(1'b0), .c169_data(64'd0),
-		.c169m_req(), .c169m_addr(), .c169m_ack(1'b0), .c169m_valid(1'b0), .c169m_data(8'd0),
+		.c169_req(c169_req), .c169_addr(c169_addr), .c169_ack(c169_ack), .c169_valid(c169_valid), .c169_data(c169_data),
+		.c169m_req(c169m_req), .c169m_addr(c169m_addr), .c169m_ack(c169m_ack), .c169m_valid(c169m_valid), .c169m_data(c169m_data),
 		.spr_req(spr_req), .spr_addr(spr_addr), .spr_ack(spr_ack), .spr_valid(spr_valid), .spr_data(spr_data),
 		.overrun(), .overrun_src(), .line_busy_max());
 

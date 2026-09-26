@@ -19,6 +19,7 @@
 --                        the model rebuilds it per band (NS2-5)
 --   <MP_OUT>/blocks.txt  the block table of this board (name, address, words)
 --   <MP_OUT>/frames.txt  "F frame_time_s"
+--   <MP_OUT>/ports.txt   the input ports at the start (sim/rtl/ns2_frames)
 --   <MP_OUT>/writes.txt  every write to the blocks but the DPRAM, by either
 --                        68000, at its time: "clock addr data mask cpu"
 --
@@ -125,6 +126,17 @@ for i, b in ipairs(blocks) do
     end
   end
 end
+
+-- the input ports' values at the start, and the boot script's Start button
+-- (as sim/oracle/ns2_bustrace.lua: the board testbench sets the same)
+local pf = io.open(OUT .. "/ports.txt", "w")
+for tag, p in pairs(manager.machine.ioport.ports) do
+  pf:write(string.format("%s %04x\n", tag, p:read()))
+  for n, fl in pairs(p.fields) do
+    if n == "1 Player Start" then pf:write(string.format("start%s %04x\nboot_start %04x\n", tag, fl.mask, tonumber(os.getenv("MP_BOOT_START") or "300"))) end
+  end
+end
+pf:close()
 
 local ftxt = io.open(OUT .. "/frames.txt", "w")
 _G.ns2_cap_sub = emu.add_machine_frame_notifier(guard(function()

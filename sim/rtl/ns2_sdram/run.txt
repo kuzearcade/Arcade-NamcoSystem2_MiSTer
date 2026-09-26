@@ -1,0 +1,3 @@
+init done at 10160 fast cycles
+download: 65536 words in 665738 fast cycles (10.2 per word)
+reads: 80000 bursts, 0 bad; 594390 fast cycles (29.7 per burst per bank); violations 0

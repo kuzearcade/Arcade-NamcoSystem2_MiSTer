@@ -34,6 +34,7 @@ module ns2_main (
 	output reg        v_uds,
 	output reg        v_lds,
 	output reg        cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl,
+	output reg        cs_c169, cs_c169ctl, cs_c355, cs_c355pos,
 	input      [15:0] v_din,
 	// the DPRAM's 68000 port (bytes)
 	output reg [10:0] dp_addr,
@@ -101,22 +102,37 @@ module ns2_main (
 	wire       grant_m = m_req && !m_done, grant_s = s_req && !s_done;
 	wire       who = busy ? who_r : !grant_m;
 	wire [23:0] ga = {who ? s_sa : m_sa, 1'b0};
+	// the boards' maps (namcos2.cpp): the CPU board's, then each graphics board's
+	//   0 standard: c00000 sprites, c40000 gfx_ctrl, c80000 ROZ RAM, cc0000 ROZ control, d00000 key
+	//   1 Final Lap: 300000 protection, 800000 sprites, 840000 gfx_ctrl, 880000 road
+	//   2 Metal Hawk: c00000 sprites, c40000 C169 RAM, d00000 C169 control, e00000 gfx_ctrl
+	//   3 Steel Gunner 2: 800000 C355, a00000 key
+	//   4 Suzuka 8 Hours: 800000 C355, 900000 its positions, a00000 road, f00000 key
+	//   5 Lucky & Wild: Suzuka's, and c00000 C169 RAM, d00000 C169 control
+	wire std = board == 3'd0, mh = board == 3'd2, sg = board == 3'd3, suz = board == 3'd4, lw = board == 3'd5;
+	wire c355b = sg || suz || lw;
+	// {tmap, tctl, pal, spr, gfx, roz (and road), rozctl, c169, c169ctl, c355, c355pos}
+	function [10:0] vsel(input [23:0] x);
+		vsel = {x[23:17] == 7'h20,                                                  // 400000-41ffff
+		        x[23:6] == 18'h10800,                                               // 420000-42003f
+		        x[23:16] == 8'h44,                                                  // 440000-44ffff
+		        ((std || mh) && x[23:14] == 10'h300) || (fl && x[23:16] == 8'h80),
+		        (std && x[23:1] == 23'h620000) || (fl && x[23:1] == 23'h420000) || (mh && x[23:1] == 23'h700000),
+		        (std && x[23:17] == 7'h64) || (fl && x[23:17] == 7'h44) || ((suz || lw) && x[23:17] == 7'h50),
+		        std && x[23:4] == 20'hcc000,
+		        (mh && x[23:16] == 8'hc4) || (lw && x[23:16] == 8'hc0),
+		        (mh || lw) && x[23:5] == 19'h68000,                                 // d00000-d0001f
+		        c355b && x[23:17] == 7'h40 && x[16:0] < 17'h14200,                  // 800000-8141ff
+		        (suz || lw) && x[23:3] == 21'h120000};                              // 900000-900007
+	endfunction
 	function [3:0] decode(input [23:0] x);
-		if (x[23:21] == 3'b001)                 decode = D_DROM;   // 200000-3fffff
-		else if (x[23:17] == 7'h20)             decode = D_VID;    // 400000-41ffff
-		else if (x[23:6] == 18'h10800)          decode = D_VID;    // 420000-42003f
-		else if (x[23:16] == 8'h44)             decode = D_VID;    // 440000-44ffff
+		if (fl && x[23:18] == 6'h0c)            decode = D_PROT;   // 300000-33ffff (inside the data ROM's window)
+		else if (x[23:21] == 3'b001)            decode = D_DROM;   // 200000-3fffff
+		else if (vsel(x) != 0)                  decode = D_VID;
 		else if (x[23:16] == 8'h46)             decode = D_DP;     // 460000-46ffff
 		else if (x[23:14] == 10'h120)           decode = D_SCI;    // 480000-483fff
-		else if (!fl && x[23:14] == 10'h300)    decode = D_VID;    // c00000-c03fff
-		else if (!fl && x[23:1] == 23'h620000)  decode = D_VID;    // c40000
-		else if (!fl && x[23:17] == 7'h64)      decode = D_VID;    // c80000-c9ffff
-		else if (!fl && x[23:4] == 20'hcc000)   decode = D_VID;    // cc0000-cc000f
-		else if (!fl && x[23:4] == 20'hd0000)   decode = D_KEY;    // d00000-d0000f
-		else if (fl && x[23:16] == 8'h80)       decode = D_VID;    // 800000-80ffff
-		else if (fl && x[23:1] == 23'h420000)   decode = D_VID;    // 840000
-		else if (fl && x[23:17] == 7'h44)       decode = D_VID;    // 880000-89ffff
-		else if (fl && x[23:18] == 6'h0c)       decode = D_PROT;   // 300000-33ffff (inside the data ROM's window)
+		else if ((std && x[23:4] == 20'hd0000) || (sg && x[23:4] == 20'ha0000) || ((suz || lw) && x[23:3] == 21'h1e0000))
+		                                        decode = D_KEY;    // d00000 / a00000 / f00000
 		else                                    decode = D_NONE;
 	endfunction
 	assign drom_addr = ga[20:1];
@@ -124,7 +140,7 @@ module ns2_main (
 	always @(posedge clk) begin
 		m_done <= 1'b0; s_done <= 1'b0;
 		key_rd <= 1'b0; key_we <= 1'b0; dp_we <= 1'b0;
-		{cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl} <= 7'd0;
+		{cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl, cs_c169, cs_c169ctl, cs_c355, cs_c355pos} <= 11'd0;
 		if (reset) begin busy <= 1'b0; step <= 2'd0; end
 		else case (busy ? step : 2'd0)
 			2'd0: if (grant_m || grant_s) begin
@@ -134,15 +150,7 @@ module ns2_main (
 				v_addr <= ga[20:1]; v_dout <= who ? s_sd : m_sd; v_rnw <= !(who ? s_we : m_we);
 				v_uds <= who ? s_uds : m_uds; v_lds <= who ? s_lds : m_lds;
 				case (decode(ga))
-					D_VID: begin
-						cs_tmap   <= ga[23:17] == 7'h20;
-						cs_tctl   <= ga[23:6] == 18'h10800;
-						cs_pal    <= ga[23:16] == 8'h44;
-						cs_spr    <= fl ? ga[23:16] == 8'h80 : ga[23:14] == 10'h300;
-						cs_gfx    <= fl ? ga[23:1] == 23'h420000 : ga[23:1] == 23'h620000;
-						cs_roz    <= fl ? ga[23:17] == 7'h44 : ga[23:17] == 7'h64;
-						cs_rozctl <= !fl && ga[23:4] == 20'hcc000;
-					end
+					D_VID: {cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl, cs_c169, cs_c169ctl, cs_c355, cs_c355pos} <= vsel(ga);
 					D_DP: begin
 						dp_addr <= ga[11:1]; dp_dout <= (who ? s_sd : m_sd) & 8'hff;
 						dp_we <= (who ? s_we : m_we) && (who ? s_lds : m_lds);

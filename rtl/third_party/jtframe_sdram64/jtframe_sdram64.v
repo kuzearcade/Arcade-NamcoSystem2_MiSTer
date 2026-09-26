@@ -295,7 +295,12 @@ jtframe_sdram64_bank #(
 ) u_prog(
     .rst        ( prog_rst   ),
     .clk        ( clk        ),
-    .help       ( 1'b0       ),
+    // NS2 local fix (docs/provenance.md): the programmer yields to an overdue
+    // refresh as the other banks do. With help tied low it could activate a
+    // row in the cycle the refresh was granted, and the refresh's PRECHARGE
+    // ALL closed it before the WRITE (found by sim/rtl/ns2_sdram, a download
+    // under refresh)
+    .help       ( help       ),
 
     // requests
     .addr       ( prog_addr  ),
@@ -524,8 +529,12 @@ jtframe_sdram64_bank #(
 
 always @(*) begin
     rfsh_bg = &idle && (noreq | help) && rfsh_br;
-    prog_bg = pre_br & !rfshing;
-    if( rfshing ) begin
+    // NS2 local fix (docs/provenance.md): no bank is granted in the cycle the
+    // refresh is. noreq is registered, so between two download words it
+    // could grant both, and the programmer's ACTIVE met the refresh's
+    // PRECHARGE ALL (sim/rtl/ns2_sdram, tRAS)
+    prog_bg = pre_br & !rfshing & !rfsh_bg;
+    if( rfshing || rfsh_bg ) begin
         bg=0;
     end else begin
         if( BAPRIO ) begin

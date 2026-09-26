@@ -2,7 +2,8 @@
 // for any controller that programs the mode register (jtframe_sdram64):
 // MT48LC16M16A2-style, 4 banks x 8192 rows x 512 columns x 16 bits (32 MB).
 //
-//   - LOAD MODE: burst length A[2:0] (1/2/4/8), CAS latency A[6:4] (2/3)
+//   - LOAD MODE: burst length A[2:0] (1/2/4/8), CAS latency A[6:4] (2/3),
+//     write burst mode A9 (1: single-location writes, as jtframe_sdram64 sets)
 //   - READ: BL words from CL clocks after the command, column wrapping within
 //     the burst; WRITE: BL words from the command clock, DQML/DQMH mask bytes
 //   - timing checks at the model's clock (tCK): tRCD, tRP, tRAS, tRC, tRRD,
@@ -35,6 +36,7 @@ module sdram_model_burst #(
 	localparam C_MODE = 3'b000, C_REF = 3'b001, C_PRE = 3'b010, C_ACT = 3'b011, C_WR = 3'b100, C_RD = 3'b101;
 
 	reg [3:0]  bl = 4'd1;
+	reg        wsingle = 1'b0;
 	reg [2:0]  cl = 3'd2;
 	reg [12:0] open_row [0:3];
 	reg        is_open [0:3];
@@ -79,6 +81,7 @@ module sdram_model_burst #(
 			C_MODE: begin
 				bl = 4'd1 << SDRAM_A[2:0];
 				cl = SDRAM_A[6:4];
+				wsingle = SDRAM_A[9];
 			end
 			C_ACT: begin
 				if (is_open[SDRAM_BA]) viol("ACTIVATE on an open bank");
@@ -115,7 +118,7 @@ module sdram_model_burst #(
 					if (!SDRAM_DQML) mem[{SDRAM_BA, open_row[SDRAM_BA], SDRAM_A[8:0]}][7:0]  = DQ_IN[7:0];
 					if (!SDRAM_DQMH) mem[{SDRAM_BA, open_row[SDRAM_BA], SDRAM_A[8:0]}][15:8] = DQ_IN[15:8];
 					wr_col = (wr_col & ~(bl - 1)) | ((wr_col + 1) & (bl - 1));
-					wr_left = bl - 1;
+					wr_left = wsingle ? 4'd0 : bl - 4'd1;
 				end
 				if (SDRAM_A[10]) begin is_open[SDRAM_BA] = 0; t_pre[SDRAM_BA] = t + bl; end   // auto precharge
 			end

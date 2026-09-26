@@ -38,14 +38,17 @@ def read_writes(trace):
 
 
 class Live:
-    """a state that the writes advance"""
-    def __init__(self, st, blocks):
+    """a state that the writes advance (but for the frozen blocks)"""
+    def __init__(self, st, blocks, frozen=()):
         self.b = {k: v.copy() for k, v in st.b.items()}
         self.blocks = [(n, a, c) for n, a, c in blocks if n in self.b]
+        self.frozen = set(frozen)
 
     def apply(self, a, d, m):
         for n, a0, c in self.blocks:
             if a0 <= a < a0 + 2 * c:
+                if n in self.frozen:
+                    return
                 i = (a - a0) // 2
                 self.b[n][i] = (int(self.b[n][i]) & ~m) | (d & m)
                 return
@@ -81,7 +84,10 @@ def main():
         if not (os.path.exists(sp) and os.path.exists(rp)):
             continue
         rtl = np.fromfile(rp, '<u4').reshape(H, W) & 0xffffff
-        live_f = Live(M.State(sp, blocks), blocks)          # the fetch's state
+        # Suzuka and Lucky & Wild: the C355 copies its list at vblank, so the
+        # frame's sprites are those at its start (MAME's set_buffer, NS2-5)
+        frozen = ('c355', 'c355pos') if M.R.games()[a.set]['config'] in M.BUFFERED_C355 else ()
+        live_f = Live(M.State(sp, blocks), blocks, frozen)  # the fetch's state
         live_o = Live(M.State(sp, blocks), blocks)          # the output's (colours)
         t0 = F * FRAME
         i_f = i_o = int(np.searchsorted(wt, t0))

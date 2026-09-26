@@ -15,7 +15,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `sim/models/sdram_model.sv` | Arcade-GingaNin_MiSTer (from Arcade-NMKBP964_MiSTer) | verbatim |
 | `rtl/third_party/jt680x/jt6805*.v`, `jt65c02*.v`, `6805.yaml`, `65c02.yaml` | jotego/jtcores `modules/jt680x` @ 3eb8fec | GPL-3.0-or-later, verbatim: the C65 (HD63705) and C68 (M37450) bases, extended in M2 |
 | `rtl/third_party/jt680x/6805.{uc,vh}`, `6805_param.vh`, `65c02.*` | generated from the YAML by jtframe's `ucode` at the same pin (`tools/gen_ucode.sh`) | generated |
-| `rtl/third_party/jtframe_sdram64/*.v` | jotego/jtcores `modules/jtframe/hdl/sdram/` @ 3eb8fec | GPL-3.0-or-later. Verbatim except one line of `jtframe_sdram64_bank.v`: PRE_RD advances on `do_read`, not `bg && !all_dqm`. The original could skip a READ while another bank held the data bus (NS2-3) |
+| `rtl/third_party/jtframe_sdram64/*.v` | jotego/jtcores `modules/jtframe/hdl/sdram/` @ 3eb8fec | GPL-3.0-or-later. Verbatim except two local fixes: `jtframe_sdram64_bank.v`'s PRE_RD advances on `do_read`, not `bg && !all_dqm` (the original could skip a READ while another bank held the data bus, NS2-3); and `jtframe_sdram64.v` wires `help` to the programming bank (it had it tied low) and grants no bank in the cycle a refresh is granted; either way the programmer could activate a row as the refresh closed it (NS2-11) |
 
 ## New
 
@@ -47,6 +47,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `tools/ns2_740gen.py`, `rtl/ns2_m740.sv` | the C68's 740 core, generated from MAME's `dm740.lst`, `om740.lst` and `om6502.lst` (BSD-3-Clause, Olivier Galibert); the helpers transcribed from `m6502.cpp` and `m740.cpp` (NS2-9) |
 | `rtl/ns2_c68.sv` | the C68: MAME's `namco68.cpp` map and `m3745x.cpp` peripherals |
 | `sim/rtl/c68/` | the C68 against MAME's cycle trace of it (NS2-9) |
+| `rtl/ns2_sdram.sv`, `sim/rtl/ns2_sdram/` | M3: the SDRAM front end (request FIFOs, burst assembly, the download's writes) and its check against the burst model (NS2-11) |
 | `tools/ns2_replay.py` | the board's pictures replayed line by line from MAME's timed video writes (NS2-10) |
 | `tools/ns2_740cycles.py` | measures the C68's cycles from MAME's traces. It showed that the taps miss dummy cycles (docs/PLAN.md M2) |
 | `tools/gen_ucode.sh` | rebuilds jt680x's microcode with jtframe's generator |
