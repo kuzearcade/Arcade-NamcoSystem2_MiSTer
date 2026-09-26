@@ -264,6 +264,10 @@ int main(int argc, char **argv) {
 			}
 			continue;
 		}
+		// C116WATCH=1: the C116's registers 0-3 as they change
+		if (getenv("C116WATCH")) { static uint16_t last[4] = {1, 1, 1, 1};
+			for (int k = 0; k < 4; k++) { uint16_t v = r->ns2_board__DOT__u_video__DOT__c116[k];
+				if (v != last[k]) { printf("c116[%d] = %03x at frame %.3f\n", k, v, (cyc - 64) / 811008.0); last[k] = v; } } }
 		// WLOG=file: the master's writes to the C116 registers (0x44xxxx, offset & 0x1800 == 0x1800) at their clocks
 		if (getenv("WLOG")) { static FILE *wl = fopen(getenv("WLOG"), "w"); static bool asd = false;
 			bool asn = t->m_as;

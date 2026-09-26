@@ -475,6 +475,19 @@ Assault, 700 frames from power-on, with MAME's fine quantum (NS2-8):
   - the Start-press screens and the play frames from 326 on, whose writes
     fall during the frame.
 
+**The C116 takes any byte of a word.** MAME maps it with
+`umask16(0x00ff).cswidth(16)`: its 8-bit handler runs for an access to
+either byte of the word, and takes the low lane. A 68000 byte write to the
+even address (UDS alone) puts the byte on both lanes, so the C116 takes it.
+- Finest Hour and Rolling Thunder 2 set their clip window's y registers
+  that way, through the mirror at 0x44b000. The RTL required LDS and missed
+  those writes; the replay ignored them too.
+- Both now take them: the RTL on either strobe, the replay by taking the
+  word's low byte.
+- Dragon Saber, Cosmo Gang and Kyuukai Douchuuki also write the palette
+  with such bytes (thousands a run). Their pictures matched before, so
+  those writes repeat what the RAM already holds.
+
 **The replay** (`tools/ns2_replay.py`). The capture logs every video write
 with its clock (`writes.txt`). For each line of the board's frame F, the
 replay takes MAME's state at the frame's start, plus:

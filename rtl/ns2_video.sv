@@ -197,10 +197,13 @@ module ns2_video (
 			if (cpu_lds) c355pos[cpu_addr[2:1]][7:0]  <= cpu_dout[7:0];
 		end
 		if (cs_pal) begin
-			if (cw && cpu_lds && pplane == 2'd0) pal_r[pcol] <= cpu_dout[7:0];
-			if (cw && cpu_lds && pplane == 2'd1) pal_g[pcol] <= cpu_dout[7:0];
-			if (cw && cpu_lds && pplane == 2'd2) pal_b[pcol] <= cpu_dout[7:0];
-			if (cw && cpu_lds && pplane == 2'd3) begin
+			// the C116 sits on D7-D0 and takes any byte of the word (MAME's
+			// umask16(0x00ff).cswidth(16)): a byte write to the even address
+			// (UDS alone) writes too, with the byte the 68000 puts on both lanes
+			if (cw && (cpu_uds || cpu_lds) && pplane == 2'd0) pal_r[pcol] <= cpu_dout[7:0];
+			if (cw && (cpu_uds || cpu_lds) && pplane == 2'd1) pal_g[pcol] <= cpu_dout[7:0];
+			if (cw && (cpu_uds || cpu_lds) && pplane == 2'd2) pal_b[pcol] <= cpu_dout[7:0];
+			if (cw && (cpu_uds || cpu_lds) && pplane == 2'd3) begin
 				if (po[0]) c116[po[3:1]][7:0] <= cpu_dout[7:0];
 				else       c116[po[3:1]][15:8] <= cpu_dout[7:0];
 			end

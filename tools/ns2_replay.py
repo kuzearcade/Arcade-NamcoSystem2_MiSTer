@@ -50,6 +50,10 @@ class Live:
                 if n in self.frozen:
                     return
                 i = (a - a0) // 2
+                if n == 'pal':
+                    # the C116 takes any byte of the word, from D7-D0 (MAME's
+                    # umask16(0x00ff).cswidth(16)): its byte is the low lane
+                    m = 0x00ff
                 self.b[n][i] = (int(self.b[n][i]) & ~m) | (d & m)
                 if n == 'pal' and (i & 0x1800) == 0x1800:
                     # the C116's registers answer in every 0x2000-word bank
