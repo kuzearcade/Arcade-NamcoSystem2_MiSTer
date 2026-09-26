@@ -729,6 +729,17 @@ difference.
 - The miss is now -0.09 ns, in the bank arbitration into the command
   register.
 
+**Timing, the bank arbitration.** The last clk_sd misses were in
+`jtframe_sdram64`'s randomised bank grant (`BAPRIO=0`, 64 cases on the
+LFSR), into the command register. `BAPRIO=1` (bank 0 first, then 1, 2, 3)
+is a priority encoder.
+- In M3 it changes nothing measurable: Assault 277 of 300 pictures,
+  busiest line 2,819 of 3,072 clocks (2,818 before), no overruns; Finest
+  Hour 287 of 300, as before.
+- Both core clocks now meet timing (clk_sd +0.119 ns, clk +1.829 ns). What
+  is left is the framework's scaler (`ascal`, the HDMI clock, -0.18 ns): a
+  matter of placement.
+
 **Rolling Thunder 2: a write the ROM cache waited for.** After its boot the
 game stayed black, in M3 and on the board, where MAME plays the story
 intro. The cause:

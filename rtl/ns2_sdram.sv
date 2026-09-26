@@ -121,7 +121,7 @@ module ns2_sdram (
 	always @(posedge clk_sd) if (dst | dok | rdy) $display("sd: dst %b dok %b rdy %b dout %h", dst, dok, rdy, dout);
 `endif
 	jtframe_sdram64 #(.AW(22), .HF(1), .BA0_LEN(64), .BA1_LEN(64), .BA2_LEN(64), .BA3_LEN(64), .PROG_LEN(16),
-	                  .BA0_WEN(0), .MISTER(1), .RFSHCNT(9), .BAPRIO(0)) u_ctl (
+	                  .BA0_WEN(0), .MISTER(1), .RFSHCNT(9), .BAPRIO(1)) u_ctl (
 		.rst(rst), .clk(clk_sd), .init(init),
 		.ba0_addr(qa[0]), .ba1_addr(qa[1]), .ba2_addr(qa[2]), .ba3_addr(qa[3]),
 		.rd(rd), .wr(4'd0),
