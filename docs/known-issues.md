@@ -759,9 +759,18 @@ master / slave and DPRAM handshakes).
   by the misses, about 0.01% of the time.
 - M2 with injected master stalls (`STALL=`, `dbg_stall`) still plays
   Rolling Thunder 2's intro, with small sprite differences from frame 350.
-- **Final Lap** stops at "RAM OK / ROM OK". The FL boards have not been
-  through M2's whole-board capture yet.
-  - A suspect: the top gives every analog channel 0xFF.
+- **Final Lap** stopped at "RAM OK / ROM OK", in M2 too (the FL boards'
+  first whole-board capture, `finallap_board`). Against MAME's bus trace
+  two reads differed:
+  - C116 registers 6 and 7 read 0xff in MAME (`namcos2_base_state::c116_r`,
+    "fix for finallap boot");
+  - the C139's registers at 4a0000: `status_r` reads 4 and the others 0 (the
+    core had nothing there; the game then said "SCI ERROR").
+  With both, M2 runs Final Lap's attract like MAME's. Ranking row 6's
+  colour cycles at another phase: 39 of 700 pictures are exact.
+  The top also now starts the analog channels and dials at MAME's power-on
+  values (`tools/ns2_ports.py`, config bytes 21-32): the wheel centred, the
+  pedals up.
 
 The harnesses gained, for this:
 - `MDUMP` (the master's accesses), `UDUMP` and `SDUMP` (the MCU's and the

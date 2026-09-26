@@ -123,7 +123,7 @@ module ns2_main (
 	reg  [1:0] step;
 	reg [3:0]  dev;
 	wire       fl = board == 3'd1;
-	localparam D_NONE = 0, D_DROM = 1, D_VID = 2, D_DP = 3, D_SCI = 4, D_KEY = 5, D_PROT = 6;
+	localparam D_NONE = 0, D_DROM = 1, D_VID = 2, D_DP = 3, D_SCI = 4, D_KEY = 5, D_PROT = 6, D_SCIR = 7;
 	wire       grant_m = m_req && !m_done, grant_s = s_req && !s_done;
 	wire       who = busy ? who_r : !grant_m;
 	wire [23:0] ga = {who ? s_sa : m_sa, 1'b0};
@@ -156,6 +156,7 @@ module ns2_main (
 		else if (vsel(x) != 0)                  decode = D_VID;
 		else if (x[23:16] == 8'h46)             decode = D_DP;     // 460000-46ffff
 		else if (x[23:14] == 10'h120)           decode = D_SCI;    // 480000-483fff
+		else if (x[23:4] == 20'h4a000)          decode = D_SCIR;   // 4a0000-4a000f: the C139's registers
 		else if ((std && x[23:4] == 20'hd0000) || (sg && x[23:4] == 20'ha0000) || ((suz || lw) && x[23:3] == 21'h1e0000))
 		                                        decode = D_KEY;    // d00000 / a00000 / f00000
 		else                                    decode = D_NONE;
@@ -211,6 +212,8 @@ module ns2_main (
 					D_VID:  sh_q <= v_din;
 					D_DP:   sh_q <= {8'h00, dp_din};     // (MAME's umask16 reads: the other lane 0)
 					D_SCI:  sh_q <= sci_q;
+					// namco_c139 status_r: 4 (no link); the others read 0
+					D_SCIR: sh_q <= v_addr[3:1] == 3'd0 ? 16'h0004 : 16'h0000;
 					D_KEY:  sh_q <= key_q;
 					default: sh_q <= 16'h0000;
 				endcase

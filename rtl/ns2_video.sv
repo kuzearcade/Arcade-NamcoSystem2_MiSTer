@@ -238,7 +238,9 @@ module ns2_video #(
 				else       c116[po[3:1]][15:8] <= cpu_dout[7:0];
 			end
 			pal_sel <= pplane;
-			pal_reg <= po[0] ? c116[po[3:1]][7:0] : c116[po[3:1]][15:8];
+			// registers 6 and 7 read 0xff (namcos2_base_state::c116_r, MAME's
+			// "fix for finallap boot")
+			pal_reg <= po[3:0] > 4'hb ? 8'hff : po[0] ? c116[po[3:1]][7:0] : c116[po[3:1]][15:8];
 		end
 		if (cs_tctl && cw) begin
 			if (cpu_uds) tctl[cpu_addr[5:1]][15:8] <= cpu_dout[15:8];
