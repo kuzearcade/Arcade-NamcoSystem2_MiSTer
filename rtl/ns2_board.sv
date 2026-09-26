@@ -1,12 +1,14 @@
 // The whole board for M2's simulation (sim/rtl/ns2_frames): the two 68000s
 // (ns2_main), the video (ns2_video), the I/O MCU (ns2_c65, or ns2_c68 with
 // mcu_c68), the sound board
-// (ns2_sound) and the 2 KB DPRAM they share. The ROMs are arrays here
-// (public, loaded by the testbench); the graphics ROM streams are the
-// testbench's, as in M1. M3 replaces the arrays with the SDRAM path.
+// (ns2_sound) and the 2 KB DPRAM they share. ROMS = 0 (M2): the ROMs are
+// arrays (public, loaded by the testbench), read in a clock. ROMS = 1 (M3):
+// each CPU's ROM is a cache (ns2_rom_cache) over an SDRAM client of ns2_mem,
+// and the C140's voices a client of its own; the ports below. Either way the
+// graphics ROM streams are ports.
 // Line events, at the start of the line (MAME's scanline timer):
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
-module ns2_board #(parameter C140_MAME_RATE = 0) (
+module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -47,31 +49,109 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	output            m_dtack, s_dtack,
 	output     [15:0] mcu_addr, snd_addr,
 	output            mcu_wr, snd_wr,
+	// ROMS = 1: ns2_mem's clients (bursts of four words)
+	output            mprog_req, output [14:0] mprog_addr, input mprog_ack, input mprog_valid,
+	output            sprog_req, output [14:0] sprog_addr, input sprog_ack, input sprog_valid,
+	output            drom_req,  output [17:0] drom_addr,  input drom_ack,  input drom_valid,
+	output            aud_req,   output [14:0] aud_addr,   input aud_ack,   input aud_valid,
+	output            mcu_req,   output [12:0] mcu_addr_m, input mcu_ack,   input mcu_valid,
+	output            c140_req,  output [17:0] c140_addr,  input c140_ack,  input c140_valid,
+	input      [63:0] bank0_data,
+	input      [63:0] bank1_data,
+	// the download's loads: the C45 CLUT and the default NVRAM
+	input             clut_we,
+	input      [7:0]  clut_addr,
+	input      [7:0]  clut_data,
+	input             nv_we,
+	input      [12:0] nv_addr,
+	input      [7:0]  nv_data,
+	output            overrun,        // the video: a line not rendered in time (ns2_video)
+	output     [5:0]  overrun_src,
+	output     [11:0] line_busy_max,
 	output            mcu_tap, mcu_sync, mcu_cen,  // the C68's bus (debug)
 	output     [7:0]  mcu_din,
 	output     [7:0]  mcu_dout, snd_dout,
 	output            sound_run, sub_run
 );
-	// ROMs (public, loaded by the testbench)
-	reg [15:0] mrom [0:131071] /*verilator public_flat_rw*/;
-	reg [15:0] srom [0:131071] /*verilator public_flat_rw*/;
-	reg [15:0] drom [0:1048575] /*verilator public_flat_rw*/;
-	reg [7:0]  arom [0:262143] /*verilator public_flat_rw*/;     // the sound ROM
-	reg [15:0] vrom [0:1048575] /*verilator public_flat_rw*/;    // the C140's voices (the region's words)
-	reg [7:0]  irom [0:32767]  /*verilator public_flat_rw*/;     // the MCU's ROM: the C65's internal (8 KB) or c68.bin
-	reg [7:0]  erom [0:32767]  /*verilator public_flat_rw*/;     // its EPROM
 	wire [17:1] mra, sra;
 	wire [20:1] dra;
 	wire [17:0] ara;
 	wire [12:0] ira;
 	wire [14:0] ira68;
 	wire [14:0] era;
-	reg  [15:0] mrq, srq, drq;
-	reg  [7:0]  arq, irq_q, erq;
-	always @(posedge clk) begin
-		mrq <= mrom[mra]; srq <= srom[sra]; drq <= drom[dra];
-		arq <= arom[ara]; irq_q <= irom[mcu_c68 ? ira68 : {2'b00, ira}]; erq <= erom[era];
-	end
+	wire [15:0] mrq, srq, drq;
+	wire [7:0]  arq, irq_q, erq;
+	wire        m_rd, s_rd, d_rd, a_rd, mcu_rd;
+	wire        m_ready, s_ready, d_ready, a_ready, mcu_ready;
+	wire [15:0] a_65, a_68;
+	wire [15:0] mcu_a = mcu_c68 ? a_68 : a_65;       // the MCU's bus address
+	// the voice ROM
+	wire        vr_req;
+	wire [19:0] vr_addr;
+	reg         vr_valid;
+	reg  [15:0] vr_q;
+	generate if (ROMS == 0) begin : g_arrays
+		// ROMs (public, loaded by the testbench)
+		reg [15:0] mrom [0:131071] /*verilator public_flat_rw*/;
+		reg [15:0] srom [0:131071] /*verilator public_flat_rw*/;
+		reg [15:0] drom [0:1048575] /*verilator public_flat_rw*/;
+		reg [7:0]  arom [0:262143] /*verilator public_flat_rw*/;     // the sound ROM
+		reg [15:0] vrom [0:1048575] /*verilator public_flat_rw*/;    // the C140's voices (the region's words)
+		reg [7:0]  irom [0:32767]  /*verilator public_flat_rw*/;     // the MCU's ROM: the C65's internal (8 KB) or c68.bin
+		reg [7:0]  erom [0:32767]  /*verilator public_flat_rw*/;     // its EPROM
+		reg [15:0] mrq_r, srq_r, drq_r;
+		reg [7:0]  arq_r, irq_r, erq_r;
+		always @(posedge clk) begin
+			mrq_r <= mrom[mra]; srq_r <= srom[sra]; drq_r <= drom[dra];
+			arq_r <= arom[ara]; irq_r <= irom[mcu_c68 ? ira68 : {2'b00, ira}]; erq_r <= erom[era];
+			vr_valid <= vr_req; vr_q <= vrom[vr_addr];
+		end
+		assign {mrq, srq, drq, arq, irq_q, erq} = {mrq_r, srq_r, drq_r, arq_r, irq_r, erq_r};
+		assign {m_ready, s_ready, d_ready, a_ready, mcu_ready} = 5'b11111;
+		assign {mprog_req, sprog_req, drom_req, aud_req, mcu_req, c140_req} = 6'd0;
+		assign mprog_addr = 0; assign sprog_addr = 0; assign drom_addr = 0; assign aud_addr = 0; assign mcu_addr_m = 0; assign c140_addr = 0;
+	end else begin : g_caches
+		// the SDRAM words hold the image's even byte low; the 68000's ROMs and
+		// the C140's region are big-endian words
+		wire [15:0] mw, sw, dw, aw, uw;
+		ns2_rom_cache #(.AW(17)) u_mc (.clk(clk), .rst(reset), .addr(mra), .rd(m_rd), .data(mw), .ready(m_ready),
+			.m_req(mprog_req), .m_addr(mprog_addr), .m_ack(mprog_ack), .m_valid(mprog_valid), .m_data(bank0_data));
+		ns2_rom_cache #(.AW(17)) u_sc (.clk(clk), .rst(reset), .addr(sra), .rd(s_rd), .data(sw), .ready(s_ready),
+			.m_req(sprog_req), .m_addr(sprog_addr), .m_ack(sprog_ack), .m_valid(sprog_valid), .m_data(bank0_data));
+		ns2_rom_cache #(.AW(20)) u_dc (.clk(clk), .rst(reset), .addr(dra), .rd(d_rd), .data(dw), .ready(d_ready),
+			.m_req(drom_req), .m_addr(drom_addr), .m_ack(drom_ack), .m_valid(drom_valid), .m_data(bank0_data));
+		ns2_rom_cache #(.AW(17)) u_ac (.clk(clk), .rst(reset), .addr(ara[17:1]), .rd(a_rd), .data(aw), .ready(a_ready),
+			.m_req(aud_req), .m_addr(aud_addr), .m_ack(aud_ack), .m_valid(aud_valid), .m_data(bank0_data));
+		// the MCU's 64 KB: its EPROM (the C65's 8000-ffff), then its internal
+		// ROM (the C65's 0000-1fff, the C68's c68.bin at 8000-ffff)
+		wire [15:0] ub = mcu_c68 ? {1'b1, mcu_a[14:0]} : mcu_a[15] ? {1'b0, mcu_a[14:0]} : {3'b100, mcu_a[12:0]};
+		ns2_rom_cache #(.AW(15)) u_uc (.clk(clk), .rst(reset), .addr(ub[15:1]), .rd(mcu_rd), .data(uw), .ready(mcu_ready),
+			.m_req(mcu_req), .m_addr(mcu_addr_m), .m_ack(mcu_ack), .m_valid(mcu_valid), .m_data(bank0_data));
+		assign mrq = {mw[7:0], mw[15:8]};
+		assign srq = {sw[7:0], sw[15:8]};
+		assign drq = {dw[7:0], dw[15:8]};
+		assign arq = ara[0] ? aw[15:8] : aw[7:0];
+		assign irq_q = ub[0] ? uw[15:8] : uw[7:0];
+		assign erq = irq_q;
+		// the C140: its request held until the bank takes it; the word of the burst
+		reg        c_req;
+		reg [17:0] c_addr;
+		reg [1:0]  c_w;
+		always @(posedge clk) begin
+			vr_valid <= 1'b0;
+			if (reset) c_req <= 1'b0;
+			else begin
+				if (vr_req) begin c_req <= 1'b1; c_addr <= vr_addr[19:2]; c_w <= vr_addr[1:0]; end
+				if (c_req && c140_ack) c_req <= 1'b0;
+				if (c140_valid) begin
+					vr_valid <= 1'b1;
+					vr_q <= {bank1_data[16 * c_w +: 8], bank1_data[16 * c_w + 8 +: 8]};
+				end
+			end
+		end
+		assign c140_req = c_req;
+		assign c140_addr = c_addr;
+	end endgenerate
 
 	// line events
 	wire       ce_pix;
@@ -110,7 +190,10 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	wire        cs_c169, cs_c169ctl, cs_c355, cs_c355pos;
 	ns2_main u_main (
 		.clk(clk), .reset(reset), .board(board), .key_table(key_table), .key_mode(key_mode),
-		.mrom_addr(mra), .mrom_data(mrq), .srom_addr(sra), .srom_data(srq), .drom_addr(dra), .drom_data(drq),
+		.mrom_addr(mra), .mrom_data(mrq), .mrom_ready(m_ready), .mrom_rd(m_rd),
+		.srom_addr(sra), .srom_data(srq), .srom_ready(s_ready), .srom_rd(s_rd),
+		.drom_addr(dra), .drom_data(drq), .drom_ready(d_ready), .drom_rd(d_rd),
+		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.vblank(ev_vbl), .posirq(ev_pos), .sound_run(sound_run), .sub_run(sub_run),
 		.v_addr(v_addr), .v_dout(v_dout), .v_rnw(v_rnw), .v_uds(v_uds), .v_lds(v_lds),
 		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),
@@ -124,6 +207,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	// the video
 	ns2_video u_video (
 		.clk(clk), .reset(reset), .board(board), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
+		.dl_clut_we(clut_we), .dl_clut_addr(clut_addr), .dl_clut_data(clut_data),
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),
 		.red(red), .green(green), .blue(blue), .out_x(out_x), .out_y(out_y), .out_valid(out_valid),
 		.posirq_line(pos_here),
@@ -137,23 +221,24 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 		.c169_req(c169_req), .c169_addr(c169_addr), .c169_ack(c169_ack), .c169_valid(c169_valid), .c169_data(c169_data),
 		.c169m_req(c169m_req), .c169m_addr(c169m_addr), .c169m_ack(c169m_ack), .c169m_valid(c169m_valid), .c169m_data(c169m_data),
 		.spr_req(spr_req), .spr_addr(spr_addr), .spr_ack(spr_ack), .spr_valid(spr_valid), .spr_data(spr_data),
-		.overrun(), .overrun_src(), .line_busy_max());
+		.overrun(overrun), .overrun_src(overrun_src), .line_busy_max(line_busy_max));
 
 	// the I/O MCU: the C65 or the C68
 	wire [10:0] dpa_65, dpa_68;
 	wire [7:0]  dpd_65, dpd_68;
 	wire        dpw_65, dpw_68;
-	wire [15:0] a_65, a_68;
 	wire        w_65, w_68;
 	wire [7:0]  d_65, d_68;
+	wire        rd_65, rd_68;
+	assign mcu_rd = mcu_c68 ? rd_68 : rd_65;
 	ns2_c65 u_mcu (
-		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu),
+		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
 		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
 	ns2_c68 u_c68 (
-		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu),
+		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68),
 		.rom_addr(ira68), .rom_data(irq_q),
 		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -168,7 +253,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
 		.clk(clk), .reset(reset), .run(sound_run),
-		.rom_addr(ara), .rom_data(arq),
+		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),
@@ -176,10 +261,4 @@ module ns2_board #(parameter C140_MAME_RATE = 0) (
 		.c140_sample(c140_sample),
 		.dbg_addr(snd_addr), .dbg_wr(snd_wr), .dbg_dout(snd_dout));
 
-	// the voice ROM: one clock
-	wire        vr_req;
-	wire [19:0] vr_addr;
-	reg         vr_valid;
-	reg  [15:0] vr_q;
-	always @(posedge clk) begin vr_valid <= vr_req; vr_q <= vrom[vr_addr]; end
 endmodule

@@ -48,6 +48,9 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/ns2_c68.sv` | the C68: MAME's `namco68.cpp` map and `m3745x.cpp` peripherals |
 | `sim/rtl/c68/` | the C68 against MAME's cycle trace of it (NS2-9) |
 | `rtl/ns2_sdram.sv`, `sim/rtl/ns2_sdram/` | M3: the SDRAM front end (request FIFOs, burst assembly, the download's writes) and its check against the burst model (NS2-11) |
+| `rtl/ns2_mem.sv`, `rtl/ns2_bank_arb.sv` | M3: the download into the four banks (the board wiring, the ROZ copies, the tile class table) and each bank's clients (NS2-12) |
+| `rtl/ns2_rom_cache.sv` | M3: a CPU ROM's cache over the SDRAM (after MS1BCD's `rom_cache_n`) |
+| `sim/rtl/ns2_hw/`, `tools/ns2_image.py` | M3's harness: the board with its ROMs in the SDRAM, from the download image to MAME's pictures |
 | `tools/ns2_replay.py` | the board's pictures replayed line by line from MAME's timed video writes (NS2-10) |
 | `tools/ns2_740cycles.py` | measures the C68's cycles from MAME's traces. It showed that the taps miss dummy cycles (docs/PLAN.md M2) |
 | `tools/gen_ucode.sh` | rebuilds jt680x's microcode with jtframe's generator |

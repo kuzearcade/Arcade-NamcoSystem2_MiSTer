@@ -13,9 +13,12 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	input             clk,
 	input             reset,
 	input             run,            // the master's C148 ext1 bit 0
-	// the sound ROM (128 or 256 KB): data one clock after the address
+	// the sound ROM (128 or 256 KB): data one clock after the address, or
+	// when rom_ready (a cache: a miss stretches the E cycle)
 	output     [17:0] rom_addr,
 	input      [7:0]  rom_data,
+	input             rom_ready,
+	output            rom_rd,
 	// the DPRAM's sound port
 	output reg [10:0] dp_addr,
 	output reg [7:0]  dp_dout,
@@ -42,7 +45,9 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 );
 	// E and Q: quarters of 6 clocks; falling E starts a cycle
 	reg [4:0] ph;
-	always @(posedge clk) ph <= (ph == 5'd23) ? 5'd0 : ph + 1'd1;
+	// a ROM read not ready holds the cycle at its last clock
+	wire rom_wait;
+	always @(posedge clk) ph <= (ph == 5'd23) ? (rom_wait ? 5'd23 : 5'd0) : ph + 1'd1;
 	wire fallE = ph == 5'd0, fallQ = ph == 5'd18;
 
 	// 3.579545 MHz for the YM2151 (the fraction of 49.152 MHz)
@@ -91,6 +96,8 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	wire sel_ram   = a[15:13] == 3'b100;
 	wire sel_rom_f = a[15:14] == 2'b11;
 	assign rom_addr = sel_rom_b ? {bank, a[13:0]} : {4'd0, a[13:0]};
+	assign rom_rd   = (sel_rom_b || sel_rom_f) && rnw;
+	assign rom_wait = rom_rd && !rom_ready;
 
 	// the chips' strobes: one clock, on the falling E that ends the cycle
 	wire wr_e = fallE && !rnw;

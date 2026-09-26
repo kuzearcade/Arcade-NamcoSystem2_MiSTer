@@ -133,7 +133,7 @@ def tilemap_layer(r, st, i, cb):
         tx, ty = (W - 1 - xs, H - 1 - ys) if flip else (xs, ys)
         code = vram[(0x4008, 0x4408)[i - 4] + (ty // 8) * 36 + tx // 8]
     tile, mask = cb(code), code
-    pen = r.tiles[tile, ty % 8, tx % 8]
+    pen = r.tiles[tile % len(r.tiles), ty % 8, tx % 8]    # MAME's tileinfo: the code modulo the tiles (the mask takes it raw)
     opaque = r.tmask[mask, ty % 8, tx % 8]
     color = 16 * 256 + ((int(ctl[0x18 + i]) & 7) << 8)
     return pen.astype(np.int64) + color, opaque

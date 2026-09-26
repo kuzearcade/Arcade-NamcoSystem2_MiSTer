@@ -13,9 +13,16 @@ module ns2_cpu #(parameter MASTER = 1) (
 	input             run,           // 0 holds the CPU in reset (the slave: the master's C148 ext2)
 	input             en_phi1,
 	input             en_phi2,
-	// program ROM (256 KB): data one clock after the address
+	// program ROM (256 KB): data one clock after the address, or when
+	// rom_ready (a cache over the SDRAM: a miss holds DTACK, a wait state)
 	output     [17:1] rom_addr,
 	input      [15:0] rom_data,
+	input             rom_ready,
+	output            rom_rd,         // a program ROM read is on the bus
+	// the EEPROM's load (the download's default NVRAM, master only)
+	input             nv_we,
+	input      [12:0] nv_addr,
+	input      [7:0]  nv_data,
 	// the C148's events
 	input             vblank,
 	input             posirq,
@@ -96,9 +103,11 @@ module ns2_cpu #(parameter MASTER = 1) (
 		if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
 		ram_q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
 		if (wr && sel_eep && !LDSn) eep[a[13:1]] <= oEdb[7:0];
+		if (nv_we) eep[nv_addr] <= nv_data;            // the download: the default NVRAM
 		eep_q <= eep[a[13:1]];
 	end
 	assign rom_addr = a[17:1];
+	assign rom_rd = !ASn && !iack && sel_rom && eRWn;
 
 	// the C148: register strobes once per bus cycle
 	wire [7:0] c148_q;
@@ -126,7 +135,8 @@ module ns2_cpu #(parameter MASTER = 1) (
 					sh_req <= 1'b1; sh_addr <= eab; sh_we <= !eRWn; sh_uds <= !UDSn; sh_lds <= !LDSn; sh_dout <= oEdb;
 				end
 			end
-			if (lat != 0) begin
+			// a ROM read waits at its last count until the ROM is ready
+			if (lat != 0 && !(lat == 3'd1 && sel_rom && !iack && !rom_ready)) begin
 				lat <= lat - 1'd1;
 				if (lat == 3'd1) begin
 					dtack <= 1'b1;

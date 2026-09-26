@@ -1,0 +1,136 @@
+// M3 (docs/PLAN.md): the board with its ROMs in the SDRAM (top.sv), from the
+// set's download image (tools/ns2_image.py) to MAME's pictures.
+//   ./obj_dir/Vtop SET TRACE_DIR [last_frame]
+// TRACE_DIR: a capture (tools/ns2_capture.py: pNNNNN.raw, ports.txt); the
+// board's frame F is compared with MAME's picture F, as sim/rtl/ns2_frames.
+// KEY, BOARD, SPR_FL, TILE_FL2 as there; MH_WIRING, LW_WIRING the download's
+// wiring; DL_SKIP0=1 skips the image's zero words (the model starts at 0);
+// PICS_DUMP=dir writes the board's pictures.
+#include "Vtop.h"
+#include "verilated.h"
+#include "Vtop___024root.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <map>
+#include <string>
+#include <vector>
+
+static std::vector<uint8_t> load(const std::string &p) {
+	std::vector<uint8_t> v; FILE *f = fopen(p.c_str(), "rb"); if (!f) return v;
+	fseek(f, 0, SEEK_END); v.resize(ftell(f)); fseek(f, 0, SEEK_SET);
+	if (fread(v.data(), 1, v.size(), f) != v.size()) v.clear(); fclose(f); return v;
+}
+
+int main(int argc, char **argv) {
+	Verilated::commandArgs(argc, argv);
+	if (argc < 3) { fprintf(stderr, "usage: SET TRACE_DIR [last_frame]\n"); return 1; }
+	std::string set = argv[1], rd = std::string("../roms/") + set + "/", td = argv[2];
+	const long last = argc > 3 ? atol(argv[3]) : 100;
+	auto img = load(rd + "image.bin"), mint = load(rd + "mcu_int.bin");
+	if (img.empty()) { fprintf(stderr, "no image.bin (tools/ns2_image.py)\n"); return 1; }
+	std::map<std::string, unsigned> ports;
+	{
+		FILE *f = fopen((td + "/ports.txt").c_str(), "r");
+		char n[64]; unsigned v;
+		while (f && fscanf(f, "%63s %x", n, &v) == 2) ports[n] = v;
+		if (f) fclose(f);
+	}
+	Vtop *t = new Vtop;
+	uint64_t fc = 0, cyc = 0;           // fast and core clocks
+	auto slow = [&]() {
+		for (int h = 0; h < 2; h++) {
+			t->clk_sd = 1; t->clk = (h == 0); t->eval();
+			t->clk_sd = 0; t->eval();
+			fc++;
+		}
+		cyc++;
+		t->rfsh = t->hcnt >= 300;       // hblank's share (the board's raster)
+	};
+	auto port = [&](const char *n, unsigned d) { return ports.count(n) ? ports[n] : d; };
+	t->mcub = port(":MCUB", 0xff); t->mcuc = port(":MCUC", 0xff); t->mcuh = port(":MCUH", 0xff); t->dsw = port(":DSW", 0xff);
+	t->dials = port(":MCUDI0", 0xff) | port(":MCUDI1", 0xff) << 8 | port(":MCUDI2", 0xff) << 16 | port(":MCUDI3", 0xff) << 24;
+	t->analog = 0;
+	for (int i = 0; i < 8; i++) { char n[8]; snprintf(n, 8, ":AN%d", i); t->analog |= (uint64_t)port(n, 0xff) << (8 * i); }
+	t->board = getenv("BOARD") ? atoi(getenv("BOARD")) : 0;
+	t->tile_fl2 = getenv("TILE_FL2") != nullptr; t->spr_fl = getenv("SPR_FL") != nullptr;
+	t->mh_wiring = getenv("MH_WIRING") != nullptr; t->lw_wiring = getenv("LW_WIRING") != nullptr;
+	t->mcu_c68 = mint.size() == 32768;
+	{
+		unsigned mode = 0; int k[8] = {0}, v[8] = {0};
+		if (const char *ks = getenv("KEY")) sscanf(ks, "%u %d %x %d %x %d %x %d %x %d %x %d %x %d %x %d %x", &mode,
+		    &k[0], &v[0], &k[1], &v[1], &k[2], &v[2], &k[3], &v[3], &k[4], &v[4], &k[5], &v[5], &k[6], &v[6], &k[7], &v[7]);
+		t->key_mode = mode;
+		for (int i = 0; i < 8; i++) {
+			uint32_t e = (k[i] ? 1u << 16 : 0) | (v[i] & 0xffff);
+			for (int b = 0; b < 17; b++) if (e >> b & 1) t->key_table[(17 * i + b) / 32] |= 1u << ((17 * i + b) % 32);
+		}
+	}
+	// the SDRAM's start, then the download (the board held in reset)
+	t->rst = 1; t->reset = 1; for (int i = 0; i < 64; i++) slow(); t->rst = 0;
+	while (t->sd_init) slow();
+	t->dl = 1;
+	const bool skip0 = getenv("DL_SKIP0") != nullptr;
+	uint64_t c0 = cyc, words = 0;
+	for (size_t a = 0; a < img.size(); a += 2) {
+		uint16_t w = img[a] | img[a + 1] << 8;
+		if (skip0 && w == 0) continue;
+		t->dl_addr = a; t->dl_data = w; t->dl_wr = 1; slow(); t->dl_wr = 0;
+		do slow(); while (t->dl_wait);
+		words++;
+		if ((words & 0xfffff) == 0) { printf("  download at %06zx\n", a); fflush(stdout); }
+	}
+	t->dl = 0;
+	printf("download: %llu words in %llu clocks (%.1f per word); violations %u\n", (unsigned long long)words,
+	       (unsigned long long)(cyc - c0), (double)(cyc - c0) / (words ? words : 1), t->violations);
+	fflush(stdout);
+	for (int i = 0; i < 64; i++) slow();
+	// the board: MAME's time 0 is the release
+	t->reset = 0;
+	const uint64_t base = cyc;
+	static uint32_t pic[224][288];
+	int lastv = -1, n = 0, exact = 0;
+	while ((long)((cyc - base) / 811008) <= last) {
+		slow();
+		if (t->out_valid && t->out_y < 224 && t->out_x < 288) pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue;
+		static long overruns = 0;
+		if (t->overrun) { if (overruns++ < 5) printf("overrun at line %d (frame %llu): busy %02x\n", t->vcnt, (unsigned long long)((cyc - base) / 811008), t->overrun_src); }
+		if ((int)t->vcnt != lastv) {
+			if (t->vcnt == 224 && cyc - base > 811008) {
+				long F = (long)((cyc - base) / 811008) - 1;
+				char pp[512]; snprintf(pp, sizeof pp, "%s/p%05ld.raw", td.c_str(), F);
+				auto mp = load(pp);
+				if (mp.size() == 288 * 224 * 4) {
+					int diff = 0, fy = -1, ly = -1;
+					for (int y = 0; y < 224; y++)
+						for (int x = 0; x < 288; x++) {
+							const uint8_t *q = &mp[(y * 288 + x) * 4];
+							if ((pic[y][x] & 0xffffff) != (uint32_t)(q[0] | q[1] << 8 | q[2] << 16)) { if (!diff) fy = y; diff++; ly = y; }
+						}
+					n++; exact += diff == 0;
+					if (diff) printf("frame %ld: %d pixels differ (lines %d-%d)\n", F, diff, fy, ly);
+					fflush(stdout);
+				}
+				if (getenv("PICS_DUMP")) {
+					snprintf(pp, sizeof pp, "%s/rtl%05ld.raw", getenv("PICS_DUMP"), F);
+					FILE *df = fopen(pp, "wb"); if (df) { fwrite(pic, sizeof pic, 1, df); fclose(df); }
+				}
+			}
+			lastv = t->vcnt;
+		}
+	}
+	printf("pictures: %d of %d exact; SDRAM violations %u; video: busiest line %u of 3072 clocks, overrun sources %02x\n",
+	       exact, n, t->violations, t->line_busy_max, t->overrun_src);
+	// the caches: reads, misses, waits (clocks)
+	auto *r = t->rootp;
+	struct { const char *n; uint32_t rd, ms, wt; } c[] = {
+		{"master", r->top__DOT__u_board__DOT__g_caches__DOT__u_mc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_mc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_mc__DOT__n_wait},
+		{"slave", r->top__DOT__u_board__DOT__g_caches__DOT__u_sc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_sc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_sc__DOT__n_wait},
+		{"data", r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_dc__DOT__n_wait},
+		{"audio", r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_ac__DOT__n_wait},
+		{"mcu", r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_reads, r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_miss, r->top__DOT__u_board__DOT__g_caches__DOT__u_uc__DOT__n_wait}};
+	for (auto &x : c) printf("cache %-6s %10u reads, %8u misses (%.2f%%), %10u clocks waited (%.2f%% of %llu)\n", x.n, x.rd, x.ms,
+	                         x.rd ? 100.0 * x.ms / x.rd : 0.0, x.wt, 100.0 * x.wt / (cyc - base), (unsigned long long)(cyc - base));
+	delete t;
+	return 0;
+}

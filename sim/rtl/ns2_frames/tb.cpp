@@ -103,15 +103,15 @@ int main(int argc, char **argv) {
 
 	Vns2_board *t = new Vns2_board;
 	auto *r = t->rootp;
-	for (size_t i = 0; i < mrom.size() / 2; i++) r->ns2_board__DOT__mrom[i] = mrom[2 * i] << 8 | mrom[2 * i + 1];
-	for (size_t i = 0; i < srom.size() / 2; i++) r->ns2_board__DOT__srom[i] = srom[2 * i] << 8 | srom[2 * i + 1];
-	for (size_t i = 0; i < drom.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__drom[i] = drom[2 * i] << 8 | drom[2 * i + 1];
-	for (size_t i = 0; i < (1u << 18); i++) r->ns2_board__DOT__arom[i] = arom.empty() ? 0xff : arom[i % arom.size()];
-	for (size_t i = 0; i < vro.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__vrom[i] = vro[2 * i] << 8 | vro[2 * i + 1];
+	for (size_t i = 0; i < mrom.size() / 2; i++) r->ns2_board__DOT__g_arrays__DOT__mrom[i] = mrom[2 * i] << 8 | mrom[2 * i + 1];
+	for (size_t i = 0; i < srom.size() / 2; i++) r->ns2_board__DOT__g_arrays__DOT__srom[i] = srom[2 * i] << 8 | srom[2 * i + 1];
+	for (size_t i = 0; i < drom.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__g_arrays__DOT__drom[i] = drom[2 * i] << 8 | drom[2 * i + 1];
+	for (size_t i = 0; i < (1u << 18); i++) r->ns2_board__DOT__g_arrays__DOT__arom[i] = arom.empty() ? 0xff : arom[i % arom.size()];
+	for (size_t i = 0; i < vro.size() / 2 && i < (1u << 20); i++) r->ns2_board__DOT__g_arrays__DOT__vrom[i] = vro[2 * i] << 8 | vro[2 * i + 1];
 	// the MCU: the C65's internal ROM (8 KB) or the C68's c68.bin (32 KB)
-	for (size_t i = 0; i < irom.size() && i < 32768; i++) r->ns2_board__DOT__irom[i] = irom[i];
+	for (size_t i = 0; i < irom.size() && i < 32768; i++) r->ns2_board__DOT__g_arrays__DOT__irom[i] = irom[i];
 	t->mcu_c68 = irom.size() == 32768;
-	for (size_t i = 0; i < 32768; i++) r->ns2_board__DOT__erom[i] = erom[i];
+	for (size_t i = 0; i < 32768; i++) r->ns2_board__DOT__g_arrays__DOT__erom[i] = erom[i];
 	for (size_t i = 0; i < 8192; i++) r->ns2_board__DOT__u_main__DOT__u_master__DOT__eep[i] = nv.size() == 8192 ? nv[i] : 0xff;
 	// the graphics board and the Final Lap variants (tools/ns2_romdata.py's
 	// config: BOARD 0 standard, 1 Final Lap, 2 Metal Hawk, 3 Steel Gunner 2,

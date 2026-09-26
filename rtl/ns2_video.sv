@@ -21,6 +21,9 @@ module ns2_video (
 	input      [2:0]  board,
 	input             tile_fl2,     // finalap2 / finalap3 tile callback
 	input             spr_fl,       // finallap: namcos2_sprite_finallap_device
+	input             dl_clut_we,   // the download: the C45 road CLUT
+	input      [7:0]  dl_clut_addr,
+	input      [7:0]  dl_clut_data,
 	// raster
 	output reg [8:0]  hcnt,
 	output reg [8:0]  vcnt,
@@ -147,7 +150,8 @@ module ns2_video (
 	reg [7:0]  tmap_h [0:32767] /*verilator public_flat_rw*/, tmap_l [0:32767] /*verilator public_flat_rw*/;
 	reg [7:0]  spr_h  [0:8191]  /*verilator public_flat_rw*/, spr_l  [0:8191]  /*verilator public_flat_rw*/;
 	reg [7:0]  roz_h  [0:65535] /*verilator public_flat_rw*/, roz_l  [0:65535] /*verilator public_flat_rw*/;
-	reg [7:0]  clut   [0:255]   /*verilator public_flat_rw*/;   // C45 road CLUT (ROM)
+	reg [7:0]  clut   [0:255]   /*verilator public_flat_rw*/;   // C45 road CLUT (ROM, from the download)
+	always @(posedge clk) if (dl_clut_we) clut[dl_clut_addr] <= dl_clut_data;
 	reg [7:0]  c169_h [0:32767] /*verilator public_flat_rw*/, c169_l [0:32767] /*verilator public_flat_rw*/;
 	reg [7:0]  c355_h [0:41215] /*verilator public_flat_rw*/, c355_l [0:41215] /*verilator public_flat_rw*/;  // 0xa100 words
 	reg [7:0]  pal_r  [0:8191]  /*verilator public_flat_rw*/, pal_g  [0:8191]  /*verilator public_flat_rw*/,

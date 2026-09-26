@@ -18,10 +18,19 @@ module ns2_main (
 	// program ROMs and the data ROM: data one clock after the address
 	output     [17:1] mrom_addr,
 	input      [15:0] mrom_data,
+	input             mrom_ready,     // the ROMs' caches (M3); 1 with the arrays
+	output            mrom_rd,
 	output     [17:1] srom_addr,
 	input      [15:0] srom_data,
+	input             srom_ready,
+	output            srom_rd,
 	output     [20:1] drom_addr,
 	input      [15:0] drom_data,
+	input             drom_ready,
+	output            drom_rd,
+	input             nv_we,          // the download: the EEPROM's default
+	input      [12:0] nv_addr,
+	input      [7:0]  nv_data,
 	// events
 	input             vblank,
 	input             posirq,
@@ -67,14 +76,16 @@ module ns2_main (
 
 	ns2_cpu #(.MASTER(1)) u_master (
 		.clk(clk), .reset(reset), .run(1'b1), .en_phi1(en_phi1), .en_phi2(en_phi2),
-		.rom_addr(mrom_addr), .rom_data(mrom_data),
+		.rom_addr(mrom_addr), .rom_data(mrom_data), .rom_ready(mrom_ready), .rom_rd(mrom_rd),
+		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(s_irq), .cpuirq_out(m_irq), .ext1(ext1), .ext2(ext2),
 		.sh_req(m_req), .sh_addr(m_sa), .sh_we(m_we), .sh_uds(m_uds), .sh_lds(m_lds), .sh_dout(m_sd),
 		.sh_done(m_done), .sh_din(sh_q),
 		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack));
 	ns2_cpu #(.MASTER(0)) u_slave (
 		.clk(clk), .reset(reset), .run(ext2[0]), .en_phi1(en_phi1), .en_phi2(en_phi2),
-		.rom_addr(srom_addr), .rom_data(srom_data),
+		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd),
+		.nv_we(1'b0), .nv_addr(13'd0), .nv_data(8'd0),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(m_irq), .cpuirq_out(s_irq), .ext1(), .ext2(),
 		.sh_req(s_req), .sh_addr(s_sa), .sh_we(s_we), .sh_uds(s_uds), .sh_lds(s_lds), .sh_dout(s_sd),
 		.sh_done(s_done), .sh_din(sh_q),
@@ -136,6 +147,7 @@ module ns2_main (
 		else                                    decode = D_NONE;
 	endfunction
 	assign drom_addr = ga[20:1];
+	assign drom_rd = busy && step != 2'd0 && dev == D_DROM && v_rnw;
 
 	always @(posedge clk) begin
 		m_done <= 1'b0; s_done <= 1'b0;
@@ -171,8 +183,8 @@ module ns2_main (
 				if (dev == D_KEY) begin key_rd <= !(who ? s_we : m_we); key_we <= who ? s_we : m_we; end
 				step <= 2'd2;
 			end
-			default: begin
-				// capture and complete
+			default: if (!(dev == D_DROM && v_rnw && !drom_ready)) begin
+				// capture and complete (a data ROM read waits for its cache)
 				case (dev)
 					D_DROM: sh_q <= drom_data;
 					D_VID:  sh_q <= v_din;

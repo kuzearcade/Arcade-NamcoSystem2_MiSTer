@@ -26,6 +26,8 @@ module ns2_c68 (
 	input             clk,
 	input             reset,          // held while the master's C148 keeps the MCU in reset
 	input             irq_line200,    // one clock pulse
+	input             rom_ready,      // the ROM's cache has the byte (1 with the arrays)
+	output            rom_rd,         // a ROM read is on the bus
 	// the ROM: c68.bin (32 KB), data one clock after the address
 	output     [14:0] rom_addr,
 	input      [7:0]  rom_data,
@@ -49,8 +51,10 @@ module ns2_c68 (
 );
 	// 2.048 MHz
 	reg [4:0] div;
-	always @(posedge clk) div <= (reset || div == 5'd23) ? 5'd0 : div + 1'd1;
-	wire cen = div == 5'd23;
+	// a ROM read not ready (a cache over the SDRAM) holds the cycle
+	wire rom_wait;
+	always @(posedge clk) div <= reset ? 5'd0 : div == 5'd23 ? (rom_wait ? 5'd23 : 5'd0) : div + 1'd1;
+	wire cen = div == 5'd23 && !rom_wait;
 
 	wire [15:0] a;
 	wire        wr, sync, tap;
@@ -95,6 +99,8 @@ module ns2_c68 (
 	wire sel_ram  = a < 16'h00c0 || a[15:8] == 8'h01;
 	wire sel_dp   = a[15:11] == 5'b01010;              // 5000-57ff
 	wire sel_rom  = a[15];
+	assign rom_rd = sel_rom && !wr;
+	assign rom_wait = rom_rd && !rom_ready;
 	always @(posedge clk) ram_q <= ram[{a[8], a[7:0]}];
 	always @(*) begin
 		if (sel_ram)                     din = ram_q;

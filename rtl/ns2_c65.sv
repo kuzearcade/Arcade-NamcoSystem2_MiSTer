@@ -22,6 +22,8 @@ module ns2_c65 (
 	input             por,            // the board's reset
 	input             reset,          // held while the master's C148 keeps the MCU in reset
 	input             irq_line200,    // one clock pulse
+	input             rom_ready,      // the ROM's cache has the byte (1 with the arrays)
+	output            rom_rd,         // a ROM read is on the bus
 	// ROMs: data one clock after the address (internal 8 KB, external 32 KB)
 	output     [12:0] irom_addr,
 	input      [7:0]  irom_data,
@@ -43,8 +45,10 @@ module ns2_c65 (
 );
 	// 2.048 MHz
 	reg [4:0] div;
-	always @(posedge clk) div <= (reset || div == 5'd23) ? 5'd0 : div + 1'd1;
-	wire cen = div == 5'd23;
+	// a ROM read not ready (a cache over the SDRAM) holds the cycle
+	wire rom_wait;
+	always @(posedge clk) div <= reset ? 5'd0 : div == 5'd23 ? (rom_wait ? 5'd23 : 5'd0) : div + 1'd1;
+	wire cen = div == 5'd23 && !rom_wait;
 
 	wire [15:0] a;
 	wire        wr;
@@ -74,6 +78,8 @@ module ns2_c65 (
 	wire sel_ram  = a < 16'h01c0;
 	wire sel_irom = a < 16'h2000;
 	wire sel_erom = a[15];
+	assign rom_rd = ((sel_irom && !sel_ram) || sel_erom) && !wr;
+	assign rom_wait = rom_rd && !rom_ready;
 	wire sel_dp   = a[15:11] == 5'b01010;          // 5000-57ff
 	always @(posedge clk) ram_q <= ram[a[8:0]];
 	always @(*) begin

@@ -38,6 +38,7 @@ LAYOUT = [
 TOTAL = 0x1200000
 ALIASES = {'c65mcu:external': 'mcu_ext', 'c68mcu:external': 'mcu_ext',
            'c355spr': 'sprite', 's2roz': 'roz', 'c169roz': 'roz'}
+MIRRORED = {'c123tmap', 'sprite', 'c355spr', 's2roz', 'c169roz'}   # graphics: codes wrap (build)
 IGNORED = {'plds', 'unknown'}   # PAL dumps; finalap3a's 'unknown' ROM, which MAME never reads
 DEVICE_ROMS = {   # the I/O MCU's internal ROM, from MAME's device zips
     'c65': ('namcoc65.zip', 'sys2mcpu.bin', 0x2000, 0xa342a97e),
@@ -201,6 +202,11 @@ def build(name, sets=None, gm=None):
         _, off, size = ent[0]
         if len(data) > size:
             raise SystemExit(f'{name}: region {tag} is {len(data):#x}, the layout allows {size:#x}')
+        if tag in MIRRORED and len(data) < size:
+            # MAME takes a graphics code modulo the element count (tilemap.h,
+            # drawgfx): the region repeats through its slot, so the core's
+            # fetches wrap the same way (Golly Ghost's tiles are 384 KB)
+            data = (data * (size // len(data) + 1))[:size]
         img[off:off + len(data)] = data
     return regions, bytes(img)
 
