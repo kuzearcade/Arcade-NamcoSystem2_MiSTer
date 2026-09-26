@@ -11,13 +11,16 @@ module ns2_rom_cache #(
 	parameter AW = 17,                // the ROM's size in 16-bit words: 2^AW
 	parameter LINES = 16,
 	parameter PREFETCH = 1,
-	// a slow CPU's cache takes addr and rd only on smp, a fixed phase of its
-	// cycle after they settle (the SDC's multicycle paths from the CPU)
+	// a slow CPU's cache takes addr and rd while smp, from a phase of its
+	// cycle after its registers' outputs settle (the SDC's multicycle paths
+	// from the CPU) to the cycle's end, and is ready only while what it took
+	// is still the CPU's address: a CPU's address can also follow its data
+	// input combinationally (mc6809is drives ADDR = addr_nxt)
 	parameter SAMPLED = 0
 ) (
 	input               clk,
 	input               rst,
-	input               smp,
+	input               smp,          // SAMPLED: take addr_in and rd_in
 	input      [AW-1:0] addr_in,      // a 16-bit word
 	input               rd_in,        // the consumer is reading (addr valid)
 	output     [15:0]   data,
@@ -58,7 +61,7 @@ module ns2_rom_cache #(
 	end
 	wire [63:0] hl = line[hi];
 	assign data  = hl[16 * addr[1:0] +: 16];
-	assign ready = hit;
+	assign ready = hit && (!SAMPLED || (rd_s && addr_s == addr_in));
 
 	// statistics (simulation): reads, misses, the clocks a read waited
 	reg [31:0] n_reads /*verilator public_flat_rd*/, n_miss /*verilator public_flat_rd*/, n_wait /*verilator public_flat_rd*/;

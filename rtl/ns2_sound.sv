@@ -50,9 +50,11 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	wire rom_wait;
 	always @(posedge clk) ph <= (ph == 5'd23) ? (rom_wait ? 5'd23 : 5'd0) : ph + 1'd1;
 	wire fallE = ph == 5'd0, fallQ = ph == 5'd18;
-	// the CPU's address changes on fallE: five clocks later it has settled
-	// (the SDC's 4-cycle multicycle paths from the CPU)
-	assign rom_smp = ph == 5'd5;
+	// the CPU's registers change on fallE; its address also follows its data
+	// input (ADDR = addr_nxt). From five clocks after fallE to the cycle's end
+	// the cache takes it, and is ready only for the address it took
+	// (ns2_rom_cache SAMPLED; the SDC's 4-cycle multicycle paths)
+	assign rom_smp = ph >= 5'd5;
 
 	// 3.579545 MHz for the YM2151 (the fraction of 49.152 MHz)
 	reg [26:0] yacc;

@@ -23,6 +23,8 @@ module ns2_cpu #(parameter MASTER = 1) (
 	input             nv_we,
 	input      [12:0] nv_addr,
 	input      [7:0]  nv_data,
+	output reg [7:0]  nv_q,           // the EEPROM at nv_addr, a clock later (the NVRAM's save)
+	output            nv_cpu_we,      // the CPU writes the EEPROM
 	// the C148's events
 	input             vblank,
 	input             posirq,
@@ -103,14 +105,16 @@ module ns2_cpu #(parameter MASTER = 1) (
 		if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
 		ram_q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
 	end
-	// the EEPROM: one port, shared by the download (the default NVRAM, in
-	// reset) and the CPU; a write returns its own data (Intel's template)
-	wire        eep_we = nv_we || (wr && sel_eep && !LDSn);
-	wire [12:0] eep_a  = nv_we ? nv_addr : a[13:1];
-	wire [7:0]  eep_d  = nv_we ? nv_data : oEdb[7:0];
+	// the EEPROM: the CPU's port, and the NVRAM's (the download's default,
+	// the .nvm's load and save); a write returns its own data (Intel's
+	// true dual port template)
+	assign nv_cpu_we = wr && sel_eep && !LDSn;
 	always @(posedge clk)
-		if (eep_we) begin eep[eep_a] <= eep_d; eep_q <= eep_d; end
-		else eep_q <= eep[eep_a];
+		if (nv_cpu_we) begin eep[a[13:1]] <= oEdb[7:0]; eep_q <= oEdb[7:0]; end
+		else eep_q <= eep[a[13:1]];
+	always @(posedge clk)
+		if (nv_we) begin eep[nv_addr] <= nv_data; nv_q <= nv_data; end
+		else nv_q <= eep[nv_addr];
 	assign rom_addr = a[17:1];
 	assign rom_rd = !ASn && !iack && sel_rom && eRWn;
 

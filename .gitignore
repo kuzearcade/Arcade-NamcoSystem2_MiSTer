@@ -68,3 +68,6 @@ sim/oracle/ymfm_y8950/ymfm_y8950
 sim/rtl/*/6805.uc
 sim/rtl/*/63705.uc
 sim/rtl/*/65c02.uc
+
+# Quartus build logs (build.sh)
+/build*.log

@@ -56,9 +56,10 @@ module ns2_c68 (
 	wire rom_wait;
 	always @(posedge clk) div <= reset ? 5'd0 : div == 5'd23 ? (rom_wait ? 5'd23 : 5'd0) : div + 1'd1;
 	wire cen = div == 5'd23 && !rom_wait;
-	// the CPU's outputs change on cen (div 23): five clocks later they have
-	// settled (the SDC's 4-cycle multicycle paths from the CPU)
-	assign rom_smp = div == 5'd4;
+	// the CPU's outputs change on cen (div 23): from five clocks later to the
+	// cycle's end the cache takes them (the SDC's 4-cycle multicycle paths
+	// from the CPU)
+	assign rom_smp = div >= 5'd4;
 
 	wire [15:0] a;
 	wire        wr, sync, tap;

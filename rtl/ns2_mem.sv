@@ -20,6 +20,12 @@ module ns2_mem (
 	input      [2:0]  board,          // ns2_video's board code
 	input             mh_wiring,      // Metal Hawk (init_metlhawk)
 	input             lw_wiring,      // Lucky & Wild (init_luckywld)
+	// MAME loads one byte lane of some 16-bit regions and leaves the other
+	// at 0: the C140 voices' odd bytes always, the data ROM's second
+	// megabyte where these say (rthun2: the odd bytes; suzuka8h: the even).
+	// The .mra fills the missing lane with a copy of the other (an
+	// <interleave> cannot fill a lane), and the download writes 0 there.
+	input      [1:0]  drom_empty,     // the data ROM's second MB: [0] its even bytes are 0, [1] its odd bytes
 	// the download
 	input             dl,             // downloading index 0
 	input             dl_wr,
@@ -149,6 +155,11 @@ module ns2_mem (
 					w_ba[1] = 1; w_addr[1] = (a - 25'h0E00000) >> 1; n = 2;
 				end
 				for (i = 0; i < 2; i = i + 1) begin w_din[i] = dl_data; w_dsn[i] = 2'b00; end
+				if (a >= 25'h0300000 && a < 25'h0500000) w_din[0][15:8] = 8'h00;                  // the C140's odd bytes
+				if (a >= 25'h0200000 && a < 25'h0300000) begin
+					if (drom_empty[0]) w_din[0][7:0] = 8'h00;
+					if (drom_empty[1]) w_din[0][15:8] = 8'h00;
+				end
 				// Lucky & Wild's C169 mask: each byte bit-reversed
 				if (lw_wiring && a >= 25'h0580000 && a < 25'h0600000) w_din[0] = {rev8(dl_data[15:8]), rev8(dl_data[7:0])};
 				// Metal Hawk's sprites: byte writes, the reorder and the transposed copy

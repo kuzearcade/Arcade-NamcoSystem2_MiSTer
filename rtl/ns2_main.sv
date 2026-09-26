@@ -28,9 +28,11 @@ module ns2_main (
 	input      [15:0] drom_data,
 	input             drom_ready,
 	output            drom_rd,
-	input             nv_we,          // the download: the EEPROM's default
+	input             nv_we,          // the NVRAM's port of the EEPROM (the download's default, the .nvm)
 	input      [12:0] nv_addr,
 	input      [7:0]  nv_data,
+	output     [7:0]  nv_q,
+	output            nv_cpu_we,      // the master writes the EEPROM
 	// events
 	input             vblank,
 	input             posirq,
@@ -77,7 +79,7 @@ module ns2_main (
 	ns2_cpu #(.MASTER(1)) u_master (
 		.clk(clk), .reset(reset), .run(1'b1), .en_phi1(en_phi1), .en_phi2(en_phi2),
 		.rom_addr(mrom_addr), .rom_data(mrom_data), .rom_ready(mrom_ready), .rom_rd(mrom_rd),
-		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
+		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(s_irq), .cpuirq_out(m_irq), .ext1(ext1), .ext2(ext2),
 		.sh_req(m_req), .sh_addr(m_sa), .sh_we(m_we), .sh_uds(m_uds), .sh_lds(m_lds), .sh_dout(m_sd),
 		.sh_done(m_done), .sh_din(sh_q),
@@ -85,7 +87,7 @@ module ns2_main (
 	ns2_cpu #(.MASTER(0)) u_slave (
 		.clk(clk), .reset(reset), .run(ext2[0]), .en_phi1(en_phi1), .en_phi2(en_phi2),
 		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd),
-		.nv_we(1'b0), .nv_addr(13'd0), .nv_data(8'd0),
+		.nv_we(1'b0), .nv_addr(13'd0), .nv_data(8'd0), .nv_q(), .nv_cpu_we(),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(m_irq), .cpuirq_out(s_irq), .ext1(), .ext2(),
 		.sh_req(s_req), .sh_addr(s_sa), .sh_we(s_we), .sh_uds(s_uds), .sh_lds(s_lds), .sh_dout(s_sd),
 		.sh_done(s_done), .sh_din(sh_q),

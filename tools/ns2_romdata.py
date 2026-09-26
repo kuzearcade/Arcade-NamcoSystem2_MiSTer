@@ -27,6 +27,7 @@ LAYOUT = [
     ('c45_road:clut',    0x00D0000, 0x000100),
     ('nvram',            0x00D1000, 0x002000),   # MAME's default .nv, where the set has one
     ('zoomlut',          0x00D4000, 0x002000),
+    ('config',           0x00D6000, 0x000020),   # the core's per-set configuration (config_block)
     ('data_rom',         0x0100000, 0x200000),
     ('c140',             0x0300000, 0x200000),
     ('c123tmap:mask',    0x0500000, 0x080000),
@@ -168,6 +169,42 @@ def zip_chain(name, gm):
     return chain + ['namcoc65.zip', 'namcoc68.zip']
 
 
+# ns2_video's board code by MAME machine config (docs/PLAN.md 2.4)
+BOARDS = {'finallap': 1, 'finallap_c68': 1, 'finalap2': 1, 'finalap3': 1, 'base_fl': 1,
+          'metlhawk': 2, 'sgunner': 3, 'sgunner2': 3, 'suzuka8h': 4, 'luckywld': 5}
+
+
+def config_block(name, sets=None, gm=None):
+    """The core's configuration of a set, 32 bytes at image 0x00D6000 (the
+    MiSTer top latches it from the download; not ROM data):
+      0-1  'N2'
+      2    board code [2:0], C68 [3], finalap2/3 tiles [4], Final Lap
+           sprites [5], Metal Hawk wiring [6], Lucky & Wild wiring [7]
+      3    the key custom's mode [1:0]; the data ROM's second megabyte has
+           its even [4] / odd [5] bytes 0 (MAME loads the other lane only,
+           rthun2 and suzuka8h: ns2_mem drom_empty)
+      4-20 its table: entry i's {valid, value[15:0]} at bits 17i.. (LSB first)"""
+    import ns2_keys
+    sets = sets or parse()
+    gm = gm or games()
+    g = gm[name]
+    b = BOARDS.get(g['config'], 0)
+    b |= (mcu_type(sets[name]) == 'c68') << 3
+    b |= name.startswith(('finalap2', 'finalap3')) << 4
+    b |= (g['config'] == 'finallap') << 5
+    b |= (g['init'] == 'init_metlhawk') << 6
+    b |= (g['init'] == 'init_luckywld') << 7
+    mode, tab = ns2_keys.table(name, gm)
+    lanes = {ld['offset'] % 2 for r in sets[name] if r['tag'] == 'data_rom' for ld in r['loads']
+             if not ld['nodump'] and ld['offset'] >= 0x100000}
+    if lanes:
+        mode |= (0 not in lanes) << 4 | (1 not in lanes) << 5
+    bits = 0
+    for i, (ok, v) in enumerate(tab):
+        bits |= ((int(ok) << 16) | (v & 0xffff)) << (17 * i)
+    return b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(11)
+
+
 def build_region(region, files):
     buf = bytearray([region['erase']]) * region['size']
     for ld in region['loads']:
@@ -193,7 +230,13 @@ def build(name, sets=None, gm=None):
         regions[r['tag']] = build_region(r, files)
     zf, fn, size, crc = DEVICE_ROMS[mcu_type(sets[name])]
     regions['mcu_int'] = files.get(fn, crc)[:size]
+    regions['config'] = config_block(name, sets, gm)
     img = bytearray(TOTAL)
+    # MAME's EEPROM without a default table is all 1s (namcos2.cpp: NVRAM
+    # DEFAULT_ALL_1)
+    if 'nvram' not in regions:
+        _, off, size = [l for l in LAYOUT if l[0] == 'nvram'][0]
+        img[off:off + size] = b'\xff' * size
     for tag, data in regions.items():
         key = ALIASES.get(tag, tag)
         ent = [l for l in LAYOUT if l[0] == key]

@@ -24,6 +24,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	input      [63:0] analog,
 	// video out
 	output     [7:0]  red, green, blue,
+	output            ce_pix,         // the pixel clock enable (red/green/blue are the pixel at hcnt/vcnt)
 	output     [8:0]  out_x,
 	output     [7:0]  out_y,
 	output            out_valid,
@@ -66,6 +67,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	input             nv_we,
 	input      [12:0] nv_addr,
 	input      [7:0]  nv_data,
+	output     [7:0]  nv_q,           // the EEPROM at nv_addr, a clock later (the NVRAM's save)
+	output            nv_cpu_we,      // the game writes the EEPROM
 	output            overrun,        // the video: a line not rendered in time (ns2_video)
 	output     [5:0]  overrun_src,
 	output     [11:0] line_busy_max,
@@ -133,11 +136,10 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		assign mrq = {mw[7:0], mw[15:8]};
 		assign srq = {sw[7:0], sw[15:8]};
 		assign drq = {dw[7:0], dw[15:8]};
-		// the byte, as the caches' address: taken on the same phase
-		reg a_b0, u_b0;
-		always @(posedge clk) begin if (a_smp) a_b0 <= ara[0]; if (mcu_smp) u_b0 <= ub[0]; end
-		assign arq = a_b0 ? aw[15:8] : aw[7:0];
-		assign irq_q = u_b0 ? uw[15:8] : uw[7:0];
+		// the byte of the word: the live address (the caches are ready only
+		// while their word is the live one)
+		assign arq = ara[0] ? aw[15:8] : aw[7:0];
+		assign irq_q = ub[0] ? uw[15:8] : uw[7:0];
 		assign erq = irq_q;
 		// the C140: its request held until the bank takes it; the word of the burst
 		reg        c_req;
@@ -160,7 +162,6 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	end endgenerate
 
 	// line events
-	wire       ce_pix;
 	wire       line_start = ce_pix && hcnt == 9'd383;     // the next clock starts a line
 	reg        ev_vbl, ev_pos, ev_mcu;
 	wire       pos_here;
@@ -219,7 +220,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.mrom_addr(mra), .mrom_data(mrq), .mrom_ready(m_ready), .mrom_rd(m_rd),
 		.srom_addr(sra), .srom_data(srq), .srom_ready(s_ready), .srom_rd(s_rd),
 		.drom_addr(dra), .drom_data(drq), .drom_ready(d_ready), .drom_rd(d_rd),
-		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
+		.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we),
 		.vblank(ev_vbl), .posirq(ev_pos), .sound_run(sound_run), .sub_run(sub_run),
 		.v_addr(v_addr), .v_dout(v_dout), .v_rnw(v_rnw), .v_uds(v_uds), .v_lds(v_lds),
 		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),

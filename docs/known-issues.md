@@ -635,3 +635,76 @@ than the device has. The causes, and the fixes:
   before.
 - M3 Finest Hour: 287 of 300 pictures, as before. The audio cache waits
   96,798 clocks instead of 93,932.
+
+## NS2-14 — M4: the NamcoS2 bitstream on the board (open: timing margin, the audio level against MAME)
+
+`NamcoS2.sv` is the standard bitstream's top: the standard boards and Final
+Lap / Four Trax (`HAS_C45`), the C65 or the C68. It follows GingaNin's
+(OSD, keyboard, download and reset sequencing, video chain). What is new:
+
+- **The PLL** (`rtl/pll_ns2.v`): 49.152 and 98.304 MHz from 50 MHz
+  (fractional), and the SDRAM chip's clock at 98.304 MHz, 270 degrees
+  (-2.54 ns), through an `altddio_out`.
+  - `jtframe_sdram64` launches a command on an edge for the chip to take
+    on the next, and takes read data on the edge after the chip drives it.
+    With the pins' delays that leaves a window of about -4 to +2 ns.
+  - A phase must be a multiple of an eighth of the VCO period. The VCO is
+    491.6 MHz, so the step is 254.3 ps; `7628 ps` is 30 steps.
+- **The set's configuration** (board code, MCU, wirings, the key custom's
+  table) is a 32-byte block of the image at 0x00D6000
+  (`ns2_romdata.config_block`), which the top latches from the download.
+  The board stays in reset until it has arrived. `<switches>` carries only
+  MAME's DSW port.
+- **The .mra** (`tools/ns2_mra.py`) builds the image from MAME's
+  `ROM_LOAD`s: parts, 16- and 32-bit interleaves, fills, and repeats for the
+  graphics regions MAME wraps. `--check` assembles each `.mra` as MiSTer
+  does and compares it with `ns2_romdata.build()`: all 49 of the bitstream's
+  sets are equal.
+  - An interleave cannot leave a lane empty. MAME loads one lane of the
+    C140 voices (every set) and of the data ROM's second megabyte (rthun2,
+    suzuka8h), and leaves the other at 0. The `.mra` repeats the loaded
+    lane, and `ns2_mem` writes 0 there (`drom_empty`, config byte 3).
+  - A set without a default NVRAM starts from all 1s, as MAME's
+    `NVRAM(... DEFAULT_ALL_1)`. The image had zeros until this was found.
+- **The NVRAM:** the master's EEPROM has a second port.
+  - The image's default arrives with the ROM.
+  - ioctl index 4 loads the `.nvm` over it.
+  - An upload of index 4 saves it: Save NVRAM, or opening the OSD after the
+    game has written the EEPROM.
+- **The slow CPUs' caches follow the address.** `mc6809is` drives
+  `ADDR = addr_nxt`, combinational from its data input, so its address can
+  move after its enable. `ns2_rom_cache SAMPLED` takes the address on every
+  clock from 5 after the enable to the cycle's end, and is ready only while
+  what it took is the live address. The byte comes from the live address.
+
+**On the board (192.168.1.138):**
+- **Finest Hour.** It boots to "33 TIP / EXIT = 1P START", as MAME does at
+  10 s and 45 s. After 1P Start comes the attract: the namco logo, the
+  cockpit scene, the ROZ territory map. A coin gives "CREDIT 01" on the
+  title screen, the same frame as MAME's.
+- **Assault.** "35 WARNING 00180040" (its EEPROM starts all 1s), then after
+  1P Start the attract demo with its ROZ terrain and sprites.
+- **HDMI audio.** Assault's attract sound is there: RMS about 2,800, peak
+  9,700 of 32,767. Left and right differ by an RMS of 7.5. Card 1 of the
+  capture PC is the HDMI capture; card 2 is the analog input.
+  - The first build peaked at 650. Its mix took `ym_left * 205` at 18 bits,
+    which overflows; the products are now 25 bits.
+
+**Fit** (Quartus 17.0, the framework included):
+
+| | |
+|---|---|
+| ALMs | 36,817 of 41,910 (88%) |
+| M10K | 532 of 553 |
+| timing | met on the first build; the later ones miss by 0.38 and 0.03 ns |
+
+The miss is on clk_sd, in `jtframe_sdram64`'s command mux into the SDRAM
+address register that also drives DQM (the MiSTer wiring). It depends on
+placement: a seed search is next.
+
+**Open:**
+- the timing margin on that path;
+- the audio level against MAME's (`-wavwrite` from the oracle build wrote
+  silence; to be measured another way);
+- then the other sets, the inputs of the sets with analog controls, and
+  M5.

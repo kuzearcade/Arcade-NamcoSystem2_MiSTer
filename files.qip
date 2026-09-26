@@ -1,0 +1,75 @@
+# Namco System 2 -- the file list for the NamcoS2 .rbf.
+# Add files HERE, never through the Quartus IDE.
+set_global_assignment -name SEARCH_PATH rtl/third_party/fx68k
+set_global_assignment -name SEARCH_PATH rtl
+
+# Top level and clocks
+set_global_assignment -name SYSTEMVERILOG_FILE NamcoS2.sv
+set_global_assignment -name VERILOG_FILE rtl/pll_ns2.v
+
+# Video output chain
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/video_retime.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/third_party/crt_adjust/rtl/crt_vsize.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/third_party/crt_adjust/rtl/crt_adjust.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/crt_chain.sv
+
+# The board, its SDRAM side and the chips
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_board.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_main.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_cpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c148.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_key.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c123.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_roz.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c45.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c169.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c355.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_sprite_a.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c65.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c68.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_m740.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_sound.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c140.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_rom_cache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_mem.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_bank_arb.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_sdram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_tile_filter.sv
+set_global_assignment -name VERILOG_FILE rtl/ns2_hd63705.v
+set_global_assignment -name VERILOG_FILE rtl/ns2_hd63705_ctrl.v
+set_global_assignment -name VERILOG_FILE rtl/ns2_hd63705_alu.v
+set_global_assignment -name VERILOG_FILE rtl/ns2_hd63705_regs.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/third_party/fx68k/fx68k.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/third_party/fx68k/fx68kAlu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/third_party/fx68k/uaddrPla.sv
+set_global_assignment -name VERILOG_FILE rtl/third_party/mc6809/mc6809is.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_acc.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_csr_op.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_eg.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_exp2lin.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_exprom.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_kon.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_lfo.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_lin2exp.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_mmr.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_mod.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_noise_lfsr.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_noise.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_op.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_pg.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_phinc_rom.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_phrom.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_pm.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_reg_ch.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_reg.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_sh.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51_timers.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jt51/hdl/jt51.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64_bank.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64_init.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64_latch.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64_rfsh.v
+set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64.v
+
+set_global_assignment -name SDC_FILE NamcoS2.sdc

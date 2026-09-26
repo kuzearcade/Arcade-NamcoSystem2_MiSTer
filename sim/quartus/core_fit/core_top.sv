@@ -55,7 +55,7 @@ module core_top (
 	wire [15:0] fm_addr;
 	wire [63:0] ft_data, fm_data;
 
-	ns2_board #(.ROMS(1), .HAS_C45(0), .HAS_C169(0), .HAS_C355(0)) u_board (
+	ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) u_board (
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -95,7 +95,7 @@ module core_top (
 	wire [1:0]  prog_ba, prog_dsn;
 	wire [15:0] prog_din;
 	wire        prog_req_t, prog_ack_t;
-	ns2_mem u_mem (.clk(clk), .rst(rst), .board(board), .mh_wiring(mh_wiring), .lw_wiring(lw_wiring),
+	ns2_mem u_mem (.clk(clk), .rst(rst), .board(board), .mh_wiring(mh_wiring), .lw_wiring(lw_wiring), .drom_empty(2'b00),
 		.dl(dl), .dl_wr(dl_wr), .dl_addr(dl_addr), .dl_data(dl_data), .dl_wait(dl_wait),
 		.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data), .nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.class_we(class_we), .class_addr(class_addr), .class_data(class_data),

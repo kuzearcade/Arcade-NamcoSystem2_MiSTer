@@ -133,6 +133,16 @@ int main(int argc, char **argv) {
 			}
 			if ((cyc & 0xffffff) == 0) printf("  streams: %ld tile bursts (%ld bad), %ld mask bytes (%ld bad)\n", tn, tbad, mn, mbad);
 		}
+		// AUDIO=1: per frame, the sound CPU's writes and the chips' peaks
+		if (getenv("AUDIO")) {
+			static long wr = 0, cpk = 0, ypk = 0, af = 0; static uint16_t lastpc = 0;
+			if (t->snd_wr) wr++;
+			if (t->c140_sample && labs((long)(int16_t)t->c140_raw_l) > cpk) cpk = labs((long)(int16_t)t->c140_raw_l);
+			if (labs((long)(int16_t)t->ym_l) > ypk) ypk = labs((long)(int16_t)t->ym_l);
+			lastpc = t->snd_addr;
+			long f = (long)((cyc - base) / 811008);
+			if (f != af) { printf("audio frame %ld: %ld sound writes, C140 peak %ld, YM peak %ld, addr %04x\n", af, wr, cpk, ypk, lastpc); wr = cpk = ypk = 0; af = f; }
+		}
 		static long overruns = 0, ov_frame = 0; static long ov_last_f = -1;
 		if (t->overrun) {
 			long f = (long)((cyc - base) / 811008);
