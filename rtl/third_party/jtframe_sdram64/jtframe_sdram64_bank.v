@@ -205,7 +205,10 @@ always @(*) begin
     cmd = do_prech ? CMD_PRECHARGE : (
           do_act   ? CMD_ACTIVE    : (
           do_read  ? (rd ? CMD_READ : CMD_WRITE ) : CMD_NOP ));
-    sdram_a[12:11] =  addr_row[12:11];
+    // NS2 local change (NS2-14): the row's top bits only with ACTIVE, so
+    // that the top can OR the write mask into A12/A11 (MiSTer's DQM)
+    // without decoding the command
+    sdram_a[12:11] =  do_act ? addr_row[12:11] : 2'b00;
     sdram_a[10:0] = do_act ? addr_row[10:0] :
             { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], addr[AW-1], addr[8:0]};
 end

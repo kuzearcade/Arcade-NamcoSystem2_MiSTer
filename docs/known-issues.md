@@ -702,6 +702,46 @@ The miss is on clk_sd, in `jtframe_sdram64`'s command mux into the SDRAM
 address register that also drives DQM (the MiSTer wiring). It depends on
 placement: a seed search is next.
 
+**A write the download never meant.** `ns2_mem` takes a CLUT or NVRAM
+word in two clocks, a byte each. In the second, its write branch also ran,
+because the branch was a plain `else` (not taking a word), and issued an
+SDRAM write with the last real write's address and the new word's data.
+- That address was the MCU region's last word: the C68's reset vector.
+- Once the image's NVRAM was all 1s, that vector became 0xFFFF. Super World
+  Stadium '92's C68 then ran from 0000 and never wrote the DPRAM, and the
+  game stopped at its "30 / 31 TIP" screen.
+- `DL_VERIFY` found the one word (0xFFFF instead of 0x8100), and a write
+  monitor in the SDRAM model showed its source. The branch now runs only
+  while busy.
+- On the board, Super World Stadium '92 now reaches its menus. Burning
+  Force and Dragon Saber run their attracts.
+
+**Timing.** Later builds missed by 0.38, 0.03 and 0.10 ns on clk_sd. Seeds 2
+to 4 were worse (-1.0 to -1.3 ns), and three effort settings made no
+difference.
+- The miss was in `jtframe_sdram64`'s decode of the next command into A12/A11
+  (MiSTer's DQM).
+- The banks now drive A12/A11 only with ACTIVE, and the top ORs the write
+  mask in. A write's cycle is never an ACTIVE: one command a clock, and the
+  download's writes auto-precharge.
+- The miss is now -0.09 ns, in the bank arbitration into the command
+  register.
+
+**Still wrong on the board:**
+- **Rolling Thunder 2** stays black after its boot. M3 reproduces it: from
+  frame 351, where MAME shows the story intro.
+  - M2 and M3's master accesses agree for 14 M accesses. Then they part at
+    a DPRAM poll, M3 seeing the MCU's bit a loop earlier: a timing
+    difference, not yet the cause.
+- **Final Lap** stops at "RAM OK / ROM OK". The FL boards have not been
+  through M2's whole-board capture yet.
+  - A suspect: the top gives every analog channel 0xFF.
+
+The harnesses gained, for this:
+- `MDUMP` (the master's accesses), `UDUMP` and `SDUMP` (the MCU's and the
+  6809's DPRAM writes), in both;
+- `UTRACE` (the MCU's first cycles) and the boot script's Start press, in M3.
+
 **Open:**
 - the timing margin on that path;
 - the audio level against MAME's (`-wavwrite` from the oracle build wrote

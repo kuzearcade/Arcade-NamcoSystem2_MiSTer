@@ -38,9 +38,16 @@ module top (
 	output signed [15:0] ym_l,
 	output     [15:0] snd_addr,
 	output            snd_wr,
+	output     [7:0]  snd_dout,
 	output            c140_sample,
-	output            m_as, m_dtack,
+	output            m_as, m_dtack, m_rnw,
 	output     [23:1] m_addr,
+	output     [15:0] m_rdata, m_wdata,
+	output     [1:0]  m_ds,
+	output     [15:0] mcu_addr,
+	output            mcu_wr,
+	output     [7:0]  mcu_dout,
+	output            mcu_cen,
 	output     [31:0] violations,
 	output            overrun,
 	output     [5:0]  overrun_src,
@@ -95,9 +102,9 @@ module top (
 		.c169_req(c169_req), .c169_addr(c169_addr), .c169_ack(c169_ack), .c169_valid(c169_valid), .c169_data(c169_data),
 		.c169m_req(c169m_req), .c169m_addr(c169m_addr), .c169m_ack(c169m_ack), .c169m_valid(c169m_valid), .c169m_data(c169m_data),
 		.ym_left(ym_l), .ym_right(), .c140_left(), .c140_right(), .c140_raw_l(c140_raw_l), .c140_raw_r(c140_raw_r), .c140_sample(c140_sample),
-		.m_as(m_as), .s_as(), .m_addr(m_addr), .s_addr(), .m_rnw(), .s_rnw(), .m_wdata(), .s_wdata(), .m_ds(), .s_ds(),
-		.m_rdata(), .s_rdata(), .m_dtack(m_dtack), .s_dtack(),
-		.mcu_addr(), .snd_addr(snd_addr), .mcu_wr(), .snd_wr(snd_wr), .mcu_dout(), .snd_dout(), .sound_run(), .sub_run(),
+		.m_as(m_as), .s_as(), .m_addr(m_addr), .s_addr(), .m_rnw(m_rnw), .s_rnw(), .m_wdata(m_wdata), .s_wdata(), .m_ds(m_ds), .s_ds(),
+		.m_rdata(m_rdata), .s_rdata(), .m_dtack(m_dtack), .s_dtack(),
+		.mcu_addr(mcu_addr), .snd_addr(snd_addr), .mcu_wr(mcu_wr), .snd_wr(snd_wr), .mcu_dout(mcu_dout), .snd_dout(snd_dout), .sound_run(), .sub_run(),
 		.mprog_req(mprog_req), .mprog_addr(mprog_addr), .mprog_ack(mprog_ack), .mprog_valid(mprog_valid),
 		.sprog_req(sprog_req), .sprog_addr(sprog_addr), .sprog_ack(sprog_ack), .sprog_valid(sprog_valid),
 		.drom_req(drom_req), .drom_addr(drom_addr), .drom_ack(drom_ack), .drom_valid(drom_valid),
@@ -107,7 +114,7 @@ module top (
 		.bank0_data(bank0_data), .bank1_data(bank1_data),
 		.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data), .nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.overrun(overrun), .overrun_src(overrun_src), .line_busy_max(line_busy_max),
-		.mcu_tap(), .mcu_sync(), .mcu_cen(), .mcu_din());
+		.mcu_tap(), .mcu_sync(), .mcu_cen(mcu_cen), .mcu_din());
 
 	// the memory
 	wire [21:0] sd_addr0, sd_addr1, sd_addr2, sd_addr3, prog_addr;

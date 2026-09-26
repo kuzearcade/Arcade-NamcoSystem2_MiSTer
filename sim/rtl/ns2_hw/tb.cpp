@@ -112,9 +112,22 @@ int main(int argc, char **argv) {
 	// the board: MAME's time 0 is the release
 	t->reset = 0;
 	const uint64_t base = cyc;
+	// the boot script's Start press (sim/oracle/ns2_boot.lua), as in
+	// sim/rtl/ns2_frames: MAME's frames boot_start .. +5, from the release
+	std::string start_port; unsigned start_mask = 0, boot_start = 300;
+	for (auto &p : ports) if (p.first.rfind("start", 0) == 0) { start_port = p.first.substr(5); start_mask = p.second; }
+	if (ports.count("boot_start")) boot_start = ports["boot_start"];
+	const unsigned mcub0 = t->mcub, mcuc0 = t->mcuc, mcuh0 = t->mcuh;
 	static uint32_t pic[224][288];
 	int lastv = -1, n = 0, exact = 0;
 	while ((long)((cyc - base) / 811008) <= last) {
+		{
+			uint64_t f = (cyc - base > 64 ? cyc - base - 64 : 0) / 811008;
+			unsigned clr = (f > boot_start && f <= boot_start + 6) ? start_mask : 0;
+			t->mcub = start_port == ":MCUB" ? mcub0 & ~clr : mcub0;
+			t->mcuc = start_port == ":MCUC" ? mcuc0 & ~clr : mcuc0;
+			t->mcuh = start_port == ":MCUH" ? mcuh0 & ~clr : mcuh0;
+		}
 		slow();
 		if (t->out_valid && t->out_y < 224 && t->out_x < 288) pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue;
 		// STREAM_CHECK=1: every tile burst and mask byte against the image
@@ -132,6 +145,30 @@ int main(int argc, char **argv) {
 				if (img[0x500000 + a] != t->dbg_m_data && mbad++ < 5) printf("mask byte %05x: got %02x want %02x\n", a, t->dbg_m_data, img[0x500000 + a]);
 			}
 			if ((cyc & 0xffffff) == 0) printf("  streams: %ld tile bursts (%ld bad), %ld mask bytes (%ld bad)\n", tn, tbad, mn, mbad);
+		}
+		// MDUMP=file: the master's accesses (R/W, address, data, mask) at DTACK, to
+		// diff two harnesses
+		{
+			static FILE *md = getenv("MDUMP") ? fopen(getenv("MDUMP"), "w") : nullptr;
+			static bool md_as = false, md_pend = false; static char md_rw; static unsigned md_a, md_d, md_m;
+			if (md) {
+				if (t->m_as && !md_as) { md_pend = true; md_rw = t->m_rnw ? 'R' : 'W'; md_a = t->m_addr << 1; md_d = t->m_wdata;
+				                         md_m = (t->m_ds & 2 ? 0xff00 : 0) | (t->m_ds & 1 ? 0xff : 0); }
+				md_as = t->m_as;
+				if (md_pend && t->m_dtack) { md_pend = false; fprintf(md, "%c %06x %04x %04x\n", md_rw, md_a, md_rw == 'R' ? (unsigned)t->m_rdata : md_d, md_m); }
+			}
+		}
+		// UDUMP=file: the MCU's DPRAM writes (clock from the release, address, data)
+		{
+			static FILE *ud = getenv("UDUMP") ? fopen(getenv("UDUMP"), "w") : nullptr;
+			static FILE *sd = getenv("SDUMP") ? fopen(getenv("SDUMP"), "w") : nullptr;
+			if (sd && t->snd_wr && (t->snd_addr & 0xf000) == 0x7000) fprintf(sd, "%llu %04x %02x\n", (unsigned long long)(cyc - base), t->snd_addr, t->snd_dout);
+			if (ud && t->mcu_wr && (t->mcu_addr & 0xf800) == 0x5000) fprintf(ud, "%llu %04x %02x\n", (unsigned long long)(cyc - base), t->mcu_addr, t->mcu_dout);
+		}
+		// UTRACE=n: the MCU's first n cycles (address, write) and how long each took
+		{
+			static long un = getenv("UTRACE") ? atol(getenv("UTRACE")) : 0; static uint64_t ulast = 0;
+			if (un > 0 && t->mcu_cen) { printf("mcu %04x %c +%llu\n", t->mcu_addr, t->mcu_wr ? 'W' : 'R', (unsigned long long)(cyc - ulast)); ulast = cyc; un--; }
 		}
 		// AUDIO=1: per frame, the sound CPU's writes and the chips' peaks
 		if (getenv("AUDIO")) {

@@ -212,10 +212,11 @@ always @(posedge clk) begin
     sdram_din <= prog_en ? prog_din : din;
 `endif
     if( MISTER ) begin
-        if( next_cmd==CMD_ACTIVE )
-            sdram_a[12:11] <= next_a[12:11];
-        else
-            sdram_a[12:11] <= wr_cycle ? mask_mux : 2'd0;
+        // NS2 local change (NS2-14): every source drives A12/A11 low but
+        // with ACTIVE (the banks since the change there; init and refresh
+        // always), and a write's cycle is never an ACTIVE (one command a
+        // clock): the mask ORs in, and the command decode leaves the path
+        sdram_a[12:11] <= next_a[12:11] | (wr_cycle ? mask_mux : 2'd0);
     end else begin
         sdram_a[12:11] <= next_a[12:11];
         dqm <= wr_cycle ? mask_mux : 2'd0;

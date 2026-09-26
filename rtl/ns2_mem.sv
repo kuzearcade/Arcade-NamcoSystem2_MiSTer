@@ -198,8 +198,10 @@ module ns2_mem (
 				w_n <= n; w_i <= 0;
 				busy <= n != 0;
 			end
-		end else begin
-			// the writes, one at a time through the programming port
+		end else if (busy) begin
+			// the writes, one at a time through the programming port (only
+			// while busy: the clock a CLUT or NVRAM word takes for its second
+			// byte must not issue one, with the last write's address)
 			if (!wait_ack) begin
 				prog_addr <= w_addr[w_i]; prog_ba <= w_ba[w_i]; prog_din <= w_din[w_i]; prog_dsn <= w_dsn[w_i];
 				prog_req_t <= ~prog_req_t; wait_ack <= 1'b1;

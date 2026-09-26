@@ -275,6 +275,25 @@ int main(int argc, char **argv) {
 			if (asn && !asd && !t->m_rnw && (wa >> 16) == 0x44 && (((wa - 0x440000) >> 1) & 0x1800) == 0x1800)
 				fprintf(wl, "%llu %06x %04x\n", (unsigned long long)(cyc - 64), wa, t->m_wdata);
 			asd = asn; }
+		// MDUMP=file: the master's accesses (R/W, address, data, mask) at DTACK, to
+		// diff two harnesses
+		{
+			static FILE *md = getenv("MDUMP") ? fopen(getenv("MDUMP"), "w") : nullptr;
+			static bool md_as = false, md_pend = false; static char md_rw; static unsigned md_a, md_d, md_m;
+			if (md) {
+				if (t->m_as && !md_as) { md_pend = true; md_rw = t->m_rnw ? 'R' : 'W'; md_a = t->m_addr << 1; md_d = t->m_wdata;
+				                         md_m = (t->m_ds & 2 ? 0xff00 : 0) | (t->m_ds & 1 ? 0xff : 0); }
+				md_as = t->m_as;
+				if (md_pend && t->m_dtack) { md_pend = false; fprintf(md, "%c %06x %04x %04x\n", md_rw, md_a, md_rw == 'R' ? (unsigned)t->m_rdata : md_d, md_m); }
+			}
+		}
+		// UDUMP=file: the MCU's DPRAM writes (clock from the release, address, data)
+		{
+			static FILE *ud = getenv("UDUMP") ? fopen(getenv("UDUMP"), "w") : nullptr;
+			static FILE *sd = getenv("SDUMP") ? fopen(getenv("SDUMP"), "w") : nullptr;
+			if (sd && t->snd_wr && (t->snd_addr & 0xf000) == 0x7000) fprintf(sd, "%llu %04x %02x\n", (unsigned long long)(cyc - 64), t->snd_addr, t->snd_dout);
+			if (ud && t->mcu_wr && (t->mcu_addr & 0xf800) == 0x5000) fprintf(ud, "%llu %04x %02x\n", (unsigned long long)(cyc - 64), t->mcu_addr, t->mcu_dout);
+		}
 		bool as = slave ? t->s_as : t->m_as, rnw = slave ? t->s_rnw : t->m_rnw;
 		unsigned ds = slave ? t->s_ds : t->m_ds;
 		if (as && !as_d) {
