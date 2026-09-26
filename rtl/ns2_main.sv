@@ -123,6 +123,16 @@ module ns2_main (
 	reg  [1:0] step;
 	reg [3:0]  dev;
 	wire       fl = board == 3'd1;
+	reg  [2:0] prot_cnt;              // Final Lap 2 / 3's protection counter
+	function [15:0] prot_t0(input [2:0] i);
+		case (i) 0: prot_t0 = 16'h0000; 1: prot_t0 = 16'h0040; 2: prot_t0 = 16'h0440; 3: prot_t0 = 16'h2440;
+		         4: prot_t0 = 16'h2480; 5: prot_t0 = 16'ha080; 6: prot_t0 = 16'h8081; default: prot_t0 = 16'h8041; endcase
+	endfunction
+	function [15:0] prot_t1(input [2:0] i);
+		case (i) 0: prot_t1 = 16'h0040; 1: prot_t1 = 16'h0060; 2: prot_t1 = 16'h0060; 3: prot_t1 = 16'h0860;
+		         4: prot_t1 = 16'h0864; 5: prot_t1 = 16'h08e4; 6: prot_t1 = 16'h08e5; default: prot_t1 = 16'h08a5; endcase
+	endfunction
+	wire [15:0] pt0 = prot_t0(prot_cnt), pt1 = prot_t1(prot_cnt);
 	localparam D_NONE = 0, D_DROM = 1, D_VID = 2, D_DP = 3, D_SCI = 4, D_KEY = 5, D_PROT = 6, D_SCIR = 7;
 	wire       grant_m = m_req && !m_done, grant_s = s_req && !s_done;
 	wire       who = busy ? who_r : !grant_m;
@@ -179,7 +189,7 @@ module ns2_main (
 		m_done <= 1'b0; s_done <= 1'b0;
 		key_rd <= 1'b0; key_we <= 1'b0; dp_we <= 1'b0;
 		{cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl, cs_c169, cs_c169ctl, cs_c355, cs_c355pos} <= 11'd0;
-		if (reset) begin busy <= 1'b0; step <= 2'd0; end
+		if (reset) begin busy <= 1'b0; step <= 2'd0; prot_cnt <= 3'd0; end
 		else case (busy ? step : 2'd0)
 			2'd0: if (grant_m || grant_s) begin
 				// a new request: select the device (its select is active next clock)
@@ -212,6 +222,19 @@ module ns2_main (
 					D_VID:  sh_q <= v_din;
 					D_DP:   sh_q <= {8'h00, dp_din};     // (MAME's umask16 reads: the other lane 0)
 					D_SCI:  sh_q <= sci_q;
+					// finallap_state::finallap_prot_r (namcos2_m.cpp): two tables on a
+					// counter that reads of words 3 and 1ffff advance
+					D_PROT: begin
+						case (v_addr[17:1])
+							17'h00000: sh_q <= 16'h0101;
+							17'h00001: sh_q <= 16'h3e55;
+							17'h00002: sh_q <= {8'h00, pt1[15:8]};
+							17'h00003: begin sh_q <= {8'h00, pt1[7:0]}; prot_cnt <= prot_cnt + 1'd1; end
+							17'h1fffe: sh_q <= {pt0[15:8], 8'h00};
+							17'h1ffff: begin sh_q <= {pt0[7:0], 8'h00}; prot_cnt <= prot_cnt + 1'd1; end
+							default:   sh_q <= 16'h0000;
+						endcase
+					end
 					// namco_c139 status_r: 4 (no link); the others read 0
 					D_SCIR: sh_q <= v_addr[3:1] == 3'd0 ? 16'h0004 : 16'h0000;
 					D_KEY:  sh_q <= key_q;

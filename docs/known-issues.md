@@ -740,6 +740,22 @@ is a priority encoder.
   is left is the framework's scaler (`ascal`, the HDMI clock, -0.18 ns): a
   matter of placement.
 
+**Timing met on every clock.**
+- A path from the download's index decode (`hps_io` `ioctl_index` into
+  `jtframe_sdram64`'s `prog_en` mux, clk to clk_sd) now crosses through two
+  flops in `ns2_sdram`. `prog_en` changes only as a download starts or
+  ends, with no write in flight; `DL_VERIFY` stays exact.
+- Of seeds 2, 3 and 5, seed 2 met every clock. It is pinned in
+  `NamcoS2.qsf`.
+- The build of the current RTL: clk_sd +0.163 ns, the HDMI clock +0.265,
+  clk +1.419, hold met, no failing report lines.
+
+**Final Lap 2 and 3's protection.** Both stopped at "RAM OK / ROM OK" (Final
+Lap 3: "SYSTEM DOWN"). Their bus traces parted at 300000, where MAME's
+`finallap_prot_r` answers. It returns fixed words at 0 and 1, and two tables
+on a counter that reads of words 3 and 1ffff advance. `ns2_main` decoded
+the window (`D_PROT`) but read 0 there; it now answers as MAME.
+
 **Rolling Thunder 2: a write the ROM cache waited for.** After its boot the
 game stayed black, in M3 and on the board, where MAME plays the story
 intro. The cause:

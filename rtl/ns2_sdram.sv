@@ -73,6 +73,11 @@ module ns2_sdram (
 	end endgenerate
 
 	// ------------------------------------------------ the download
+	// prog_en changes only as a download starts and ends, with no write in
+	// flight: two flops into clk_sd take the combinational path from the
+	// download's index decode off the controller's command mux (NS2-14)
+	reg [1:0] prog_en_s;
+	always @(posedge clk_sd) prog_en_s <= {prog_en_s[0], prog_en};
 	// the write: prog_wr until the controller accepts it (dropped then, as
 	// rd), done at prog_rdy; the core holds the word until prog_ack_t turns
 	reg  prog_seen, prog_wr, prog_busy;
@@ -127,7 +132,7 @@ module ns2_sdram (
 		.rd(rd), .wr(4'd0),
 		.ba0_din(16'd0), .ba0_dsn(2'b11), .ba1_din(16'd0), .ba1_dsn(2'b11),
 		.ba2_din(16'd0), .ba2_dsn(2'b11), .ba3_din(16'd0), .ba3_dsn(2'b11),
-		.prog_en(prog_en), .prog_addr(prog_addr), .prog_rd(1'b0), .prog_wr(prog_wr), .prog_din(prog_din), .prog_dsn(prog_dsn),
+		.prog_en(prog_en_s[1]), .prog_addr(prog_addr), .prog_rd(1'b0), .prog_wr(prog_wr), .prog_din(prog_din), .prog_dsn(prog_dsn),
 		.prog_ba(prog_ba), .prog_dst(), .prog_dok(), .prog_rdy(prog_rdy), .prog_ack(prog_ack),
 		.rfsh(rfsh), .ack(ack), .dst(dst), .dok(dok), .rdy(rdy), .dout(dout),
 		.sdram_dq(SDRAM_DQ),

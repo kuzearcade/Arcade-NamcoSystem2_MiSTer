@@ -57,6 +57,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # small RAMs (queues, shift registers) in logic, not a whole M10K each (NS2-13)
 set_global_assignment -name AUTO_RAM_TO_LCELL_CONVERSION ON
 set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF
+# the fitter seed (NS2-14: seed 2 met timing on every clock)
+set_global_assignment -name SEED 2
 
 source sys/sys.tcl
 source sys/sys_analog.tcl
@@ -282,3 +284,4 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SD_SPI*
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to USER_IO[*]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to VGA_EN
 set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
+
