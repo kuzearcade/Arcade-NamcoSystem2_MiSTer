@@ -13,6 +13,7 @@
 module ns2_video #(
 	// the bitstream's blocks: a board whose block is left out shows without
 	// it (the standard bitstream has neither; docs/PLAN.md Appendix F)
+	parameter HAS_ROZ  = 1,   // the standard ROZ (ns2_roz); its RAM is also the C45's road RAM
 	parameter HAS_C45  = 1,
 	parameter HAS_C169 = 1,
 	parameter HAS_C355 = 1
@@ -155,6 +156,7 @@ module ns2_video #(
 	// template in 8-bit lanes, docs/PLAN.md Appendix F)
 	reg [7:0]  tmap_h [0:32767] /*verilator public_flat_rw*/, tmap_l [0:32767] /*verilator public_flat_rw*/;
 	reg [7:0]  spr_h  [0:8191]  /*verilator public_flat_rw*/, spr_l  [0:8191]  /*verilator public_flat_rw*/;
+	localparam HAS_RZRAM = HAS_ROZ || HAS_C45;
 	reg [7:0]  roz_h  [0:65535] /*verilator public_flat_rw*/, roz_l  [0:65535] /*verilator public_flat_rw*/;
 	reg [7:0]  clut   [0:255]   /*verilator public_flat_rw*/;   // C45 road CLUT (ROM, from the download)
 	always @(posedge clk) if (HAS_C45 && dl_clut_we) clut[dl_clut_addr] <= dl_clut_data;
@@ -197,11 +199,11 @@ module ns2_video #(
 		if (cs_spr && cw_l) begin spr_l[cpu_addr[13:1]] <= cpu_dout[7:0]; sq_l <= cpu_dout[7:0]; end
 		else sq_l <= spr_l[cpu_addr[13:1]];
 	always @(posedge clk)
-		if (cs_roz && cw_h) begin roz_h[cpu_addr[16:1]] <= cpu_dout[15:8]; rq_h <= cpu_dout[15:8]; end
-		else rq_h <= roz_h[cpu_addr[16:1]];
+		if (HAS_RZRAM && cs_roz && cw_h) begin roz_h[cpu_addr[16:1]] <= cpu_dout[15:8]; rq_h <= cpu_dout[15:8]; end
+		else if (HAS_RZRAM) rq_h <= roz_h[cpu_addr[16:1]];
 	always @(posedge clk)
-		if (cs_roz && cw_l) begin roz_l[cpu_addr[16:1]] <= cpu_dout[7:0]; rq_l <= cpu_dout[7:0]; end
-		else rq_l <= roz_l[cpu_addr[16:1]];
+		if (HAS_RZRAM && cs_roz && cw_l) begin roz_l[cpu_addr[16:1]] <= cpu_dout[7:0]; rq_l <= cpu_dout[7:0]; end
+		else if (HAS_RZRAM) rq_l <= roz_l[cpu_addr[16:1]];
 	always @(posedge clk)
 		if (HAS_C169 && cs_c169 && cw_h) begin c169_h[cpu_addr[15:1]] <= cpu_dout[15:8]; kq_h <= cpu_dout[15:8]; end
 		else if (HAS_C169) kq_h <= c169_h[cpu_addr[15:1]];
@@ -299,8 +301,8 @@ module ns2_video #(
 	always @(posedge clk) vt_q[7:0]  <= tmap_l[vt_addr];
 	always @(posedge clk) vs_q[15:8] <= spr_h[vs_addr];
 	always @(posedge clk) vs_q[7:0]  <= spr_l[vs_addr];
-	always @(posedge clk) vr_q[15:8] <= roz_h[vr_addr];
-	always @(posedge clk) vr_q[7:0]  <= roz_l[vr_addr];
+	always @(posedge clk) if (HAS_RZRAM) vr_q[15:8] <= roz_h[vr_addr];
+	always @(posedge clk) if (HAS_RZRAM) vr_q[7:0]  <= roz_l[vr_addr];
 	always @(posedge clk) if (HAS_C169) v169_q[15:8] <= c169_h[vr_addr_c169];
 	always @(posedge clk) if (HAS_C169) v169_q[7:0]  <= c169_l[vr_addr_c169];
 	always @(posedge clk) if (HAS_C355) vc_raw[15:8] <= c355_h[vc_addr];
@@ -315,8 +317,13 @@ module ns2_video #(
 	reg  [7:0] ry;
 	reg [11:0] busy_cnt;
 	initial begin line_busy_max = 0; overrun_src = 0; end
-	wire       c123_busy, roz_busy, road_busy_i, c169_busy_i, spr_busy_a, c355_busy_i;
+	wire       c123_busy, roz_busy_i, road_busy_i, c169_busy_i, spr_busy_a, c355_busy_i;
 	// a block the bitstream leaves out has no outputs that are used (it goes)
+	wire       roz_busy = HAS_ROZ && roz_busy_i;
+	wire       roz_req_i;
+	wire [18:0] roz_addr_i;
+	assign roz_req = HAS_ROZ && roz_req_i;
+	assign roz_addr = HAS_ROZ ? roz_addr_i : 19'd0;
 	wire       road_busy = HAS_C45 && road_busy_i, c169_busy = HAS_C169 && c169_busy_i, c355_busy = HAS_C355 && c355_busy_i;
 	wire       c169_req_i, c169m_req_i;
 	wire [20:0] c169_addr_i;
@@ -347,7 +354,7 @@ module ns2_video #(
 	wire [16:0] c_d;
 	wire [8:0]  r_d_roz, r_d_road;
 	wire [16:0] s_d;
-	wire        r_we = road_b ? r_we_road : r_we_roz;
+	wire        r_we = road_b ? r_we_road : HAS_ROZ && r_we_roz;
 	wire [8:0]  r_x  = road_b ? r_x_road  : r_x_roz;
 	wire [8:0]  r_d  = road_b ? r_d_road  : r_d_roz;
 	wire        road_attr_we;
@@ -361,9 +368,9 @@ module ns2_video #(
 		.lb_we(c_we), .lb_x(c_x), .lb_d(c_d));
 
 	ns2_roz u_roz (
-		.clk(clk), .reset(reset), .start(go && board == 3'd0), .y(ry), .busy(roz_busy), .ctl(rozctl_flat),
+		.clk(clk), .reset(reset), .start(HAS_ROZ && go && board == 3'd0), .y(ry), .busy(roz_busy_i), .ctl(rozctl_flat),
 		.rr_addr(vr_addr_roz), .rr_data(vr_q),
-		.r_req(roz_req), .r_addr(roz_addr), .r_ack(roz_ack), .r_valid(roz_valid), .r_data(roz_data),
+		.r_req(roz_req_i), .r_addr(roz_addr_i), .r_ack(roz_ack), .r_valid(roz_valid), .r_data(roz_data),
 		.lb_we(r_we_roz), .lb_x(r_x_roz), .lb_d(r_d_roz));
 
 	wire        l_we, l_layer;
@@ -416,7 +423,7 @@ module ns2_video #(
 	// {priority 0..15, colour bank}
 	reg [7:0] roz_attr [0:1];
 	always @(posedge clk) begin
-		if (go && board == 3'd0) roz_attr[ry[0]] <= {1'b0, gfx_ctrl[14:12], gfx_ctrl[11:8]};
+		if (HAS_ROZ && go && board == 3'd0) roz_attr[ry[0]] <= {1'b0, gfx_ctrl[14:12], gfx_ctrl[11:8]};
 		if (HAS_C45 && road_attr_we) roz_attr[ry[0]] <= {road_pri, 4'hf};
 	end
 
@@ -424,7 +431,6 @@ module ns2_video #(
 	// {buffer = line & 1, x}; the renderers write the next line's, the display
 	// reads the current line's and clears each pixel after reading it
 	(* ramstyle = "no_rw_check" *) reg [16:0] lb_c [0:1023];
-	(* ramstyle = "no_rw_check" *) reg [8:0]  lb_r [0:1023];
 	// sprites: even and odd x in two arrays, two adjacent pixels a clock
 	(* ramstyle = "no_rw_check" *) reg [16:0] lb_s0 [0:511];
 	(* ramstyle = "no_rw_check" *) reg [16:0] lb_s1 [0:511];
@@ -443,8 +449,13 @@ module ns2_video #(
 	wire       clr = div == 3'd2 && dvis;
 	always @(posedge clk) if (c_we) lb_c[{wb, c_x}] <= c_d;
 	always @(posedge clk) begin if (clr) lb_c[da] <= 17'd0; qc <= lb_c[da]; end
-	always @(posedge clk) if (r_we) lb_r[{wb, r_x}] <= r_d;
-	always @(posedge clk) begin if (clr) lb_r[da] <= 9'd0; qr <= lb_r[da]; end
+	generate if (HAS_RZRAM) begin : g_lbr
+		(* ramstyle = "no_rw_check" *) reg [8:0]  lb_r [0:1023];
+		always @(posedge clk) if (r_we) lb_r[{wb, r_x}] <= r_d;
+		always @(posedge clk) begin if (clr) lb_r[da] <= 9'd0; qr <= lb_r[da]; end
+	end else begin : g_nolbr
+		always @(posedge clk) qr <= 9'd0;
+	end endgenerate
 	// sprites: two adjacent pixels a clock, one to each array
 	wire       s0_we = (s_we && !s_x[0]) || (s_we2 && !s_x2[0]);
 	wire [8:0] s0_a  = (s_we && !s_x[0]) ? {wb, s_x[8:1]} : {wb, s_x2[8:1]};

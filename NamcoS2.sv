@@ -47,12 +47,24 @@ assign VIDEO_ARX = (!ar) ? (video_rotated ? 12'd3 : 12'd4) : (ar - 1'd1);
 assign VIDEO_ARY = (!ar) ? (video_rotated ? 12'd4 : 12'd3) : 12'd0;
 
 `include "build_id.v"
+// The bitstream (docs/PLAN.md 2.4): NS2_MH (NamcoS2_MH.qsf) is Metal Hawk's,
+// the C169 and no standard ROZ or C45 road; otherwise the standard one.
+`ifdef NS2_MH
+localparam HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0;
+localparam CORE_NAME = "NamcoS2_MH";
+`else
+localparam HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0;
+localparam CORE_NAME = "NamcoS2";
+`endif
 localparam CONF_STR = {
-	"NamcoS2;;",
+	CORE_NAME, ";;",
 	"-;",
 	"HBO[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"HBO[3:1],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"H0O[9:8],Orientation,Horz,Vert 90,Vert 270;",
+	// 180 degrees through the rotation framebuffer; a ROT180 set (MAME's
+	// Bubble Trouble) starts turned, and this turns it back
+	"O[17],Flip screen,Off,On;",
 	"P3,CRT Adjust;",
 	"P3O[101],CRT Adjust,Off,On;",
 	"P3O[100:96],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
@@ -363,7 +375,7 @@ wire [7:0]  core_r, core_g, core_b;
 wire [8:0]  hcnt, vcnt;
 wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
 
-ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) board (
+ns2_board #(.ROMS(1), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(cfg_analog), .dbg_stall(1'b0), .dbg_holds(),
@@ -490,8 +502,10 @@ video_retime #(
 );
 assign CLK_VIDEO = clk_sd;
 
-// the scandoubler is off whenever the rotation framebuffer is on (NMK-28)
-wire       fb_rotating = ~((status[9:8] == 2'd0) | direct_video);
+// the scandoubler is off whenever the rotation framebuffer is on (NMK-28):
+// rotating, or turning the picture 180 degrees
+wire       flip_180 = (cfg[3][6] ^ status[17]) & ~direct_video;
+wire       fb_rotating = ~((status[9:8] == 2'd0) | direct_video) | ((status[9:8] == 2'd0) & flip_180);
 wire [2:0] fx = direct_video ? 3'd0 : status[3:1];
 wire       scandoubler_en = ((fx != 3'd0) || forced_scandoubler) && ~fb_rotating;
 assign VGA_SL = fx[2:1];
@@ -538,7 +552,7 @@ wire        rotate_ccw = (orientation == 2'd2);
 screen_rotate screen_rotate (
 	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL),
 	.VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS), .VGA_DE(VGA_DE),
-	.rotate_ccw(rotate_ccw), .no_rotate(no_rotate), .flip(1'b0), .video_rotated(video_rotated),
+	.rotate_ccw(rotate_ccw), .no_rotate(no_rotate), .flip(flip_180), .video_rotated(video_rotated),
 	.FB_EN(FB_EN), .FB_FORMAT(FB_FORMAT), .FB_WIDTH(FB_WIDTH), .FB_HEIGHT(FB_HEIGHT),
 	.FB_BASE(FB_BASE), .FB_STRIDE(FB_STRIDE), .FB_VBL(FB_VBL), .FB_LL(FB_LL),
 	.DDRAM_CLK(DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(DDRAM_BURSTCNT), .DDRAM_ADDR(DDRAM_ADDR),

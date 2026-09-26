@@ -106,15 +106,28 @@ module ns2_c169 (
 	reg [4:0]  bcnt;
 	reg [63:0] rq [0:15];
 	reg [7:0]  mq [0:15];
-	reg [3:0]  rwp, mwp;
+	reg [4:0]  rwp, mwp;                // bursts / mask bytes back (mod 32)
 	reg        t_pend, m_pend;
+	// A pixel in the same tile row half as the last request takes that
+	// request's burst and mask byte (at a zoom near 1, one burst serves 8
+	// pixels): each pending pixel keeps the number of its request. At most
+	// 14 pixels wait, so a request's slot in rq / mq lives until its last
+	// pixel is drawn.
+	reg [4:0]  ic;                      // requests issued (mod 32)
+	reg [4:0]  bb_q [0:15];             // a pending pixel's request number
+	reg [18:0] last_key;
+	reg        last_v;
+	wire [4:0]  bb = bb_q[br_r];
+	wire [4:0]  r_got = rwp - bb, m_got = mwp - bb;
 
 	wire [13:0] code  = ak_q[ar];
 	wire [13:0] tile  = lw ? cb_lw(code) : {1'b0, cb_mh(code)};
+	wire [18:0] key = {code, apy_q[ar], apx_q[ar][3]};
+	wire        reuse = last_v && key == last_key;
 	wire        issue = st == S_RUN && acnt + {4'd0, p1_v} + {4'd0, p2_v} < 5'd14;
 	wire        pop_a = acnt != 0 && !t_pend && !m_pend && bcnt < 5'd14;
 	// both the burst and the mask byte of the oldest pixel are in
-	wire        both  = bcnt != 0 && rwp != br_r && mwp != br_r;
+	wire        both  = bcnt != 0 && r_got != 5'd0 && r_got <= 5'd16 && m_got != 5'd0 && m_got <= 5'd16;
 
 	integer k;
 	always @(posedge clk) begin
@@ -122,6 +135,7 @@ module ns2_c169 (
 		if (reset) begin
 			st <= S_IDLE; busy <= 1'b0; r_req <= 1'b0; m_req <= 1'b0; t_pend <= 1'b0; m_pend <= 1'b0;
 			p1_v <= 1'b0; p2_v <= 1'b0; aw <= 0; ar <= 0; acnt <= 0; bw <= 0; br_r <= 0; bcnt <= 0; rwp <= 0; mwp <= 0;
+			ic <= 0; last_v <= 1'b0;
 		end else begin
 			case (st)
 				S_IDLE: if (start) begin yl <= y; w <= 1'b1; busy <= 1'b1; st <= S_LAYER; end
@@ -178,9 +192,14 @@ module ns2_c169 (
 			end
 			// the fetch side: a burst and a mask byte per pixel
 			if (pop_a) begin
-				r_req <= 1'b1; r_addr <= {tile, apy_q[ar], apx_q[ar][3]};
-				m_req <= 1'b1; m_addr <= {code, apy_q[ar], apx_q[ar][3]};
-				t_pend <= 1'b1; m_pend <= 1'b1;
+				if (reuse) bb_q[bw] <= ic - 1'd1;
+				else begin
+					r_req <= 1'b1; r_addr <= {tile, apy_q[ar], apx_q[ar][3]};
+					m_req <= 1'b1; m_addr <= {code, apy_q[ar], apx_q[ar][3]};
+					t_pend <= 1'b1; m_pend <= 1'b1;
+					bb_q[bw] <= ic; ic <= ic + 1'd1;
+					last_key <= key; last_v <= 1'b1;
+				end
 				bx_q[bw] <= ax_q[ar]; bpx_q[bw] <= apx_q[ar]; bw <= bw + 1'd1;
 				ar <= ar + 1'd1;
 			end else begin
@@ -189,16 +208,16 @@ module ns2_c169 (
 			end
 			acnt <= acnt + {4'd0, p2_v} - {4'd0, pop_a};
 			// the returns, in order, then the pixel when both are in
-			if (r_valid) begin rq[rwp] <= r_data; rwp <= rwp + 1'd1; end
-			if (m_valid) begin mq[mwp] <= m_data; mwp <= mwp + 1'd1; end
+			if (r_valid) begin rq[rwp[3:0]] <= r_data; rwp <= rwp + 1'd1; end
+			if (m_valid) begin mq[mwp[3:0]] <= m_data; mwp <= mwp + 1'd1; end
 			if (both) begin
-				lb_we <= mq[br_r][3'd7 - bpx_q[br_r][2:0]];
+				lb_we <= mq[bb[3:0]][3'd7 - bpx_q[br_r][2:0]];
 				lb_layer <= w; lb_x <= bx_q[br_r];
-				lb_d <= {1'b1, pri, colour, rq[br_r][8 * bpx_q[br_r][2:0] +: 8]};
+				lb_d <= {1'b1, pri, colour, rq[bb[3:0]][8 * bpx_q[br_r][2:0] +: 8]};
 				br_r <= br_r + 1'd1;
 			end
 			bcnt <= bcnt + {4'd0, pop_a} - {4'd0, both};
-			if (st == S_SETUP) begin rwp <= 0; mwp <= 0; br_r <= 0; bw <= 0; aw <= 0; ar <= 0; end
+			if (st == S_SETUP) begin rwp <= 0; mwp <= 0; br_r <= 0; bw <= 0; aw <= 0; ar <= 0; ic <= 0; last_v <= 1'b0; end
 		end
 	end
 endmodule

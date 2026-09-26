@@ -810,3 +810,47 @@ The harnesses gained, for this:
   silence; to be measured another way);
 - then the other sets, the inputs of the sets with analog controls, and
   M5.
+
+## NS2-15 — M4: every standard set on the board; the Metal Hawk bitstream (open: the NB bitstream)
+
+**The standard bitstream's 49 sets on the board.** Each was loaded with 1P
+Start at 45 s and captured at +15 s and +30 s: 22 parents and 27 clones.
+- **Before the fixes:** all ran but Final Lap 2 and 3 (NS2-14's
+  protection).
+- **Final Lap 2 and 3** now run: their title, then the GP rankings.
+- **The Bubble Trouble sets** are `ROT180` in MAME: the board's picture is
+  upside down. Config byte 3 bit 6 marks a ROT180 set. The top turns such
+  a set 180 degrees through `screen_rotate`'s flip (its framebuffer), with
+  the scandoubler off, as when rotating. The new OSD "Flip screen" inverts
+  the turn.
+
+**NamcoS2_MH, Metal Hawk's bitstream** (`NamcoS2_MH.qsf`, the `NS2_MH`
+macro in `NamcoS2.sv`):
+- It has the C169, and neither the standard ROZ nor the C45 road.
+  `HAS_ROZ` in `ns2_video` removes `ns2_roz`, and with `HAS_C45` 0 the
+  128 KB ROZ / road RAM too.
+- **Its first fit:** 477 of 553 M10K, 87% of the ALMs. Seed 5 meets every
+  clock (clk_sd +0.541 ns).
+- **Its first build showed line noise on the board.** M3 reproduced it:
+  the C169 overran every other line (busiest line 3,070 of 3,072 clocks).
+  - The C169 asked for a burst and a mask byte for every pixel of both
+    layers.
+  - A pixel in the same tile row half as the last request now takes that
+    request's burst and byte. At a zoom near 1, one burst serves 8 pixels.
+  - Each waiting pixel keeps its request's number. At most 14 wait, so a
+    burst's slot lasts until its last pixel is drawn.
+- **Results:**
+  - M1 exact for both C169 boards: Metal Hawk and Lucky & Wild, 101 of 101
+    each.
+  - M3 Metal Hawk: 375 of 400 pictures, no overruns, busiest line 1,974.
+  - M2 Metal Hawk (`metlhawk_board`): 669 of 700 pictures, the replay 696
+    of 699.
+- `tools/ns2_mra.py` writes Metal Hawk's two `.mra`s for `NamcoS2_MH`.
+  `build.sh` builds a bitstream by `PROJ=` (`output_files_MH`).
+
+**Open:** the NB bitstream (Steel Gunner 1 and 2, Suzuka 8 Hours 1 and 2,
+Lucky & Wild).
+- Its C355 (82 KB), C169 (64 KB) and road RAM (128 KB) add about 130
+  blocks to the standard bitstream's.
+- The plan (Appendix F): move both 68000 work RAMs into the SDRAM, behind
+  caches.

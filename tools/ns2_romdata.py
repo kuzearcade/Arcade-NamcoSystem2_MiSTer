@@ -182,7 +182,7 @@ def config_block(name, sets=None, gm=None):
            sprites [5], Metal Hawk wiring [6], Lucky & Wild wiring [7]
       3    the key custom's mode [1:0]; the data ROM's second megabyte has
            its even [4] / odd [5] bytes 0 (MAME loads the other lane only,
-           rthun2 and suzuka8h: ns2_mem drom_empty)
+           rthun2 and suzuka8h: ns2_mem drom_empty); the set is ROT180 [6]
       4-20 its table: entry i's {valid, value[15:0]} at bits 17i.. (LSB first)
       21-32 MAME's power-on AN0-AN7 and MCUDI0-MCUDI3 (tools/ns2_ports.py)"""
     import ns2_keys
@@ -200,6 +200,7 @@ def config_block(name, sets=None, gm=None):
              if not ld['nodump'] and ld['offset'] >= 0x100000}
     if lanes:
         mode |= (0 not in lanes) << 4 | (1 not in lanes) << 5
+    mode |= (g['rotation'] == 'ROT180') << 6
     bits = 0
     for i, (ok, v) in enumerate(tab):
         bits |= ((int(ok) << 16) | (v & 0xffff)) << (17 * i)
