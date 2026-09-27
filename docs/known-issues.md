@@ -919,5 +919,13 @@ macro in `NamcoS2.sv`):
   still meet every clock; the standard one missed clk_sd by 0.195 ns on
   seed 2 and meets every clock on seed 3 (clk_sd +0.139 ns). M2's default
   build gives Suzuka's and Lucky & Wild's 1,400 pictures unchanged, byte
-  for byte; Assault, Final Lap 2, Rolling Thunder 2, Metal Hawk and Steel
-  Gunner 2 run on the board with the rebuilt bitstreams.
+  for byte; Metal Hawk and Steel Gunner 2 run on the board with the
+  rebuilt bitstreams.
+- **The standard sets loaded the Suzuka bitstream.** MiSTer finds an
+  `.mra`'s `<rbf>` by prefix, and `NamcoS2` is a prefix of every other
+  bitstream's name: with `NamcoS2_SZ_*.rbf` in the cores folder, Assault
+  loaded it (its OSD name in `/tmp/RBFNAME`). The standard `.mra`s now name
+  `NamcoS2_STD`, a prefix of no other; the bitstream's own name stays
+  `NamcoS2`. Assault, Final Lap 2, Rolling Thunder 2 and Dragon Saber then
+  load it, and Suzuka its own.
+- `releases/` holds the five bitstreams, `Arcade-NamcoS2_<STD|MH|SG|SZ|LW>_<date>.rbf`.

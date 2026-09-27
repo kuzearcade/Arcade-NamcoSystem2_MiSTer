@@ -30,7 +30,7 @@ are skipped here until they exist.
 Every file written is parsed as XML first (NMKBP964: a '--' inside a comment
 broke strict parsers).
 """
-import argparse, os, subprocess, sys, zipfile, zlib
+import argparse, os, re, subprocess, sys, zipfile, zlib
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape as _xml_escape
 
@@ -41,12 +41,21 @@ import ns2_romdata as R
 ROOT = os.path.join(HERE, '..')
 RELEASES = os.path.join(ROOT, 'releases')
 MAME = os.path.expanduser('~/mame/mame')
-RBF = {0: 'NamcoS2', 1: 'NamcoS2', 2: 'NamcoS2_MH', 3: 'NamcoS2_SG', 4: 'NamcoS2_SZ', 5: 'NamcoS2_LW'}   # board code -> bitstream
-BUILT = {'NamcoS2', 'NamcoS2_MH', 'NamcoS2_SG', 'NamcoS2_SZ', 'NamcoS2_LW'}                    # the bitstreams that exist: the default set list
+RBF = {0: 'NamcoS2_STD', 1: 'NamcoS2_STD', 2: 'NamcoS2_MH', 3: 'NamcoS2_SG', 4: 'NamcoS2_SZ', 5: 'NamcoS2_LW'}   # board code -> bitstream
+BUILT = {'NamcoS2_STD', 'NamcoS2_MH', 'NamcoS2_SG', 'NamcoS2_SZ', 'NamcoS2_LW'}                    # the bitstreams that exist: the default set list
 
 
 def x(v): return _xml_escape(str(v))
 FAT_FORBIDDEN = {':': '-', '/': '-', '\\': '-', '?': '', '*': '', '<': '', '>': '', '|': '-', '"': "'"}
+def alt_name(desc):
+    """The _alternatives folder: the parent's description without its
+    parenthesized parts ('Assault (Rev B)' -> 'Assault'; nested ones too)."""
+    prev = None
+    while prev != desc:
+        prev, desc = desc, re.sub(r'\s*\([^()]*\)', '', desc)
+    return desc.strip()
+
+
 def fat_safe(desc): return ''.join(FAT_FORBIDDEN.get(c, c) for c in desc).rstrip('. ')
 
 
@@ -292,7 +301,7 @@ def main():
             continue
         g = gm[n]
         top = n if not g['parent'] else g['parent']
-        d = RELEASES if not g['parent'] else os.path.join(RELEASES, '_alternatives', '_' + fat_safe(gm[top]['desc']))
+        d = RELEASES if not g['parent'] else os.path.join(RELEASES, '_alternatives', '_' + fat_safe(alt_name(gm[top]['desc'])))
         os.makedirs(d, exist_ok=True)
         path = os.path.join(d, fat_safe(g['desc']) + '.mra')
         open(path, 'w').write(text)

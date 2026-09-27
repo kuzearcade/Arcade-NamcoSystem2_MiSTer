@@ -12,7 +12,7 @@
   <year>1990</year>
   <manufacturer>Namco</manufacturer>
   <category>Arcade</category>
-  <rbf>NamcoS2</rbf>
+  <rbf>NamcoS2_STD</rbf>
   <rotation>vertical (cw)</rotation>
 
   <switches default="FF">
