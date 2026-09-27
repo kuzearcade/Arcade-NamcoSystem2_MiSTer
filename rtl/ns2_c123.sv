@@ -204,4 +204,27 @@ module ns2_c123 (
 			end
 		end
 	end
+`ifdef VERILATOR
+	// debug (simulation): where a line's clocks go, the last line's at dl_*
+	reg [15:0] d_tot, d_list, d_ackw, d_fill, d_setw, d_pidle, d_draw;
+	reg [15:0] dl_tot /*verilator public_flat_rd*/, dl_list /*verilator public_flat_rd*/, dl_ackw /*verilator public_flat_rd*/,
+	           dl_fill /*verilator public_flat_rd*/, dl_setw /*verilator public_flat_rd*/, dl_pidle /*verilator public_flat_rd*/,
+	           dl_draw /*verilator public_flat_rd*/;
+	reg [2:0]  dl_n /*verilator public_flat_rd*/;
+	always @(posedge clk) begin
+		if (start) begin
+			dl_tot <= d_tot; dl_list <= d_list; dl_ackw <= d_ackw; dl_fill <= d_fill; dl_setw <= d_setw;
+			dl_pidle <= d_pidle; dl_draw <= d_draw; dl_n <= n;
+			d_tot <= 0; d_list <= 0; d_ackw <= 0; d_fill <= 0; d_setw <= 0; d_pidle <= 0; d_draw <= 0;
+		end else if (busy) begin
+			d_tot <= d_tot + 1'd1;
+			if (st == S_LIST) d_list <= d_list + 1'd1;
+			if (fs == F_WAIT) d_ackw <= d_ackw + 1'd1;
+			if (fs == F_FILL) d_fill <= d_fill + 1'd1;
+			if (fs == F_SETUP && fk != n && b_full[fk[0]]) d_setw <= d_setw + 1'd1;
+			if (st == S_RUN && xk != n && !xs_run) d_pidle <= d_pidle + 1'd1;
+			if (xs_run) d_draw <= d_draw + 1'd1;
+		end
+	end
+`endif
 endmodule

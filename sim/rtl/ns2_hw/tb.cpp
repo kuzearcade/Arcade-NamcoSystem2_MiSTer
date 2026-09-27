@@ -133,6 +133,31 @@ int main(int argc, char **argv) {
 			t->mcub = start_port == ":MCUB" ? mcub0 & ~clr : mcub0;
 			t->mcuc = start_port == ":MCUC" ? mcuc0 & ~clr : mcuc0;
 			t->mcuh = start_port == ":MCUH" ? mcuh0 & ~clr : mcuh0;
+			// PLAY=F0: after sim/oracle/ns2_play.lua, on MAME's default ports:
+			// coin 1 at F0, 1P Start at +60, +180 and +240, then from +300 the
+			// buttons and the moves; gameplay the MAME capture need not hold
+			static const long play0 = getenv("PLAY") ? atol(getenv("PLAY")) : -1;
+			if (play0 >= 0) {
+				const long F = (long)f;
+				unsigned b = 0, c = 0, h = 0;                 // bits pressed (active low)
+				if (F >= play0 && F < play0 + 6) c |= 0x20;                         // coin 1
+				// 1P start, again for a menu after it (Phelios' version select)
+				for (long k : {60L, 180L, 240L}) if (F >= play0 + k && F < play0 + k + 6) b |= 0x80;
+				if (F >= play0 + 300) {
+					if (F % 8 < 4) h |= 0x20;                                      // P1 B1
+					if (F % 97 < 6) h |= 0x08;                                     // P1 B2
+					if (F % 151 < 6) h |= 0x02;                                    // P1 B3
+					switch ((F / 60) % 7) {                                        // right, right, left, right+up, down, left+down
+						case 1: case 2: h |= 0x80; break;
+						case 3: b |= 0x02; break;
+						case 4: h |= 0x80; b |= 0x20; break;
+						case 5: b |= 0x08; break;
+						case 6: b |= 0x02 | 0x08; break;
+						default: ;
+					}
+				}
+				t->mcub &= ~b; t->mcuc &= ~c; t->mcuh &= ~h;
+			}
 		}
 		slow();
 		if (t->out_valid && t->out_y < 224 && t->out_x < 288) pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue;
@@ -214,11 +239,47 @@ int main(int argc, char **argv) {
 		static long overruns = 0, ov_frame = 0; static long ov_last_f = -1;
 		if (t->overrun) {
 			long f = (long)((cyc - base) / 811008);
-			if (overruns++ < 5) printf("overrun at line %d (frame %ld): busy %02x\n", t->vcnt, f, t->overrun_src);
+			if (overruns++ < 40) printf("overrun at line %d (frame %ld): busy %02x\n", t->vcnt, f, t->overrun_src);
+			{
+				auto *r = t->rootp;   // the C123's last line (ns2_c123 debug counters)
+				#define C1(n) r->top__DOT__u_board__DOT__u_video__DOT__u_c123__DOT__##n
+				if (overruns <= 40) printf("  c123 line %d: planes %u total %u list %u ack-wait %u fill-wait %u bank-wait %u draw-idle %u drawing %u\n",
+				       t->vcnt - 1, C1(dl_n), C1(dl_tot), C1(dl_list), C1(dl_ackw), C1(dl_fill), C1(dl_setw), C1(dl_pidle), C1(dl_draw));
+				#undef C1
+			}
 			if (f != ov_last_f) { if (ov_last_f >= 0) printf("  frame %ld: %ld overruns\n", ov_last_f, ov_frame); ov_last_f = f; ov_frame = 0; }
 			ov_frame++;
 		}
 		if ((int)t->vcnt != lastv) {
+			// C123_LOG=F: every line's C123 counters in frame F (the line before this one)
+			static const long c123_log = getenv("C123_LOG") ? atol(getenv("C123_LOG")) : -1;
+			if (c123_log >= 0 && (long)((cyc - base) / 811008) == c123_log && t->vcnt >= 1 && t->vcnt <= 224) {
+				auto *r = t->rootp;
+				#define C1(n) r->top__DOT__u_board__DOT__u_video__DOT__u_c123__DOT__##n
+				printf("  log line %d: planes %u total %u list %u ack-wait %u fill-wait %u bank-wait %u draw-idle %u drawing %u\n",
+				       t->vcnt - 1, C1(dl_n), C1(dl_tot), C1(dl_list), C1(dl_ackw), C1(dl_fill), C1(dl_setw), C1(dl_pidle), C1(dl_draw));
+				#undef C1
+				#define SD(n) r->top__DOT__u_sd__DOT__##n
+				static uint32_t p0, p1, p2, p3, pd, pt, ptm, pm, pmm;
+				printf("    sdram: bank0 %u bank1 %u bank2 %u bank3 %u bursts, data bus %u of 6144; filter: tiles %u (%u miss) masks %u (%u miss)\n",
+				       SD(dbg_acc0) - p0, SD(dbg_acc1) - p1, SD(dbg_acc2) - p2, SD(dbg_acc3) - p3, SD(dbg_dok) - pd,
+				       t->flt_t - pt, t->flt_t_miss - ptm, t->flt_m - pm, t->flt_m_miss - pmm);
+				{
+					#define TF(n) r->top__DOT__u_filter__DOT__##n
+					#define JT(n) r->top__DOT__u_sd__DOT__u_ctl__DOT__##n
+					static uint32_t pl, pn, pf, w0, w1, w2, w3;
+					uint32_t nl = TF(dbg_nlat) - pn;
+					printf("    miss latency avg %.1f clk over %u; queue full %u clk; bank grant waits (clk_sd) b0 %u b1 %u b2 %u b3 %u\n",
+					       nl ? (double)(TF(dbg_lat) - pl) / nl : 0.0, nl, TF(dbg_full) - pf,
+					       JT(dbg_wait0) - w0, JT(dbg_wait1) - w1, JT(dbg_wait2) - w2, JT(dbg_wait3) - w3);
+					pl = TF(dbg_lat); pn = TF(dbg_nlat); pf = TF(dbg_full); w0 = JT(dbg_wait0); w1 = JT(dbg_wait1); w2 = JT(dbg_wait2); w3 = JT(dbg_wait3);
+					#undef TF
+					#undef JT
+				}
+				p0 = SD(dbg_acc0); p1 = SD(dbg_acc1); p2 = SD(dbg_acc2); p3 = SD(dbg_acc3); pd = SD(dbg_dok);
+				pt = t->flt_t; ptm = t->flt_t_miss; pm = t->flt_m; pmm = t->flt_m_miss;
+				#undef SD
+			}
 			if (t->vcnt == 224 && cyc - base > 811008) {
 				long F = (long)((cyc - base) / 811008) - 1;
 				char pp[512]; snprintf(pp, sizeof pp, "%s/p%05ld.raw", td.c_str(), F);

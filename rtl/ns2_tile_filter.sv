@@ -117,6 +117,22 @@ module ns2_tile_filter (
 		end
 	end
 
+`ifdef VERILATOR
+	// debug (simulation): tile misses' latency, request to burst (a FIFO of
+	// issue times), and the clocks the queue was full
+	reg [31:0] dbg_lat /*verilator public_flat_rd*/, dbg_nlat /*verilator public_flat_rd*/, dbg_full /*verilator public_flat_rd*/;
+	reg [31:0] dbg_clk;
+	reg [31:0] dbg_t0 [0:15];
+	reg [3:0]  dbg_w, dbg_r;
+	initial begin dbg_lat = 0; dbg_nlat = 0; dbg_full = 0; dbg_clk = 0; dbg_w = 0; dbg_r = 0; end
+	always @(posedge clk) begin
+		dbg_clk <= dbg_clk + 1;
+		if (!dt_req && ti_r != ti_w) begin dbg_t0[dbg_w] <= dbg_clk; dbg_w <= dbg_w + 1'd1; end
+		if (dt_valid) begin dbg_lat <= dbg_lat + (dbg_clk - dbg_t0[dbg_r]); dbg_nlat <= dbg_nlat + 1; dbg_r <= dbg_r + 1'd1; end
+		if (tq_full) dbg_full <= dbg_full + 1;
+	end
+`endif
+
 	// ================================================ the mask stream
 	reg [63:0] mc_d [0:255];
 	reg [7:0]  mc_t [0:255];

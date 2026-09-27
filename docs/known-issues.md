@@ -929,3 +929,47 @@ macro in `NamcoS2.sv`):
   `NamcoS2`. Assault, Final Lap 2, Rolling Thunder 2 and Dragon Saber then
   load it, and Suzuka its own.
 - `releases/` holds the five bitstreams, `Arcade-NamcoS2_<STD|MH|SG|SZ|LW>_<date>.rbf`.
+
+## NS2-16 — Lines of garbage in play: the SDRAM's bank priority starved the tile fetch (closed, measured)
+
+**On the board:** in Phelios's play, now and then one line (a vertical line
+on the rotated screen) shows a flat green and white stripe, black to x 262,
+over the playfield; sprites draw over it. 3 of 40 captured frames of play.
+
+**The cause, measured in M3** (`sim/rtl/ns2_hw`'s `PLAY=F`, the play
+script's coin, Start and inputs, as MAME's capture need not reach play):
+- From frame 803 the C123 overruns (`busy 01`): 61 frames of 1,150. A line
+  it has not finished is never started (the C123 takes a `start` only
+  idle), and the line buffer shows stale data: the stripe.
+- `C123_LOG=F` prints each line's C123 clocks. In the heavy frames every
+  line runs 3,041-3,066 of its 3,072: 1,728 drawing six planes, and about
+  1,500 of the fetch waiting for the tile filter's acknowledgements. A
+  light line with the same six planes takes 1,974.
+- The SDRAM was not busy: 25% of the data bus's cycles. The filter misses
+  21-35 of a line's 220 tiles, but each miss took 180-290 clocks to
+  return, so the in-order queue (16) filled behind it for about 1,000
+  clocks a line.
+- The misses waited for bank grants: jtframe's fixed priority serves bank
+  0 first, then 1, 2, 3. Banks 0 and 1 (the CPUs' caches, the ROZ's
+  stream, the C140's voices) always had a request queued; bank 2's tiles
+  waited about 750 clk_sd a line.
+
+**The fix** (`jtframe_sdram64.v`, a local change): the fixed order is 2, 3,
+0, 1. The tiles and the sprites are the streams a line must wait for; the
+CPUs' caches only hold the CPUs, and the ROZ and the C140 run deep queues.
+The same priority encoder, so the same timing (clk_sd +0.694 ns on the
+standard bitstream's seed 3).
+- Phelios, frame 802's lines: 1,974-1,984 clocks; a miss returns in 10-14
+  clocks; the queue is never full. 0 overruns in 1,150 frames (busiest line
+  2,812). The master's cache waits 0.39% of its clocks (0.37% before).
+- M3 on every board, no overruns: Assault 297 of 400 pictures (the C123 had
+  overrun there too; busiest line 2,732), Finest Hour 287 of 300, Metal
+  Hawk 113 of 120 (its C169 had overrun; now 1,974), Steel Gunner 2 166 of
+  200, Suzuka 163 of 200, Lucky & Wild 115 of 200, as before.
+- On the board: no stripe in 187 captured frames of Phelios's play.
+
+**What did not help** (reverted): holding back banks 0 and 1 on alternate
+clocks, or alternating two priority orders (the grant's extra input cost
+clk_sd -0.6 ns, and the overruns stayed); the tiles over two banks (bank 3
+was the last in the order: worse).
+

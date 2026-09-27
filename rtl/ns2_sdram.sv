@@ -99,6 +99,21 @@ module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
 			else if (ack[gq] && pend) rp <= rp + 1'd1;
 	end endgenerate
 
+`ifdef VERILATOR
+	// debug (simulation): requests accepted per bank, and clk_sd cycles with
+	// burst data on the bus (dok)
+	reg [31:0] dbg_acc0 /*verilator public_flat_rd*/, dbg_acc1 /*verilator public_flat_rd*/,
+	           dbg_acc2 /*verilator public_flat_rd*/, dbg_acc3 /*verilator public_flat_rd*/, dbg_dok /*verilator public_flat_rd*/;
+	initial begin dbg_acc0 = 0; dbg_acc1 = 0; dbg_acc2 = 0; dbg_acc3 = 0; dbg_dok = 0; end
+	always @(posedge clk_sd) begin
+		if (ack[0] && (rd[0] || wr[0])) dbg_acc0 <= dbg_acc0 + 1;
+		if (ack[1] && (rd[1] || wr[1])) dbg_acc1 <= dbg_acc1 + 1;
+		if (ack[2] && (rd[2] || wr[2])) dbg_acc2 <= dbg_acc2 + 1;
+		if (ack[3] && (rd[3] || wr[3])) dbg_acc3 <= dbg_acc3 + 1;
+		if (|dok) dbg_dok <= dbg_dok + 1;
+	end
+`endif
+
 	// ------------------------------------------------ the download
 	// prog_en changes only as a download starts and ends, with no write in
 	// flight: two flops into clk_sd take the combinational path from the

@@ -539,11 +539,16 @@ always @(*) begin
         bg=0;
     end else begin
         if( BAPRIO ) begin
+            // NS2 local change (NS2-16): the fixed order is 2, 3, 0, 1, not
+            // 0, 1, 2, 3. Banks 2 and 3 carry the tiles and the sprites, whose
+            // misses a line must wait for; banks 0 and 1 carry the CPUs'
+            // caches (holds), the ROZ's deep stream and the C140's voices.
+            // The same priority encoder: the same timing
             casez( br ) // Bank requests have priority (eases timing)
-                4'b???1: bg=4'b0001;
-                4'b??10: bg=4'b0010;
-                4'b?100: bg=4'b0100;
-                4'b1000: bg=4'b1000;
+                4'b?1??: bg=4'b0100;
+                4'b10??: bg=4'b1000;
+                4'b00?1: bg=4'b0001;
+                4'b0010: bg=4'b0010;
                 default: bg=0;
             endcase
         end else begin // Bank requests are randomized (tougher timing)
