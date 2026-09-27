@@ -915,3 +915,9 @@ macro in `NamcoS2.sv`):
     of 200, Lucky & Wild 115 of 200 (block RAM: 116), no violations.
   - On the board: Suzuka 8 Hours 1 and 2's attract (the road), Lucky &
     Wild's (the C169, the road, the C355).
+- The shared RTL changed every bitstream. MH (seed 5) and SG (seed 4)
+  still meet every clock; the standard one missed clk_sd by 0.195 ns on
+  seed 2 and meets every clock on seed 3 (clk_sd +0.139 ns). M2's default
+  build gives Suzuka's and Lucky & Wild's 1,400 pictures unchanged, byte
+  for byte; Assault, Final Lap 2, Rolling Thunder 2, Metal Hawk and Steel
+  Gunner 2 run on the board with the rebuilt bitstreams.
