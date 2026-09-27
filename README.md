@@ -81,15 +81,15 @@ alternates), and the parents on the other four bitstreams.
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
 `PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
-2026-09-26), from Quartus 17.0 Lite on the DE10-Nano's 5CSEBA6U23I7:
+2026-09-27), from Quartus 17.0 Lite on the DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI | Seed |
 |---|---|---|---|---|---|---|---|---|
-| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 37,082 (88%) | 55,558 | 532 / 553 (96%) | 65 | +1.729 / +0.139 / +0.136 ns | 3 |
-| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,104 (89%) | 55,959 | 475 / 553 (86%) | 62 | +1.017 / +0.396 / +0.204 ns | 5 |
-| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 37,351 (89%) | 56,053 | 482 / 553 (87%) | 67 | +1.078 / +0.064 / +0.047 ns | 4 |
-| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 36,979 (88%) | 57,053 | 481 / 553 (87%) | 68 | +1.280 / +0.082 / +0.021 ns | 4 |
-| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 38,094 (91%) | 59,344 | 540 / 553 (98%) | 72 | +1.261 / +0.156 / +0.037 ns | 4 |
+| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 37,024 (88%) | 55,512 | 532 / 553 (96%) | 65 | +1.832 / +0.694 / +0.109 ns | 3 |
+| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,132 (89%) | 56,049 | 475 / 553 (86%) | 62 | +1.718 / +0.291 / +0.026 ns | 3 |
+| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 37,279 (89%) | 56,148 | 482 / 553 (87%) | 67 | +1.341 / +0.251 / +0.233 ns | 8 |
+| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 37,143 (89%) | 57,062 | 481 / 553 (87%) | 68 | +1.426 / +0.231 / +0.350 ns | 5 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 38,108 (91%) | 59,344 | 540 / 553 (98%) | 72 | +0.647 / +0.247 / +0.135 ns | 14 |
 
 Every clock meets timing at every corner on all five. clk_sys is 49.152
 MHz and clk_sd, the SDRAM's, 98.304 MHz. The 68000s run at 12.288 MHz, the
