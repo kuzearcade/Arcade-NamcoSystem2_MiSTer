@@ -3,17 +3,25 @@
 // with valid). Requests go into ns2_sdram's FIFO for the bank; a tag FIFO
 // remembers whose each one is, and a returning burst (the bank's valid_t
 // toggle) goes to the client at its head. Up to 8 bursts in flight.
+// A client's request with its `we` high is a write (ns2_sdram WEN): pushed
+// with its word and mask, acked, and nothing comes back (no tag).
 module ns2_bank_arb #(parameter N = 2) (
 	input                 clk,
 	input                 rst,
 	input      [N-1:0]    req,
 	input      [N*22-1:0] addr,           // 16-bit word addresses in the bank
+	input      [N-1:0]    we,             // the request is a write
+	input      [N*16-1:0] wdin,
+	input      [N*2-1:0]  wdsn,
 	output reg [N-1:0]    ack,            // a one-clock pulse: the request is queued
 	output reg [N-1:0]    valid,          // a one-clock pulse with data
 	output reg [63:0]     data,
 	// ns2_sdram's bank
 	output reg            push,
 	output reg [21:0]     paddr,
+	output reg            pwe,
+	output reg [15:0]     pdin,
+	output reg [1:0]      pdsn,
 	input                 full,
 	input                 vtog,
 	input      [63:0]     vdata
@@ -50,7 +58,8 @@ module ns2_bank_arb #(parameter N = 2) (
 			// a request: into the bank's FIFO, its tag into ours
 			if (sel_ok && !full && !tfull && !push) begin
 				push <= 1'b1; paddr <= addr[22 * sel +: 22];
-				tag[tw[2:0]] <= sel; tw <= tw + 1'd1;
+				pwe <= we[sel]; pdin <= wdin[16 * sel +: 16]; pdsn <= wdsn[2 * sel +: 2];
+				if (!we[sel]) begin tag[tw[2:0]] <= sel; tw <= tw + 1'd1; end
 				ack[sel] <= 1'b1;
 				rr <= sel == N - 1 ? 0 : sel + 1'd1;
 			end

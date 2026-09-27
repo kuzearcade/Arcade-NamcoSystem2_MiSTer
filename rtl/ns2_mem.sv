@@ -2,7 +2,8 @@
 // the banks' layout and their clients. 16-bit word addresses per bank:
 //   bank 0: ROZ (copy A) 000000, data ROM 200000, master 300000, slave 320000,
 //           audio 340000, MCU EPROM 360000, MCU internal ROM 364000
-//   bank 1: ROZ (copy B) 000000, C140 voices 200000
+//   bank 1: ROZ (copy B) 000000, C140 voices 200000, (WRAM_SD) the
+//           master's work RAM 300000, the slave's 308000, the C139's 310000
 //   bank 2: tiles 000000, tile mask 200000, C169 mask 240000
 //   bank 3: sprites 000000 (Metal Hawk: the transposed copy at 200000)
 // The download is the .mra image (tools/ns2_romdata.py LAYOUT), 16-bit
@@ -14,7 +15,11 @@
 // and loads the C45 CLUT and the default NVRAM.
 // The ROZ stream alternates between its two copies (banks 0 and 1) and its
 // bursts come back in request order.
-module ns2_mem (
+// WRAM_SD (the Suzuka and Lucky & Wild bitstreams): the 68000s' work RAMs
+// and the C139's RAM are bank 1 clients that also write (ns2_wram_cache);
+// the download first clears them, as MAME's RAM starts at 0 and the
+// board's SDRAM keeps the last core's data.
+module ns2_mem #(parameter WRAM_SD = 0) (
 	input             clk,
 	input             rst,
 	input      [2:0]  board,          // ns2_video's board code
@@ -55,11 +60,23 @@ module ns2_mem (
 	input             aud_req,   input [16:0] aud_addr,   output aud_ack,   output aud_valid,
 	input             mcu_req,   input [14:0] mcu_addr,   output mcu_ack,   output mcu_valid,   // 32K words: EPROM, then the internal ROM
 	input             c140_req,  input [19:0] c140_addr,  output c140_ack,  output c140_valid,
+	// WRAM_SD: [0] the master's work RAM, [1] the slave's, [2] the C139's
+	// (the data in bank1_data)
+	input      [2:0]  wram_req,
+	input      [2:0]  wram_we,
+	input      [44:0] wram_addr,      // words in each 64 KB
+	input      [47:0] wram_din,
+	input      [5:0]  wram_dsn,
+	output     [2:0]  wram_ack,
+	output     [2:0]  wram_valid,
 	output     [63:0] bank0_data,     // the bank 0 and 1 clients' bursts
 	output     [63:0] bank1_data,
 	// ns2_sdram
 	output     [21:0] sd_addr0, sd_addr1, sd_addr2, sd_addr3,
 	output     [3:0]  sd_push,
+	output     [3:0]  sd_push_we,
+	output     [63:0] sd_push_din,
+	output     [7:0]  sd_push_dsn,
 	input      [3:0]  sd_full,
 	input      [3:0]  sd_valid_t,
 	input      [63:0] sd_data0, sd_data1, sd_data2, sd_data3,
@@ -80,7 +97,11 @@ module ns2_mem (
 	reg [3:0]  w_n, w_i;
 	reg        busy;
 	reg        wait_ack;
-	assign dl_wait = busy || hi_clut || hi_nv;
+	// WRAM_SD: the work RAMs' clear, as the download starts (its first word
+	// waits: dl_wait from dl's rise)
+	reg        dl_d, zf_busy, zf_wait;
+	reg [16:0] zf_a;                   // 300000-317fff
+	assign dl_wait = busy || hi_clut || hi_nv || zf_busy || (WRAM_SD && dl && !dl_d);
 
 	// Metal Hawk's reorder, per 4x4 block of a 32x32 tile: where a source
 	// byte (row r, column c in the block) goes; MAME's loop carries one byte
@@ -124,7 +145,18 @@ module ns2_mem (
 		hi_clut <= 1'b0; hi_nv <= 1'b0;
 		if (hi_clut) begin clut_we <= 1'b1; clut_addr <= hi_addr[7:0]; clut_data <= hi_data; end
 		if (hi_nv)   begin nv_we <= 1'b1; nv_addr <= hi_addr; nv_data <= hi_data; end
-		if (rst) begin busy <= 1'b0; wait_ack <= 1'b0; w_n <= 0; w_i <= 0; end
+		dl_d <= dl;
+		if (rst) begin busy <= 1'b0; wait_ack <= 1'b0; w_n <= 0; w_i <= 0; zf_busy <= 1'b0; zf_wait <= 1'b0; end
+		else if (WRAM_SD && dl && !dl_d) begin zf_busy <= 1'b1; zf_a <= 0; end
+		else if (zf_busy) begin
+			if (!zf_wait) begin
+				prog_addr <= 22'h300000 + {5'd0, zf_a}; prog_ba <= 2'd1; prog_din <= 16'h0000; prog_dsn <= 2'b00;
+				prog_req_t <= ~prog_req_t; zf_wait <= 1'b1;
+			end else if (prog_ack_t == prog_req_t) begin
+				zf_wait <= 1'b0; zf_a <= zf_a + 1'd1;
+				if (zf_a == 17'h17fff) zf_busy <= 1'b0;
+			end
+		end
 		else if (!busy && !hi_clut && !hi_nv) begin
 			if (dl && dl_wr) begin
 				a = dl_addr;
@@ -225,6 +257,7 @@ module ns2_mem (
 	// bank 0: ROZ A, master, slave, data ROM, audio, MCU
 	wire [5:0]  a0_ack, a0_val;
 	ns2_bank_arb #(.N(6)) u_b0 (.clk(clk), .rst(rst),
+		.we(6'd0), .wdin(96'd0), .wdsn({12{1'b1}}), .pwe(sd_push_we[0]), .pdin(sd_push_din[0 +: 16]), .pdsn(sd_push_dsn[0 +: 2]),
 		.req({mcu_req, aud_req, drom_req, sprog_req, mprog_req, rz_req && !rz_bank}),
 		.addr({22'h360000 + {5'd0, mcu_addr, 2'b00}, 22'h340000 + {3'd0, aud_addr, 2'b00}, 22'h200000 + {drom_addr, 2'b00},
 		       22'h320000 + {3'd0, sprog_addr, 2'b00}, 22'h300000 + {3'd0, mprog_addr, 2'b00}, rz_word}),
@@ -233,15 +266,21 @@ module ns2_mem (
 	assign {mcu_ack, aud_ack, drom_ack, sprog_ack, mprog_ack} = a0_ack[5:1];
 	assign {mcu_valid, aud_valid, drom_valid, sprog_valid, mprog_valid} = a0_val[5:1];
 
-	// bank 1: ROZ B, the C140
-	wire [1:0]  a1_ack, a1_val;
-	ns2_bank_arb #(.N(2)) u_b1 (.clk(clk), .rst(rst),
-		.req({c140_req, rz_req && rz_bank}),
-		.addr({22'h200000 + {c140_addr, 2'b00}, rz_word}),
+	// bank 1: ROZ B, the C140, (WRAM_SD) the work RAMs and the C139's
+	wire [4:0]  a1_ack, a1_val;
+	wire [2:0]  wreq = WRAM_SD ? wram_req : 3'b000;
+	ns2_bank_arb #(.N(5)) u_b1 (.clk(clk), .rst(rst),
+		.req({wreq, c140_req, rz_req && rz_bank}),
+		.addr({22'h310000 + {7'd0, wram_addr[44:30]}, 22'h308000 + {7'd0, wram_addr[29:15]}, 22'h300000 + {7'd0, wram_addr[14:0]},
+		       22'h200000 + {c140_addr, 2'b00}, rz_word}),
+		.we({wram_we, 2'b00}), .wdin({wram_din, 32'd0}), .wdsn({wram_dsn, 4'b1111}),
+		.pwe(sd_push_we[1]), .pdin(sd_push_din[31:16]), .pdsn(sd_push_dsn[3:2]),
 		.ack(a1_ack), .valid(a1_val), .data(bank1_data),
 		.push(sd_push[1]), .paddr(sd_addr1), .full(sd_full[1]), .vtog(sd_valid_t[1]), .vdata(sd_data1));
 	assign c140_ack = a1_ack[1];
 	assign c140_valid = a1_val[1];
+	assign wram_ack = a1_ack[4:2];
+	assign wram_valid = a1_val[4:2];
 
 	// the ROZ stream's acks and its bursts, back in request order: each bank
 	// returns its own in order, so a small FIFO per bank and the order of
@@ -279,6 +318,7 @@ module ns2_mem (
 	wire [2:0]  a2_ack, a2_val;
 	wire [63:0] b2_data;
 	ns2_bank_arb #(.N(3)) u_b2 (.clk(clk), .rst(rst),
+		.we(3'd0), .wdin(48'd0), .wdsn({6{1'b1}}), .pwe(sd_push_we[2]), .pdin(sd_push_din[32 +: 16]), .pdsn(sd_push_dsn[4 +: 2]),
 		.req({c169m_req, tmask_req, tile_req}),
 		.addr({22'h240000 + {3'd0, c169m_addr[18:3], 2'b00}, 22'h200000 + {4'd0, tmask_addr, 2'b00}, {1'b0, tile_addr, 2'b00}}),
 		.ack(a2_ack), .valid(a2_val), .data(b2_data),
@@ -302,6 +342,7 @@ module ns2_mem (
 	// bank 3: sprites (Metal Hawk's rot90: bit 19, the transposed copy)
 	wire [0:0]  a3_ack, a3_val;
 	ns2_bank_arb #(.N(1)) u_b3 (.clk(clk), .rst(rst),
+		.we(1'd0), .wdin(16'd0), .wdsn({2{1'b1}}), .pwe(sd_push_we[3]), .pdin(sd_push_din[48 +: 16]), .pdsn(sd_push_dsn[6 +: 2]),
 		.req(spr_req), .addr({spr_addr[19] ? 1'b1 : 1'b0, spr_addr[18:0], 2'b00}),
 		.ack(a3_ack), .valid(a3_val), .data(spr_data),
 		.push(sd_push[3]), .paddr(sd_addr3), .full(sd_full[3]), .vtog(sd_valid_t[3]), .vdata(sd_data3));

@@ -3,8 +3,9 @@
 // core's clock (clk, 49.152 MHz) and the SDRAM's (clk_sd, twice it). The
 // testbench downloads the set's image through dl_*, then runs the board.
 module top #(
-	// a bitstream's blocks (NamcoS2.sv): make VARIANT=SG|MH|NB
-	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1
+	// a bitstream's blocks (NamcoS2.sv): make VARIANT=SG|MH|SZ|LW
+	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1,
+	parameter WRAM_SD = 0
 ) (
 	input             clk,
 	input             clk_sd,
@@ -86,6 +87,10 @@ module top #(
 	wire        mprog_ack, sprog_ack, drom_ack, aud_ack, mcu_ack, c140_ack;
 	wire        mprog_valid, sprog_valid, drom_valid, aud_valid, mcu_valid, c140_valid;
 	wire [63:0] bank0_data, bank1_data;
+	wire [2:0]  wram_req, wram_we, wram_ack, wram_valid;
+	wire [44:0] wram_addr;
+	wire [47:0] wram_din;
+	wire [5:0]  wram_dsn;
 	wire        clut_we, nv_we, class_we;
 	// the filter's side of bank 2 (ns2_tile_filter)
 	wire        ft_req, ft_ack, ft_valid, fm_req, fm_ack, fm_valid;
@@ -99,7 +104,7 @@ module top #(
 	wire [1:0]  class_data;
 
 	ns2_board #(.C140_MAME_RATE(1), .ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
-		.HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_board (
+		.HAS_C169(HAS_C169), .HAS_C355(HAS_C355), .WRAM_SD(WRAM_SD)) u_board (
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog), .dbg_stall(1'b0), .dbg_holds(dbg_holds),
@@ -121,18 +126,22 @@ module top #(
 		.mcu_req(mcu_req), .mcu_addr_m(mcu_addr_m), .mcu_ack(mcu_ack), .mcu_valid(mcu_valid),
 		.c140_req(c140_req), .c140_addr(c140_addr), .c140_ack(c140_ack), .c140_valid(c140_valid),
 		.bank0_data(bank0_data), .bank1_data(bank1_data),
+		.wram_req(wram_req), .wram_we(wram_we), .wram_addr(wram_addr), .wram_din(wram_din), .wram_dsn(wram_dsn),
+		.wram_ack(wram_ack), .wram_valid(wram_valid),
 		.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data), .nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.overrun(overrun), .overrun_src(overrun_src), .line_busy_max(line_busy_max),
 		.mcu_tap(), .mcu_sync(), .mcu_cen(mcu_cen), .mcu_din());
 
 	// the memory
 	wire [21:0] sd_addr0, sd_addr1, sd_addr2, sd_addr3, prog_addr;
-	wire [3:0]  sd_push, sd_full, sd_valid_t;
+	wire [3:0]  sd_push, sd_full, sd_valid_t, sd_push_we;
+	wire [63:0] sd_push_din;
+	wire [7:0]  sd_push_dsn;
 	wire [63:0] sd_data0, sd_data1, sd_data2, sd_data3;
 	wire [1:0]  prog_ba, prog_dsn;
 	wire [15:0] prog_din;
 	wire        prog_req_t, prog_ack_t;
-	ns2_mem u_mem (.clk(clk), .rst(rst), .board(board), .mh_wiring(mh_wiring), .lw_wiring(lw_wiring), .drom_empty(2'b00),
+	ns2_mem #(.WRAM_SD(WRAM_SD)) u_mem (.clk(clk), .rst(rst), .board(board), .mh_wiring(mh_wiring), .lw_wiring(lw_wiring), .drom_empty(2'b00),
 		.dl(dl), .dl_wr(dl_wr), .dl_addr(dl_addr), .dl_data(dl_data), .dl_wait(dl_wait),
 		.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data), .nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data),
 		.class_we(class_we), .class_addr(class_addr), .class_data(class_data),
@@ -149,8 +158,11 @@ module top #(
 		.mcu_req(mcu_req), .mcu_addr({2'b00, mcu_addr_m}), .mcu_ack(mcu_ack), .mcu_valid(mcu_valid),
 		.c140_req(c140_req), .c140_addr({2'b00, c140_addr}), .c140_ack(c140_ack), .c140_valid(c140_valid),
 		.bank0_data(bank0_data), .bank1_data(bank1_data),
+		.wram_req(wram_req), .wram_we(wram_we), .wram_addr(wram_addr), .wram_din(wram_din), .wram_dsn(wram_dsn),
+		.wram_ack(wram_ack), .wram_valid(wram_valid),
 		.sd_addr0(sd_addr0), .sd_addr1(sd_addr1), .sd_addr2(sd_addr2), .sd_addr3(sd_addr3),
 		.sd_push(sd_push), .sd_full(sd_full), .sd_valid_t(sd_valid_t),
+		.sd_push_we(sd_push_we), .sd_push_din(sd_push_din), .sd_push_dsn(sd_push_dsn),
 		.sd_data0(sd_data0), .sd_data1(sd_data1), .sd_data2(sd_data2), .sd_data3(sd_data3),
 		.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t));
 
@@ -167,8 +179,9 @@ module top #(
 	wire [12:0] a;
 	wire [1:0]  ba;
 	assign dq = dq_oe ? dq_q : sdram_din;
-	ns2_sdram u_sd (.clk(clk), .clk_sd(clk_sd), .rst(rst), .init(sd_init), .rfsh(rfsh),
+	ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) u_sd (.clk(clk), .clk_sd(clk_sd), .rst(rst), .init(sd_init), .rfsh(rfsh),
 		.addr0(sd_addr0), .addr1(sd_addr1), .addr2(sd_addr2), .addr3(sd_addr3), .push(sd_push), .req_full(sd_full), .valid_t(sd_valid_t),
+		.push_we(sd_push_we), .push_din(sd_push_din), .push_dsn(sd_push_dsn),
 		.data0(sd_data0), .data1(sd_data1), .data2(sd_data2), .data3(sd_data3),
 		.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_en(dl),
 		.prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t),

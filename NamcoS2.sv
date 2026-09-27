@@ -49,19 +49,32 @@ assign VIDEO_ARY = (!ar) ? (video_rotated ? 12'd4 : 12'd3) : 12'd0;
 `include "build_id.v"
 // The bitstream (docs/PLAN.md 2.4): NS2_MH (NamcoS2_MH.qsf) is Metal Hawk's,
 // the C169 and no standard ROZ or C45 road; otherwise the standard one.
+// NS2_SZ (Suzuka 8 Hours) and NS2_LW (Lucky & Wild) keep the 68000s' work
+// RAMs and the C139's RAM in the SDRAM (WRAM_SD) to fit their block RAM;
+// NS2_LW also narrows the CRT V-Size to one step each way (its ring).
 `ifdef NS2_MH
-localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0;
+localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_MH";
-`elsif NS2_NB
-localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1;
-localparam CORE_NAME = "NamcoS2_NB";
+localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+`elsif NS2_SZ
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 4;
+localparam CORE_NAME = "NamcoS2_SZ";
+localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+`elsif NS2_LW
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 1;
+localparam CORE_NAME = "NamcoS2_LW";
+localparam VSIZE_OSD = "0,+1,-1";
 `elsif NS2_SG
-localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1;
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SG";
+localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `else
-localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0;
+localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2";
+localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `endif
+// (VSIZE_OSD: crt_chain's V-Size list, "0,+1..+MAX,-MAX..-1", each its own
+// literal: strings of two lengths under ?: would pad one with NULs)
 localparam CONF_STR = {
 	CORE_NAME, ";;",
 	"-;",
@@ -76,7 +89,7 @@ localparam CONF_STR = {
 	"P3O[100:96],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"P3O[85:79],CRT H-Position,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,+32,+33,+34,+35,+36,+37,+38,+39,+40,+41,+42,+43,+44,+45,+46,+47,+48,-48,-47,-46,-45,-44,-43,-42,-41,-40,-39,-38,-37,-36,-35,-34,-33,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"P3O[78:74],CRT V-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
-	"P3O[107:104],CRT V-Size,0,+1,+2,+3,+4,-4,-3,-2,-1;",
+	"P3O[107:104],CRT V-Size,", VSIZE_OSD, ";",
 	"P3O[108],CRT V-Size Mode,PVM,Cabinet;",
 	"-;",
 	"DIP;",
@@ -381,7 +394,13 @@ wire [7:0]  core_r, core_g, core_b;
 wire [8:0]  hcnt, vcnt;
 wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
 
-ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) board (
+wire [2:0]  wram_req, wram_we, wram_ack, wram_valid;
+wire [44:0] wram_addr;
+wire [47:0] wram_din;
+wire [5:0]  wram_dsn;
+
+ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
+            .WRAM_SD(WRAM_SD)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(cfg_analog), .dbg_stall(1'b0), .dbg_holds(),
@@ -403,6 +422,8 @@ ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
 	.mcu_req(mcu_req), .mcu_addr_m(mcu_addr_m), .mcu_ack(mcu_ack), .mcu_valid(mcu_valid),
 	.c140_req(c140_req), .c140_addr(c140_addr), .c140_ack(c140_ack), .c140_valid(c140_valid),
 	.bank0_data(bank0_data), .bank1_data(bank1_data),
+	.wram_req(wram_req), .wram_we(wram_we), .wram_addr(wram_addr), .wram_din(wram_din), .wram_dsn(wram_dsn),
+	.wram_ack(wram_ack), .wram_valid(wram_valid),
 	.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data),
 	.nv_we(nv_we), .nv_addr(nv_addr), .nv_data(nv_data), .nv_q(nv_q), .nv_cpu_we(nv_cpu_we),
 	.overrun(), .overrun_src(), .line_busy_max(),
@@ -417,7 +438,9 @@ ns2_tile_filter tile_filter (.clk(clk_sys), .rst(por_rst), .tile_fl2(cfg_fl2),
 	.n_t(), .n_t_miss(), .n_m(), .n_m_miss());
 
 wire [21:0] sd_addr0, sd_addr1, sd_addr2, sd_addr3, prog_addr;
-wire [3:0]  sd_push, sd_full, sd_valid_t;
+wire [3:0]  sd_push, sd_full, sd_valid_t, sd_push_we;
+wire [63:0] sd_push_din;
+wire [7:0]  sd_push_dsn;
 wire [63:0] sd_data0, sd_data1, sd_data2, sd_data3;
 wire [1:0]  prog_ba, prog_dsn;
 wire [15:0] prog_din;
@@ -425,7 +448,7 @@ wire        prog_req_t, prog_ack_t;
 wire        dl_wait;
 assign ioctl_wait = dl_rom & dl_wait;
 
-ns2_mem mem (.clk(clk_sys), .rst(por_rst), .board(cfg_board), .mh_wiring(cfg_mh), .lw_wiring(cfg_lw), .drom_empty(cfg[3][5:4]),
+ns2_mem #(.WRAM_SD(WRAM_SD)) mem (.clk(clk_sys), .rst(por_rst), .board(cfg_board), .mh_wiring(cfg_mh), .lw_wiring(cfg_lw), .drom_empty(cfg[3][5:4]),
 	.dl(dl_rom), .dl_wr(dl_rom & ioctl_wr), .dl_addr(ioctl_addr), .dl_data(ioctl_dout), .dl_wait(dl_wait),
 	.clut_we(clut_we), .clut_addr(clut_addr), .clut_data(clut_data),
 	.nv_we(mem_nv_we), .nv_addr(mem_nv_addr), .nv_data(mem_nv_data),
@@ -442,15 +465,19 @@ ns2_mem mem (.clk(clk_sys), .rst(por_rst), .board(cfg_board), .mh_wiring(cfg_mh)
 	.aud_req(aud_req), .aud_addr({2'b00, aud_addr}), .aud_ack(aud_ack), .aud_valid(aud_valid),
 	.mcu_req(mcu_req), .mcu_addr({2'b00, mcu_addr_m}), .mcu_ack(mcu_ack), .mcu_valid(mcu_valid),
 	.c140_req(c140_req), .c140_addr({2'b00, c140_addr}), .c140_ack(c140_ack), .c140_valid(c140_valid),
+	.wram_req(wram_req), .wram_we(wram_we), .wram_addr(wram_addr), .wram_din(wram_din), .wram_dsn(wram_dsn),
+	.wram_ack(wram_ack), .wram_valid(wram_valid),
 	.bank0_data(bank0_data), .bank1_data(bank1_data),
+	.sd_push_we(sd_push_we), .sd_push_din(sd_push_din), .sd_push_dsn(sd_push_dsn),
 	.sd_addr0(sd_addr0), .sd_addr1(sd_addr1), .sd_addr2(sd_addr2), .sd_addr3(sd_addr3),
 	.sd_push(sd_push), .sd_full(sd_full), .sd_valid_t(sd_valid_t),
 	.sd_data0(sd_data0), .sd_data1(sd_data1), .sd_data2(sd_data2), .sd_data3(sd_data3),
 	.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t));
 
 // refresh in the horizontal blank (jtframe_sdram64's rfsh)
-ns2_sdram sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(hcnt >= 9'd300),
+ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(hcnt >= 9'd300),
 	.addr0(sd_addr0), .addr1(sd_addr1), .addr2(sd_addr2), .addr3(sd_addr3), .push(sd_push), .req_full(sd_full), .valid_t(sd_valid_t),
+	.push_we(sd_push_we), .push_din(sd_push_din), .push_dsn(sd_push_dsn),
 	.data0(sd_data0), .data1(sd_data1), .data2(sd_data2), .data3(sd_data3),
 	.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_en(dl_rom),
 	.prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t),
@@ -521,7 +548,7 @@ wire [23:0] retimed_rgb;
 wire        crt_on = status[101] & ~scandoubler_en & ~fb_rotating;
 crt_chain #(
 	.HTOTAL0(10'd384), .HTOTAL1(10'd384), .DIV0(5'd16), .DIV1(5'd16),
-	.VTOTAL(264), .LINE_PX(304), .VSIZE_MAX(4)
+	.VTOTAL(264), .LINE_PX(304), .VSIZE_MAX(VSIZE_MAX)
 ) crt_chain (
 	.clk(clk_sd), .ce_in(rt_ce), .rgb_in(rt_rgb),
 	.hs_in(rt_hs), .vs_in(rt_vs), .hb_in(rt_hb), .vb_in(rt_vb), .vb_hs_in(rt_vb_hs),

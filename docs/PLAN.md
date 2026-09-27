@@ -350,8 +350,9 @@ siblings' answer was NMK16's four bitstreams from one source tree
 |---|---|---|
 | `NamcoS2` | standard: sprites (A) + ROZ (A); **Final Lap / Four Trax: sprites (A, FL variant) + C45 road, sharing the ROZ RAM**; C65 **and** C68 | 33 + 16 |
 | `NamcoS2_MH` | Metal Hawk: sprites (A, MH layout) + C169 x2 | 2 |
-| `NamcoS2_SG` | Steel Gunner 1 and 2: C355 sprites only (the whole NB set does not fit) | 4 |
-| `NamcoS2_NB` | Suzuka 8 Hours 1 and 2, Lucky & Wild: C355 sprites + C45 road + C169, each enabled per set | 6 |
+| `NamcoS2_SG` | Steel Gunner 1 and 2: C355 sprites only | 4 |
+| `NamcoS2_SZ` | Suzuka 8 Hours 1 and 2: C355 sprites + C45 road; the work RAMs in the SDRAM | 4 |
+| `NamcoS2_LW` | Lucky & Wild: C355 sprites + C45 road + C169; the work RAMs in the SDRAM | 2 |
 
 The `.mra` selects the board through a mode byte in `<switches>`, which
 MS1BCD proved (MS1-44: fan-out and timing; MS1-53: the core waits for the

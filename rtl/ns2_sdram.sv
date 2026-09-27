@@ -12,7 +12,10 @@
 // The download writes 16-bit words through the controller's programming
 // port: set prog_*, toggle prog_req_t, wait for prog_ack_t to follow.
 // rfsh: the core asks for a round of refreshes (in hblank).
-module ns2_sdram (
+// WEN: the banks that take writes (the NB bitstream's work RAMs, bank 1): a
+// request pushed with push_we writes one 16-bit word (its mask active low)
+// and returns nothing.
+module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
 	input             clk,
 	input             clk_sd,
 	input             rst,
@@ -21,6 +24,9 @@ module ns2_sdram (
 	// the banks: requests at clk, data back with a toggle
 	input      [21:0] addr0, addr1, addr2, addr3,   // 16-bit words
 	input      [3:0]  push,           // one clk strobe per request, the address with it
+	input      [3:0]  push_we,        // WEN banks: the request is a write
+	input      [63:0] push_din,       // its word, 16 bits a bank
+	input      [7:0]  push_dsn,       // its byte mask, 2 bits a bank
 	output     [3:0]  req_full,
 	output reg [3:0]  valid_t,
 	output reg [63:0] data0, data1, data2, data3,
@@ -49,8 +55,10 @@ module ns2_sdram (
 );
 	// ------------------------------------------------ requests
 	wire [3:0]  ack;
-	wire [3:0]  rd;
+	wire [3:0]  rd, wr;
 	wire [21:0] qa [0:3];
+	wire [15:0] qd [0:3];
+	wire [1:0]  qm [0:3];
 	wire [21:0] ain [0:3];
 	assign ain[0] = addr0; assign ain[1] = addr1; assign ain[2] = addr2; assign ain[3] = addr3;
 	genvar gq;
@@ -62,14 +70,33 @@ module ns2_sdram (
 			if (rst) wp <= 0;
 			else if (push[gq] && !req_full[gq]) begin q[wp[1:0]] <= ain[gq]; wp <= wp + 1'd1; end
 		assign req_full[gq] = (wp ^ rp) == 3'b100;
-		// rd while the FIFO holds a request; the acceptance pops it, and the
-		// controller's bank stays busy past it, so the next address is taken
-		// only once the bank is ready
-		assign rd[gq] = wp != rp;
+		// rd (or wr) while the FIFO holds a request; the acceptance pops it,
+		// and the controller's bank stays busy past it, so the next address
+		// is taken only once the bank is ready
+		wire       pend = wp != rp;
+		wire       we;
+		if (WEN[gq]) begin : g_w
+			reg        q_we [0:3];
+			reg [15:0] q_d  [0:3];
+			reg [1:0]  q_m  [0:3];
+			always @(posedge clk)
+				if (push[gq] && !req_full[gq]) begin
+					q_we[wp[1:0]] <= push_we[gq]; q_d[wp[1:0]] <= push_din[16 * gq +: 16]; q_m[wp[1:0]] <= push_dsn[2 * gq +: 2];
+				end
+			assign we = q_we[rp[1:0]];
+			assign qd[gq] = q_d[rp[1:0]];
+			assign qm[gq] = q_m[rp[1:0]];
+		end else begin : g_r
+			assign we = 1'b0;
+			assign qd[gq] = 16'd0;
+			assign qm[gq] = 2'b11;
+		end
+		assign rd[gq] = pend && !we;
+		assign wr[gq] = pend && we;
 		assign qa[gq] = q[rp[1:0]];
 		always @(posedge clk_sd)
 			if (rst) rp <= 0;
-			else if (ack[gq] && rd[gq]) rp <= rp + 1'd1;
+			else if (ack[gq] && pend) rp <= rp + 1'd1;
 	end endgenerate
 
 	// ------------------------------------------------ the download
@@ -126,12 +153,13 @@ module ns2_sdram (
 	always @(posedge clk_sd) if (dst | dok | rdy) $display("sd: dst %b dok %b rdy %b dout %h", dst, dok, rdy, dout);
 `endif
 	jtframe_sdram64 #(.AW(22), .HF(1), .BA0_LEN(64), .BA1_LEN(64), .BA2_LEN(64), .BA3_LEN(64), .PROG_LEN(16),
-	                  .BA0_WEN(0), .MISTER(1), .RFSHCNT(9), .BAPRIO(1)) u_ctl (
+	                  .BA0_WEN(WEN[0]), .BA1_WEN(WEN[1]), .BA2_WEN(WEN[2]), .BA3_WEN(WEN[3]),
+	                  .MISTER(1), .RFSHCNT(9), .BAPRIO(1)) u_ctl (
 		.rst(rst), .clk(clk_sd), .init(init),
 		.ba0_addr(qa[0]), .ba1_addr(qa[1]), .ba2_addr(qa[2]), .ba3_addr(qa[3]),
-		.rd(rd), .wr(4'd0),
-		.ba0_din(16'd0), .ba0_dsn(2'b11), .ba1_din(16'd0), .ba1_dsn(2'b11),
-		.ba2_din(16'd0), .ba2_dsn(2'b11), .ba3_din(16'd0), .ba3_dsn(2'b11),
+		.rd(rd), .wr(wr),
+		.ba0_din(qd[0]), .ba0_dsn(qm[0]), .ba1_din(qd[1]), .ba1_dsn(qm[1]),
+		.ba2_din(qd[2]), .ba2_dsn(qm[2]), .ba3_din(qd[3]), .ba3_dsn(qm[3]),
 		.prog_en(prog_en_s[1]), .prog_addr(prog_addr), .prog_rd(1'b0), .prog_wr(prog_wr), .prog_din(prog_din), .prog_dsn(prog_dsn),
 		.prog_ba(prog_ba), .prog_dst(), .prog_dok(), .prog_rdy(prog_rdy), .prog_ack(prog_ack),
 		.rfsh(rfsh), .ack(ack), .dst(dst), .dok(dok), .rdy(rdy), .dout(dout),

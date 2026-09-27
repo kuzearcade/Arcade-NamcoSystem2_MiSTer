@@ -9,7 +9,8 @@
 // Line events, at the start of the line (MAME's scanline timer):
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
 module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
-	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1) (
+	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1,
+	parameter WRAM_SD = 0) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -62,6 +63,15 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	output            c140_req,  output [17:0] c140_addr,  input c140_ack,  input c140_valid,
 	input      [63:0] bank0_data,
 	input      [63:0] bank1_data,
+	// WRAM_SD (ROMS = 1): bank 1 clients: [0] the master's work RAM, [1] the
+	// slave's, [2] the C139's RAM
+	output     [2:0]  wram_req,
+	output     [2:0]  wram_we,
+	output     [44:0] wram_addr,      // words in each 64 KB
+	output     [47:0] wram_din,
+	output     [5:0]  wram_dsn,
+	input      [2:0]  wram_ack,
+	input      [2:0]  wram_valid,
 	// the download's loads: the C45 CLUT and the default NVRAM
 	input             clut_we,
 	input      [7:0]  clut_addr,
@@ -223,8 +233,56 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire [15:0] v_dout, v_din;
 	wire        v_rnw, v_uds, v_lds, cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl;
 	wire        cs_c169, cs_c169ctl, cs_c355, cs_c355pos;
-	ns2_main u_main (
+	// the RAMs in the SDRAM (WRAM_SD): ns2_mem's clients, or (ROMS = 0) a
+	// model of them, a burst eight clocks after its request
+	wire [2:0]  wm_req, wm_we, wm_ack, wm_valid;
+	wire [44:0] wm_addr;
+	wire [47:0] wm_din;
+	wire [5:0]  wm_dsn;
+	wire [63:0] wm_data;
+	generate if (WRAM_SD && ROMS == 0) begin : g_wram_model
+		reg [15:0] wram [0:98303] /*verilator public_flat_rw*/;
+		reg [2:0]  ack, val;
+		reg [63:0] q;
+		reg        busy;
+		reg [1:0]  who;
+		reg [16:0] line;
+		reg [3:0]  cnt;
+		integer    i;
+		initial for (i = 0; i < 98304; i = i + 1) wram[i] = 16'h0000;
+		wire [2:0] rq = wm_req & ~ack;
+		wire [1:0] pick = rq[0] ? 2'd0 : rq[1] ? 2'd1 : 2'd2;
+		wire [16:0] w_a = {pick, wm_addr[15 * pick +: 15]};
+		wire [15:0] w_d = wm_din[16 * pick +: 16];
+		wire [1:0]  w_m = wm_dsn[2 * pick +: 2];
+		always @(posedge clk) begin
+			ack <= 0; val <= 0;
+			if (reset) busy <= 1'b0;
+			else if (busy) begin
+				cnt <= cnt - 1'd1;
+				if (cnt == 0) begin
+					busy <= 1'b0; val[who] <= 1'b1;
+					q <= {wram[line + 3], wram[line + 2], wram[line + 1], wram[line]};
+				end
+			end else if (|rq) begin
+				ack[pick] <= 1'b1;
+				if (wm_we[pick]) begin
+					if (!w_m[1]) wram[w_a][15:8] <= w_d[15:8];
+					if (!w_m[0]) wram[w_a][7:0]  <= w_d[7:0];
+				end else begin busy <= 1'b1; who <= pick; line <= w_a; cnt <= 4'd7; end
+			end
+		end
+		assign wm_ack = ack; assign wm_valid = val; assign wm_data = q;
+		assign {wram_req, wram_we, wram_addr, wram_din, wram_dsn} = 0;
+	end else begin : g_wram_mem
+		assign {wram_req, wram_we, wram_addr, wram_din, wram_dsn} = {wm_req, wm_we, wm_addr, wm_din, wm_dsn};
+		assign wm_ack = wram_ack; assign wm_valid = wram_valid; assign wm_data = bank1_data;
+	end endgenerate
+
+	ns2_main #(.WRAM_SD(WRAM_SD)) u_main (
 		.clk(clk), .reset(reset), .board(board), .key_table(key_table), .key_mode(key_mode),
+		.wm_req(wm_req), .wm_we(wm_we), .wm_addr(wm_addr), .wm_din(wm_din), .wm_dsn(wm_dsn),
+		.wm_ack(wm_ack), .wm_valid(wm_valid), .wm_data(wm_data),
 		.mrom_addr(mra), .mrom_data(mrq), .mrom_ready(m_ready), .mrom_rd(m_rd),
 		.srom_addr(sra), .srom_data(srq), .srom_ready(s_ready), .srom_rd(s_rd),
 		.drom_addr(dra), .drom_data(drq), .drom_ready(d_ready), .drom_rd(d_rd),

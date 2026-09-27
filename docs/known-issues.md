@@ -811,7 +811,7 @@ The harnesses gained, for this:
 - then the other sets, the inputs of the sets with analog controls, and
   M5.
 
-## NS2-15 — M4: every standard set on the board; the Metal Hawk and Steel Gunner bitstreams (open: Suzuka 8 Hours, Lucky & Wild)
+## NS2-15 — M4: every set on the board: the standard, Metal Hawk, Steel Gunner, Suzuka and Lucky & Wild bitstreams
 
 **The standard bitstream's 49 sets on the board.** Each was loaded with 1P
 Start at 45 s and captured at +15 s and +30 s: 22 parents and 27 clones.
@@ -877,16 +877,41 @@ macro in `NamcoS2.sv`):
 - M2 against MAME: 145 and 304 of 700 pictures exact. The replay finds no
   line that differs: the rest are MAME's sprite RAM writes landing inside
   the frame (NS2-11).
-- `sim/rtl/ns2_hw`: `make VARIANT=SG|MH|NB` builds a bitstream's blocks
+- `sim/rtl/ns2_hw`: `make VARIANT=SG|MH|SZ|LW` builds a bitstream's blocks
   (`obj_<variant>`); `SDRAM_FILL=seed` starts the SDRAM with random words,
   as the board keeps the last core's.
 
-**Open:** Suzuka 8 Hours 1 and 2, Lucky & Wild (`NamcoS2_NB`).
-- The whole NB set (C355, C45 road, C169) needs 702 of 553 M10K. The
+**NamcoS2_SZ (Suzuka 8 Hours 1 and 2) and NamcoS2_LW (Lucky & Wild).**
+- The whole NB set (C355, C45 road, C169) needed 702 of 553 M10K. The
   largest: the ROZ / road RAM 128, the two 68000 work RAMs 64 each, the
   C355 RAM 82, the C169 RAM 64, the tilemap RAM 64, MiSTer's `crt_vsize`
   26.
-- Suzuka (no C169) needs about 635; Lucky & Wild all 702.
-- The plan (Appendix F): move both 68000 work RAMs into the SDRAM (128
-  blocks), behind caches. Lucky & Wild needs about 20 more: framework
-  buffers the NB bitstream can go without (`crt_vsize` 26, HQ2x 14).
+- **`WRAM_SD`: the RAMs into the SDRAM (Appendix F).** Each 68000's 64 KB
+  work RAM, and the C139's 16 KB, sit in bank 1 (300000, 308000, 310000)
+  behind `ns2_wram_cache`:
+  - A direct-mapped cache of 256 lines of four words (the C139's: 32) in
+    block RAM, written through, three blocks a CPU.
+  - Its tag and word are read every clock, so a hit answers as the RAM
+    did. A miss holds the CPUs (the lockstep) while one burst fills the
+    line.
+  - A write updates its line and goes out through a four-entry FIFO; a
+    full FIFO holds the next write cycle. A fill waits for the FIFO: the
+    bank takes a client's requests in order.
+  - The C139's RAM is on the shared bus: its read waits at the capture
+    step, as the data ROM's does, and its write goes out there.
+  - The SDRAM path takes writes: `ns2_sdram`'s bank FIFOs carry a write's
+    word and mask (`WEN`, jtframe's `BA1_WEN`), and `ns2_bank_arb` queues
+    no tag for one.
+  - The download first clears the three regions: MAME's RAM starts at 0,
+    and the board's SDRAM keeps the last core's data.
+- Suzuka has no C169: its own bitstream, 481 of 553 M10K. Lucky & Wild
+  also narrows the CRT V-Size to one step each way (`crt_vsize`'s ring):
+  540 of 553. Seed 4 meets every clock on both.
+- **Results:**
+  - M2 (a model of the SDRAM clients, eight clocks a burst): Suzuka 662 of
+    700 pictures, Lucky & Wild 289, as with the RAMs in block RAM (661,
+    289).
+  - M3 through the SDRAM, which starts random (`SDRAM_FILL`): Suzuka 163
+    of 200, Lucky & Wild 115 of 200 (block RAM: 116), no violations.
+  - On the board: Suzuka 8 Hours 1 and 2's attract (the road), Lucky &
+    Wild's (the C169, the road, the C355).

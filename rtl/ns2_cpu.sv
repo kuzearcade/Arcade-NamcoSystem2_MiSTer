@@ -7,7 +7,10 @@
 // neither CPU waits, as in MAME (Q8 measures the board's real contention).
 // Interrupt acknowledges are answered with the autovector 24 + level (MAME's
 // m68000 with the C148 on the IPL lines).
-module ns2_cpu #(parameter MASTER = 1) (
+// WRAM_SD = 1 (the NB bitstream): the work RAM is in the SDRAM behind a
+// cache (ns2_wram_cache); a miss, or a write with the cache's FIFO full,
+// holds the CPU as a ROM read's miss does.
+module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 	input             clk,
 	input             reset,         // the board's reset
 	input             run,           // 0 holds the CPU in reset (the slave: the master's C148 ext2)
@@ -42,6 +45,15 @@ module ns2_cpu #(parameter MASTER = 1) (
 	output reg [15:0] sh_dout,
 	input             sh_done,       // the access is complete (sh_din valid for a read)
 	input      [15:0] sh_din,
+	// WRAM_SD: the work RAM's SDRAM client (ns2_wram_cache)
+	output            wm_req,
+	output            wm_we,
+	output     [14:0] wm_addr,
+	output     [15:0] wm_din,
+	output     [1:0]  wm_dsn,
+	input             wm_ack,
+	input             wm_valid,
+	input      [63:0] wm_data,
 	// debug: the bus cycle
 	output            dbg_as,
 	output     [23:1] dbg_addr,
@@ -96,16 +108,38 @@ module ns2_cpu #(parameter MASTER = 1) (
 	wire start_loc = as_loc && !asl_d;
 	always @(posedge clk) begin as_d <= as || iack; asl_d <= as_loc; end
 
+	reg [2:0] lat;                // DTACK's count (below)
+
 	// work RAM (two byte lanes) and the EEPROM (bytes on the low lane)
-	reg  [7:0] ram_h [0:32767], ram_l [0:32767];
 	reg  [7:0] eep   [0:8191] /*verilator public_flat_rw*/;
-	reg  [15:0] ram_q;
+	wire [15:0] ram_q;
+	wire        ram_hold;
 	reg  [7:0]  eep_q;
-	always @(posedge clk) begin
-		if (wr && sel_ram && !UDSn) ram_h[a[15:1]] <= oEdb[15:8];
-		if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
-		ram_q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
-	end
+	generate if (WRAM_SD == 0) begin : g_ram
+		reg  [7:0] ram_h [0:32767], ram_l [0:32767];
+		reg  [15:0] q;
+		always @(posedge clk) begin
+			if (wr && sel_ram && !UDSn) ram_h[a[15:1]] <= oEdb[15:8];
+			if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
+			q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
+		end
+		assign ram_q = q;
+		assign ram_hold = 1'b0;
+		assign {wm_req, wm_we, wm_addr, wm_din, wm_dsn} = 0;
+	end else begin : g_wram
+		// the write goes to the cache once a bus cycle, with its strobes
+		reg  w_done;
+		wire w_go = wr && sel_ram && !w_done;
+		always @(posedge clk) if (ASn) w_done <= 1'b0; else if (w_go) w_done <= 1'b1;
+		wire ready, wfull;
+		ns2_wram_cache u_wc (.clk(clk), .rst(reset), .addr(a[15:1]), .rd(rd && sel_ram), .wr(w_go),
+			.wdata(oEdb), .wbe({!UDSn, !LDSn}), .q(ram_q), .ready(ready), .wfull(wfull),
+			.m_req(wm_req), .m_we(wm_we), .m_addr(wm_addr), .m_din(wm_din), .m_dsn(wm_dsn),
+			.m_ack(wm_ack), .m_valid(wm_valid), .m_data(wm_data));
+		// at DTACK's count, as a ROM read: a read waits for its line, a
+		// write for room in the FIFO (its strobes come later, the FIFO only drains)
+		assign ram_hold = lat == 3'd1 && sel_ram && !iack && (eRWn ? !ready : wfull);
+	end endgenerate
 	// the EEPROM: the CPU's port, and the NVRAM's (the download's default,
 	// the .nvm's load and save); a write returns its own data (Intel's
 	// true dual port template)
@@ -129,11 +163,10 @@ module ns2_cpu #(parameter MASTER = 1) (
 		.ext_in(3'b111), .ext1(ext1), .ext2(ext2), .bus_ctrl());   // ext_in: MAME leaves it unconnected (7)
 
 	// DTACK: local devices two clocks after the start (the RAM and ROM have
-	// answered), shared ones when the grant completes
-	reg [2:0] lat;
+	// answered), shared ones when the grant completes (lat: above)
 	// a read only: a write to the program ROM (Rolling Thunder 2's slave
 	// writes 001000) asks nothing of the cache, and the board ignores it
-	assign rom_hold = lat == 3'd1 && sel_rom && !iack && eRWn && !rom_ready;
+	assign rom_hold = (lat == 3'd1 && sel_rom && !iack && eRWn && !rom_ready) || ram_hold;
 	always @(posedge clk) begin
 		if (cpu_reset) begin dtack <= 1'b0; sh_req <= 1'b0; busy <= 1'b0; lat <= 0; end
 		else begin
