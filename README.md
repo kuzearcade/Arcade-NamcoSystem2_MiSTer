@@ -1,19 +1,130 @@
 # Arcade-NamcoSystem2_MiSTer
 
-A MiSTer FPGA core for **Namco System 2** (1987-1993): Assault, Ordyne, Mirai
-Ninja, Phelios, Dirt Fox, Valkyrie no Densetsu, Finest Hour, Burning Force,
-Marvel Land, Kyuukai Douchuuki, Dragon Saber, Golly! Ghost!, Rolling
-Thunder 2, Cosmo Gang, Bubble Trouble, Super World Stadium ('92, '93),
-Metal Hawk, Steel Gunner 1 and 2, Suzuka 8 Hours 1 and 2, Lucky & Wild,
-Final Lap 1-3 and Four Trax.
+A MiSTer FPGA core for **Namco System 2** (1987-1993): 61 sets, 28 games and
+their alternates, on five bitstreams.
 
-**In development.** See `docs/PLAN.md` for the plan and its gates, and
-`docs/known-issues.md` for every finding (NS2-n).
-
-MAME's `namco/namcos2.cpp` (K. Wilkins) and its devices are the behavioural
-reference, and every claim is a measurement against it.
+**In development.** Every set boots and runs its attract mode on a DE10-Nano.
+One joystick, three buttons, Start, Coin and Service are mapped to MAME's
+default ports for every set. Per-game layouts, and the analog controls of
+the driving and light-gun games, are still to do (see [To Do](#to-do)).
+See `docs/PLAN.md` for the plan and its gates, and `docs/known-issues.md`
+for every finding (NS2-n).
 
 GPL-3.0 (see `LICENSE`); third-party files keep their own notices.
+
+## Goals
+
+- **MAME as the reference.** MAME's `namco/namcos2.cpp` (K. Wilkins) and
+  its devices, at a pinned commit (`deps.lock`), define the behaviour. Every
+  claim about the board is a measurement against it, recorded as a
+  numbered finding in `docs/known-issues.md`.
+- **Gates are measurements.** Each milestone ends in a measured gate, not
+  a judgement: the video against MAME's state (M1), the whole board
+  against MAME's bus traces (M2), the board with its ROMs in the SDRAM
+  (M3), timing met and the sets running on the board (M4), feature parity
+  (M5), the release (M6).
+- **Cycle-faithful CPUs.** Both 68000s, the 6809 and the I/O MCU (C65 or
+  C68) run at MAME's clocks and bus timing. A cache miss stops every CPU
+  together, so the caches never change their timing against each other.
+- **Every set in MAME's driver**, including Final Lap 1-3, Four Trax and the
+  NB-1 boards (Steel Gunner, Suzuka 8 Hours, Lucky & Wild).
+- **No ROM data in the repository.** The `.mra`s assemble the sets from
+  MAME's zips; nothing derived from a ROM is committed.
+- **Feature parity with the author's other cores** (Arcade-GingaNin,
+  NMK16, SandScrp, JalecoMS1BCD/MS1Z, NMKBP964): savestates, NVRAM high
+  scores, cheats, autofire, pause, light guns and analog controls, CRT
+  Adjust.
+
+## Supported games
+
+The `.mra`s are in `releases/`, the alternates in
+`releases/_alternatives/_<game>/`. Each loads its bitstream by name.
+"Analog" marks the controls not yet mapped. Those games run their attract
+mode but cannot yet be steered or aimed.
+
+| Game | Year | MAME set | Bitstream | Controls | Alternates |
+|---|---|---|---|---|---|
+| Final Lap (Rev E) | 1987 | `finallap` | STD | analog: steering, pedals | `finallapc`, `finallapd`, `finallapjb`, `finallapjc` |
+| Assault (Rev B) | 1988 | `assault` | STD | two joysticks per player (the right one not mapped) | `assaultj`, `assaultp` |
+| Metal Hawk (Rev C) | 1988 | `metlhawk` | MH | analog: stick | `metlhawkj` |
+| Mirai Ninja (Japan, set 1) | 1988 | `mirninja` | STD | joystick | `mirninjaa` |
+| Ordyne (World) | 1988 | `ordyne` | STD | joystick | `ordynej`, `ordyneje` |
+| Phelios | 1988 | `phelios` | STD | joystick | `pheliosj` |
+| Burning Force (Japan, new version (Rev C)) | 1989 | `burnforc` | STD | joystick | `burnforco` |
+| Dirt Fox (Japan) | 1989 | `dirtfoxj` | STD | analog: steering, pedals | |
+| Finest Hour (Japan) | 1989 | `finehour` | STD | joystick | |
+| Four Trax (World) | 1989 | `fourtrax` | STD | analog: steering, pedals | `fourtraxa`, `fourtraxj` |
+| Marvel Land (Japan) | 1989 | `marvland` | STD | joystick | `marvlandup` |
+| Valkyrie no Densetsu (Japan) | 1989 | `valkyrie` | STD | joystick | |
+| Dragon Saber (World, DO2) | 1990 | `dsaber` | STD | joystick | `dsabera`, `dsaberj` |
+| Final Lap 2 (World, Rev B) | 1990 | `finalap2` | STD | analog: steering, pedals | `finalap2j`, `finalap2jb` |
+| Golly! Ghost! | 1990 | `gollygho` | STD | analog: light guns | |
+| Kyuukai Douchuuki (Japan, new version (Rev B)) | 1990 | `kyukaidk` | STD | joystick | `kyukaidko` |
+| Rolling Thunder 2 | 1990 | `rthun2` | STD | joystick | `rthun2j` |
+| Steel Gunner (Rev B) | 1990 | `sgunner` | SG | analog: light guns | `sgunnerj` |
+| Cosmo Gang the Video (US) | 1991 | `cosmogng` | STD | joystick | `cosmogngj` |
+| Steel Gunner 2 (US) | 1991 | `sgunner2` | SG | analog: light guns | `sgunner2j` |
+| Bubble Trouble - Golly! Ghost! 2 (World, Rev B) | 1992 | `bubbletr` | STD | analog: light guns | `bubbletrj` |
+| Final Lap 3 (World, Rev C) | 1992 | `finalap3` | STD | analog: steering, pedals | `finalap3a`, `finalap3bl`, `finalap3j`, `finalap3jc` |
+| Lucky & Wild | 1992 | `luckywld` | LW | analog: steering, pedals, light guns | `luckywldj` |
+| Super World Stadium (Japan) | 1992 | `sws` | STD | joystick | |
+| Super World Stadium '92 (Japan) | 1992 | `sws92` | STD | joystick | `sws92g` |
+| Suzuka 8 Hours (World, Rev C) | 1992 | `suzuka8h` | SZ | analog: steering, pedals | `suzuka8hj` |
+| Suzuka 8 Hours 2 (World, Rev B) | 1993 | `suzuk8h2` | SZ | analog: steering, pedals | `suzuk8h2j` |
+| Super World Stadium '93 (Japan) | 1993 | `sws93` | STD | joystick | |
+
+Tested on the board: every standard-bitstream set (22 parents and 27
+alternates), and the parents on the other four bitstreams.
+
+## Bitstreams
+
+The graphics boards cannot all fit one Cyclone V together, so the core
+builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
+`PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
+2026-09-26), from Quartus 17.0 Lite on the DE10-Nano's 5CSEBA6U23I7:
+
+| Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI | Seed |
+|---|---|---|---|---|---|---|---|---|
+| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 37,082 (88%) | 55,558 | 532 / 553 (96%) | 65 | +1.729 / +0.139 / +0.136 ns | 3 |
+| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,104 (89%) | 55,959 | 475 / 553 (86%) | 62 | +1.017 / +0.396 / +0.204 ns | 5 |
+| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 37,351 (89%) | 56,053 | 482 / 553 (87%) | 67 | +1.078 / +0.064 / +0.047 ns | 4 |
+| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 36,979 (88%) | 57,053 | 481 / 553 (87%) | 68 | +1.280 / +0.082 / +0.021 ns | 4 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 38,094 (91%) | 59,344 | 540 / 553 (98%) | 72 | +1.261 / +0.156 / +0.037 ns | 4 |
+
+Every clock meets timing at every corner on all five. clk_sys is 49.152
+MHz and clk_sd, the SDRAM's, 98.304 MHz. The 68000s run at 12.288 MHz, the
+6809 and the C65 at 2.048 MHz, the C68 at 8.192 MHz. The SZ and LW
+bitstreams keep both 68000 work RAMs and the C139's RAM in SDRAM behind
+small caches, to fit their block RAM (NS2-15).
+
+Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
+`_alternatives/`) to `_Arcade/`, and MAME's zips (the sets, plus
+`namcoc65.zip` and `namcoc68.zip`) to `games/mame/`. A missing zip is not
+reported; the game loads zeros and shows a blank screen.
+
+## To Do
+
+- **Analog controls:** the steering and pedals of Final Lap 1-3, Dirt Fox,
+  Four Trax, Suzuka 8 Hours 1 and 2 and Lucky & Wild; the light guns of
+  Golly! Ghost!, Bubble Trouble, Steel Gunner 1 and 2 and Lucky & Wild
+  (MiSTer's gun and mouse input onto the MCU's analog channels, with
+  MAME's calibration); Metal Hawk's analog stick. Today these inputs sit at
+  MAME's power-on values.
+- **Per-game controls:** Assault's twin sticks, and each set's own button
+  names and count in its `.mra`.
+- **Feature parity (M5):** savestates, pause, cheats, autofire.
+- **Pictures against MAME:** the remaining line differences in Suzuka 8
+  Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),
+  and Final Lap's ranking row 6.
+- **Audio:** the output level against MAME's (NS2-14); the C140 and the
+  C68 in M2 (NS2-8).
+- **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
+  on hardware; test play with real controls.
+- **Release (M6):** add the core to kuzecores; GitHub releases with the
+  `.rbf`s attached.
+
+The C139 serial link between cabinets is not emulated (nor is it in MAME):
+each cabinet plays alone.
 
 ## Credits and third-party code
 
