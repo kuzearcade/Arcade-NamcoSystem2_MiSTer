@@ -131,6 +131,11 @@ Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
 `namcoc65.zip` and `namcoc68.zip`) to `games/mame/`. A missing zip is not
 reported; the game loads zeros and shows a blank screen.
 
+The core is published through
+[kuzecores](https://github.com/kuzearcade/kuzecores), a custom database for
+the MiSTer *downloader*, so `update_all` installs the bitstreams and the
+`.mra`s (the zips are still yours to supply).
+
 ## To Do
 
 - **Per-game controls:** Assault's twin sticks (its two joysticks each
@@ -143,8 +148,9 @@ reported; the game loads zeros and shows a blank screen.
   C68 in M2 (NS2-8).
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
   on hardware; test play with real controls.
-- **Release (M6):** add the core to kuzecores; GitHub releases with the
-  `.rbf`s attached.
+- **Other boards:** confirm NS2-19's fix (refresh through the download, the
+  SDRAM clock at 171 degrees) on the boards that reported black screens and
+  crashes; the test board never showed them.
 
 The C139 serial link between cabinets is not emulated (nor is it in MAME):
 each cabinet plays alone.
