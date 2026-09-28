@@ -157,6 +157,23 @@ assign {next_ba, next_cmd, next_a } =
                        bg[1] ? { 2'd1, bx1_cmd, bx1_a } :
                                { 2'd0, bx0_cmd, bx0_a } )))));
 
+// NS2 local change (NS2-21): a bank's command is NOP (0111) unless it holds
+// the grant (its do_* are all gated by bg), and one bank at most does, so the
+// banks' commands merge by AND instead of through the grant's priority mux.
+// The rest selects on registers (init, rfshing, prog_en: while each is on the
+// banks are idle). The command's path was clk_sd's worst; the address and
+// bank still take the mux above, the same when one bank is granted.
+wire [3:0] bank_cmd  = bx0_cmd & bx1_cmd & bx2_cmd & bx3_cmd;
+wire [3:0] next_cmdf = init ? init_cmd : (rfshing ? rfsh_cmd : (prog_en ? pre_cmd : bank_cmd));
+`ifdef VERILATOR
+// the merge equals the priority mux, clock by clock (the sims count any miss)
+integer ns2_cmd_miss /*verilator public_flat_rd*/ = 0;
+always @(posedge clk) if (!rst && next_cmdf != next_cmd) begin
+    ns2_cmd_miss <= ns2_cmd_miss + 1;
+    if (ns2_cmd_miss < 5) $display("jtframe_sdram64: cmd merge %b, mux %b (bg %b)", next_cmdf, next_cmd, bg);
+end
+`endif
+
 assign prio     = prio_lfsr[1:0];
 assign mask_mux = prog_en ? prog_dsn :
                   (bg[3] && BA3_WEN) ? ba3_dsn :
@@ -193,7 +210,7 @@ always @(posedge clk) begin
     all_dbusy64  <= |ba_dbusy64;
     dok      <= ba_dok;
     dout     <= sdram_dq;
-    cmd      <= next_cmd;
+    cmd      <= next_cmdf;
 
     // prog signals
     prog_dst <= pre_dst;

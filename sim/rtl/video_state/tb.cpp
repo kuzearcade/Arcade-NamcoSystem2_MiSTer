@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 	t->tile_fl2 = set.rfind("finalap2", 0) == 0 || set.rfind("finalap3", 0) == 0;
 	t->spr_fl = getenv("SPR_FL") != nullptr;   // the finallap config (tools/ns2_romdata.py games())
 	for (size_t i = 0; i < 256 && i < clut.size(); i++) r->ns2_video__DOT__clut[i] = clut[i];
-	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8}, st_c169{&c169, 8}, st_c169m{&c169m, 1};
+	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8}, st_c169{&c169, 8}, st_c169m{&c169m, 8};   // the mask: the burst holding the byte
 	if (mh) st_spr.split = 1u << 19;
 	static uint32_t pic[224][288];
 	int overruns = 0;
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 		st_roz.serve(t->roz_req, t->roz_addr, a, v, d); t->roz_ack = a; t->roz_valid = v; if (v) t->roz_data = d;
 		st_spr.serve(t->spr_req, t->spr_addr, a, v, d); t->spr_ack = a; t->spr_valid = v; if (v) t->spr_data = d;
 		st_c169.serve(t->c169_req, t->c169_addr, a, v, d); t->c169_ack = a; t->c169_valid = v; if (v) t->c169_data = d;
-		st_c169m.serve(t->c169m_req, t->c169m_addr, a, v, d); t->c169m_ack = a; t->c169m_valid = v; if (v) t->c169m_data = d;
+		st_c169m.serve(t->c169m_req, t->c169m_addr >> 3, a, v, d); t->c169m_ack = a; t->c169m_valid = v; if (v) t->c169m_data = d;
 		t->clk = 1; t->eval();
 		if (t->out_valid && t->out_y < 224 && t->out_x < 288) pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue;
 		if (t->overrun) overruns++;

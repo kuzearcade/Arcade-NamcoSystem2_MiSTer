@@ -51,7 +51,7 @@ module ns2_mem #(parameter WRAM_SD = 0) (
 	input             tmask_req, input [15:0] tmask_addr, output tmask_ack, output tmask_valid, output [63:0] tmask_data,   // a tile code's 8 mask bytes (ns2_tile_filter)
 	input             roz_req,   input [18:0] roz_addr,   output roz_ack,   output roz_valid,   output [63:0] roz_data,
 	input             c169_req,  input [20:0] c169_addr,  output c169_ack,  output c169_valid,  output [63:0] c169_data,
-	input             c169m_req, input [18:0] c169m_addr, output c169m_ack, output c169m_valid, output [7:0]  c169m_data,
+	input             c169m_req, input [18:0] c169m_addr, output c169m_ack, output c169m_valid, output [63:0] c169m_data,
 	input             spr_req,   input [19:0] spr_addr,   output spr_ack,   output spr_valid,   output [63:0] spr_data,
 	// the CPUs' caches and the C140: the same streams, word addresses of a burst
 	input             mprog_req, input [16:0] mprog_addr, output mprog_ack, output mprog_valid,
@@ -314,7 +314,8 @@ module ns2_mem #(parameter WRAM_SD = 0) (
 	assign roz_data  = rz_out;
 	assign c169_data = rz_out;
 
-	// bank 2: tiles, the tile mask, the C169 mask (byte streams: the byte of the burst)
+	// bank 2: tiles, the tile mask (a byte stream: the byte of the burst), the
+	// C169 mask (the burst holding the byte; ns2_c169 takes its byte)
 	wire [2:0]  a2_ack, a2_val;
 	wire [63:0] b2_data;
 	ns2_bank_arb #(.N(3)) u_b2 (.clk(clk), .rst(rst),
@@ -326,18 +327,8 @@ module ns2_mem #(parameter WRAM_SD = 0) (
 	assign {c169m_ack, tmask_ack, tile_ack} = a2_ack;
 	assign {c169m_valid, tmask_valid, tile_valid} = a2_val;
 	assign tile_data = b2_data;
-	// the C169 mask: a byte stream (the byte of the burst, in request order)
-	reg [2:0]  cm_q [0:7];
-	reg [3:0]  cm_w, cm_r;
-	always @(posedge clk) begin
-		if (rst) begin cm_w <= 0; cm_r <= 0; end
-		else begin
-			if (a2_ack[2]) begin cm_q[cm_w[2:0]] <= c169m_addr[2:0]; cm_w <= cm_w + 1'd1; end
-			if (a2_val[2]) cm_r <= cm_r + 1'd1;
-		end
-	end
 	assign tmask_data = b2_data;
-	assign c169m_data = b2_data[8 * cm_q[cm_r[2:0]] +: 8];
+	assign c169m_data = b2_data;
 
 	// bank 3: sprites (Metal Hawk's rot90: bit 19, the transposed copy)
 	wire [0:0]  a3_ack, a3_val;

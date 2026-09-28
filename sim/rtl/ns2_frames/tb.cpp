@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
 		t->mcuc = start_port == ":MCUC" ? mcuc0 & ~clr : mcuc0;
 		t->mcuh = start_port == ":MCUH" ? mcuh0 & ~clr : mcuh0;
 	};
-	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8}, st_c169{&c169, 8}, st_c169m{&c169m, 1};
+	Stream st_tile{&tiles, 8}, st_mask{&tmask, 1}, st_roz{&roz, 8}, st_spr{&spr, 8}, st_c169{&c169, 8}, st_c169m{&c169m, 8};   // the mask: the burst holding the byte
 
 	size_t mi = 0; bool bad = false; bool as_d = false; unsigned frame = 0; int lastv = -1;
 	Acc pend{}; bool have_pend = false; uint64_t pend_cyc = 0;
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 		st_roz.serve(t->roz_req, t->roz_addr, a, v, d); t->roz_ack = a; t->roz_valid = v; if (v) t->roz_data = d;
 		st_spr.serve(t->spr_req, t->spr_addr, a, v, d); t->spr_ack = a; t->spr_valid = v; if (v) t->spr_data = d;
 		st_c169.serve(t->c169_req, t->c169_addr, a, v, d); t->c169_ack = a; t->c169_valid = v; if (v) t->c169_data = d;
-		st_c169m.serve(t->c169m_req, t->c169m_addr, a, v, d); t->c169m_ack = a; t->c169m_valid = v; if (v) t->c169m_data = d;
+		st_c169m.serve(t->c169m_req, t->c169m_addr >> 3, a, v, d); t->c169m_ack = a; t->c169m_valid = v; if (v) t->c169m_data = d;
 		if ((cyc & 1023) == 0) inputs();
 		t->clk = 1; t->eval(); t->clk = 0; t->eval(); cyc++;
 	};

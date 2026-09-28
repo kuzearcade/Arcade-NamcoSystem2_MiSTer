@@ -17,7 +17,8 @@ module ns2_video #(
 	parameter HAS_ROZ  = 1,   // the standard ROZ (ns2_roz); its RAM is also the C45's road RAM
 	parameter HAS_C45  = 1,
 	parameter HAS_C169 = 1,
-	parameter HAS_C355 = 1
+	parameter HAS_C355 = 1,
+	parameter C169_MCACHE = 1  // the C169's mask cache (Metal Hawk; NS2-21)
 ) (
 	input             clk,
 	input             reset,
@@ -92,7 +93,7 @@ module ns2_video #(
 	output     [18:0] c169m_addr,   // byte address
 	input             c169m_ack,
 	input             c169m_valid,
-	input      [7:0]  c169m_data,
+	input      [63:0] c169m_data,   // the burst holding the byte
 	output            spr_req,
 	output     [19:0] spr_addr,     // bit 19: Metal Hawk's rot90 (the transposed copy)
 	input             spr_ack,
@@ -392,7 +393,7 @@ module ns2_video #(
 	wire        l_we, l_layer;
 	wire [8:0]  l_x;
 	wire [16:0] l_d;
-	ns2_c169 u_c169 (
+	ns2_c169 #(.MCACHE(C169_MCACHE)) u_c169 (
 		.clk(clk), .reset(reset), .start(go && c169_b), .y(ry), .busy(c169_busy_i), .lw(lw), .ctl(c169ctl_flat),
 		.vr_addr(vr_addr_c169), .vr_data(v169_q),
 		.r_req(c169_req_i), .r_addr(c169_addr_i), .r_ack(c169_ack), .r_valid(c169_valid), .r_data(c169_data),

@@ -305,6 +305,13 @@ int main(int argc, char **argv) {
 					if (diff) printf("frame %ld: %d pixels differ (lines %d-%d)\n", F, diff, fy, ly);
 					fflush(stdout);
 				}
+				// CTL169=1: the C169's control words at each frame's end
+				static const bool ctl169 = getenv("CTL169") != nullptr;
+				if (ctl169) {
+					printf("c169ctl %ld:", F);
+					for (int i = 0; i < 16; i++) printf(" %04x", t->rootp->top__DOT__u_board__DOT__u_video__DOT__c169ctl[i]);
+					printf("\n");
+				}
 				// VDUMP=F: the C355's RAM at frame F's end (big-endian words, as the capture's c355 block)
 				static const long vdump = getenv("VDUMP") ? atol(getenv("VDUMP")) : -1;
 				if (F == vdump) {

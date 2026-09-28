@@ -1172,3 +1172,78 @@ clk_sys, -0.30 ns).
   SG 12 (and 13), SZ 5 (and 14), LW 22.
 - On the board: Phelios, Metal Hawk, Steel Gunner 2, Suzuka and Lucky & Wild
   boot and play on the five rebuilt bitstreams.
+
+## NS2-21 — Metal Hawk's striped ROZ: the C169's mask fetches, a tile cache (closed, measured)
+
+**On the board:** zoomed out (a game starts at altitude 400, and in play),
+every other line of Metal Hawk's ROZ is black and the rest look stretched
+and torn. Low in the attract demo the picture is clean. The release before
+NS2-17 shows the same.
+
+**Measured in M3** (`PLAY=900` against `metlhawk_play`, MAME's capture with
+the same script): from frame 1021 the C169 overruns 112 lines a frame (every
+other line), busiest line 3,070 of 3,072. The control words match MAME's
+(frames 1100, 1200), and M1 renders the same states exactly (240 of 240,
+busiest line 2,351, even with 40 clocks of random stall). So it is the
+real SDRAM path, not the state or the renderer:
+- In play the layers are zoomed out 2-6x at an angle, and Metal Hawk's are
+  turned 90 degrees. Each pixel of a line is in a burst of its own, so NS2-15's
+  "a burst serves 8 pixels" never happens: 576 bursts and 576 mask bytes a
+  line.
+- `C123_LOG` (frame 1100): a rendered line takes bank 0 243 bursts, bank 1
+  238, and bank 2 488 (the mask, and the tiles). A random burst costs 10-11
+  clk_sd, so the mask alone is more than a line (6,144 clk_sd) on bank 2,
+  twice banks 0 and 1's load. The C169 misses the next line's start; every
+  other line is lost.
+- The mask cannot come from the pixels (the masked-off pixels are ordinary
+  colours), nor be baked into the tiles: the two codes of a tile have
+  different masks in 8,188 of 8,192 cases.
+
+**The fix** (`ns2_c169.sv`, `MCACHE`, Metal Hawk's bitstream only): a cache
+of 512 tiles' masks (32 bytes each, 16 KB of M10K) by the code's low 9 bits.
+- The prefetch asks for a tile as the pixel's map word arrives, up to 14
+  pixels before the pixel needs it. A fill is four bursts in one row.
+- A pixel leaves FIFO A only when its tile is in, and takes its mask bit
+  with it, so a later fill of the same entry cannot change it (an evicted
+  tile is fetched again).
+- A fill's first burst marks the entry pending, and its last marks it
+  filled. The fills run on through a reset (the memory system does not
+  reset with the video), and reset clears the tags.
+- The mask port now returns the burst (`ns2_mem` no longer picks the byte).
+  Lucky & Wild (no M10K to spare, and no overruns) keeps a mask byte a
+  pixel, its byte picked in `ns2_c169`.
+- Found on the way, in M1: a tile went into the in-flight ring at its
+  fourth burst's acknowledgement, but its bursts can come back before that,
+  and were credited to a stale entry (a pending tag with no fill behind it:
+  the C169 waited forever). It goes in as its first burst is asked for.
+
+**Measured:**
+- M1: Metal Hawk's play 240 of 240 exact, no overruns, busiest line 2,364
+  (2,334 with random stalls); its attract 51 of 51; Lucky & Wild 51 of 51.
+- M3, the same game start: 0 overruns (112 lines a frame before), busiest
+  line 2,535. At frame 1100 a line takes bank 0 288 bursts, bank 1 288 and
+  bank 2 1: the masks come from the cache. The ROZ matches MAME's; what
+  differs is a band of the top lines from frame 1000 and a sprite's position
+  (as before the cache: the timing of the play script against MAME's).
+
+**The builds:** with the cache, Metal Hawk and Lucky & Wild missed clk_sd on
+eight seeds (-0.06 to -0.64 ns). 48 of the worst 49 paths end at
+`jtframe_sdram64`'s command register, through the grant's priority mux: the
+cache only moved the placement. A local change there (`jtframe_sdram64.v`):
+a bank's command is NOP unless it holds the grant, and one bank at most
+does, so the banks' commands merge by AND. The rest selects on registers
+(init, refresh, the programmer). In simulation the merge is compared with
+the mux on every clock: 0 differences through the download, the refresh and
+play (Phelios, Lucky & Wild, Metal Hawk), the pictures as before, 0 SDRAM
+violations. Metal Hawk's seed 6 meets every clock (clk_sd +0.144 ns), and
+Lucky & Wild's seed 27 (worst setup +0.183 ns); the cache takes 17 M10K
+(492 of 553).
+
+**On the board:** Metal Hawk's game start at altitude 400, and its play, draw
+the ROZ whole: no black lines, nothing torn. Lucky & Wild (seed 27; no
+cache, its C169 keeps the per-pixel fetch) boots and runs its attract as
+before.
+
+The command merge is in the SDRAM controller every bitstream shares: the
+released STD, SG and SZ bitstreams predate it and are rebuilt before the
+next release.

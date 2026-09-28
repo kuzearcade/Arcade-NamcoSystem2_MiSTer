@@ -10,7 +10,7 @@
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
 module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1,
-	parameter WRAM_SD = 0) (
+	parameter WRAM_SD = 0, parameter C169_MCACHE = HAS_C169 && !HAS_C355) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -39,7 +39,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	output            roz_req,   output [18:0] roz_addr,   input roz_ack,   input roz_valid,   input [63:0] roz_data,
 	output            spr_req,   output [19:0] spr_addr,   input spr_ack,   input spr_valid,   input [63:0] spr_data,
 	output            c169_req,  output [20:0] c169_addr,  input c169_ack,  input c169_valid,  input [63:0] c169_data,
-	output            c169m_req, output [18:0] c169m_addr, input c169m_ack, input c169m_valid, input [7:0]  c169m_data,
+	output            c169m_req, output [18:0] c169m_addr, input c169m_ack, input c169m_valid, input [63:0] c169m_data,
 	// audio
 	output signed [15:0] ym_left, ym_right,
 	output signed [15:0] c140_left, c140_right, c140_raw_l, c140_raw_r,
@@ -298,7 +298,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack));
 
 	// the video
-	ns2_video #(.HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355)) u_video (
+	ns2_video #(.HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
+		.C169_MCACHE(C169_MCACHE)) u_video (
 		.clk(clk), .reset(reset), .board(board), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.dl_clut_we(clut_we), .dl_clut_addr(clut_addr), .dl_clut_data(clut_data),
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),
