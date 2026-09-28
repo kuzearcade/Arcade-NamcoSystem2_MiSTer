@@ -47,7 +47,11 @@ int main(int argc, char **argv) {
 			fc++;
 		}
 		cyc++;
-		t->rfsh = t->hcnt >= 300;       // hblank's share (the board's raster)
+		// hblank's share (the board's raster); while the board is held (the
+		// download) a free-running line period, as NamcoS2.sv (NS2-19)
+		// (RFSH_OLD=1: the raster's only, as before)
+		static const bool rfsh_old = getenv("RFSH_OLD") != nullptr;
+		t->rfsh = t->dl && !rfsh_old ? (cyc % 3072) >= 2400 : t->hcnt >= 300;
 	};
 	auto port = [&](const char *n, unsigned d) { return ports.count(n) ? ports[n] : d; };
 	t->mcub = port(":MCUB", 0xff); t->mcuc = port(":MCUC", 0xff); t->mcuh = port(":MCUH", 0xff); t->dsw = port(":DSW", 0xff);
@@ -78,6 +82,10 @@ int main(int argc, char **argv) {
 		for (size_t i = 0; i < 16u * 1024 * 1024; i++) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; t->rootp->top__DOT__u_model__DOT__mem[i] = x; }
 	}
 	t->dl = 1;
+	auto *rm = t->rootp;
+	#define REFN rm->top__DOT__u_model__DOT__ref_n
+	#define REFG rm->top__DOT__u_model__DOT__ref_gap_max
+	const int ref0 = REFN; REFG = 0;
 	const bool skip0 = getenv("DL_SKIP0") != nullptr;
 	uint64_t c0 = cyc, words = 0;
 	for (size_t a = 0; a < img.size(); a += 2) {
@@ -113,6 +121,11 @@ int main(int argc, char **argv) {
 	}
 	printf("download: %llu words in %llu clocks (%.1f per word); violations %u\n", (unsigned long long)words,
 	       (unsigned long long)(cyc - c0), (double)(cyc - c0) / (words ? words : 1), t->violations);
+	// a chip needs 8192 refreshes in every 64 ms: one per 7.8 us on average
+	printf("refresh in the download: %d REFs in %.1f ms (%.1f per 64 ms), longest gap %.1f us\n", REFN - ref0,
+	       (cyc - c0) / 49152.0, (REFN - ref0) * 64.0 / ((cyc - c0) / 49152.0 + 1e-9), REFG * 1e6 / 98304000.0);
+	REFG = 0;
+	const int ref1 = REFN; const uint64_t cr = cyc;
 	fflush(stdout);
 	for (int i = 0; i < 64; i++) slow();
 	// the board: MAME's time 0 is the release
@@ -266,15 +279,12 @@ int main(int argc, char **argv) {
 				       t->flt_t - pt, t->flt_t_miss - ptm, t->flt_m - pm, t->flt_m_miss - pmm);
 				{
 					#define TF(n) r->top__DOT__u_filter__DOT__##n
-					#define JT(n) r->top__DOT__u_sd__DOT__u_ctl__DOT__##n
-					static uint32_t pl, pn, pf, w0, w1, w2, w3;
+					static uint32_t pl, pn, pf;
 					uint32_t nl = TF(dbg_nlat) - pn;
-					printf("    miss latency avg %.1f clk over %u; queue full %u clk; bank grant waits (clk_sd) b0 %u b1 %u b2 %u b3 %u\n",
-					       nl ? (double)(TF(dbg_lat) - pl) / nl : 0.0, nl, TF(dbg_full) - pf,
-					       JT(dbg_wait0) - w0, JT(dbg_wait1) - w1, JT(dbg_wait2) - w2, JT(dbg_wait3) - w3);
-					pl = TF(dbg_lat); pn = TF(dbg_nlat); pf = TF(dbg_full); w0 = JT(dbg_wait0); w1 = JT(dbg_wait1); w2 = JT(dbg_wait2); w3 = JT(dbg_wait3);
+					printf("    miss latency avg %.1f clk over %u; queue full %u clk\n",
+					       nl ? (double)(TF(dbg_lat) - pl) / nl : 0.0, nl, TF(dbg_full) - pf);
+					pl = TF(dbg_lat); pn = TF(dbg_nlat); pf = TF(dbg_full);
 					#undef TF
-					#undef JT
 				}
 				p0 = SD(dbg_acc0); p1 = SD(dbg_acc1); p2 = SD(dbg_acc2); p3 = SD(dbg_acc3); pd = SD(dbg_dok);
 				pt = t->flt_t; ptm = t->flt_t_miss; pm = t->flt_m; pmm = t->flt_m_miss;
@@ -295,6 +305,17 @@ int main(int argc, char **argv) {
 					if (diff) printf("frame %ld: %d pixels differ (lines %d-%d)\n", F, diff, fy, ly);
 					fflush(stdout);
 				}
+				// VDUMP=F: the C355's RAM at frame F's end (big-endian words, as the capture's c355 block)
+				static const long vdump = getenv("VDUMP") ? atol(getenv("VDUMP")) : -1;
+				if (F == vdump) {
+					snprintf(pp, sizeof pp, "%s/c355_%05ld.bin", getenv("PICS_DUMP") ? getenv("PICS_DUMP") : ".", F);
+					FILE *df = fopen(pp, "wb");
+					for (int i = 0; df && i < 0xa100; i++) {
+						fputc(t->rootp->top__DOT__u_board__DOT__u_video__DOT__c355_h[i], df);
+						fputc(t->rootp->top__DOT__u_board__DOT__u_video__DOT__c355_l[i], df);
+					}
+					if (df) fclose(df);
+				}
 				if (getenv("PICS_DUMP")) {
 					snprintf(pp, sizeof pp, "%s/rtl%05ld.raw", getenv("PICS_DUMP"), F);
 					FILE *df = fopen(pp, "wb"); if (df) { fwrite(pic, sizeof pic, 1, df); fclose(df); }
@@ -303,6 +324,8 @@ int main(int argc, char **argv) {
 			lastv = t->vcnt;
 		}
 	}
+	printf("refresh in play: %d REFs in %.1f ms (%.1f per 64 ms), longest gap %.1f us\n", REFN - ref1,
+	       (cyc - cr) / 49152.0, (REFN - ref1) * 64.0 / ((cyc - cr) / 49152.0 + 1e-9), REFG * 1e6 / 98304000.0);
 	printf("pictures: %d of %d exact; SDRAM violations %u; video: busiest line %u of 3072 clocks, overrun sources %02x\n",
 	       exact, n, t->violations, t->line_busy_max, t->overrun_src);
 	// the caches: reads, misses, waits (clocks)

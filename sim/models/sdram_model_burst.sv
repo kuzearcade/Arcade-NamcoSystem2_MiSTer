@@ -56,6 +56,17 @@ module sdram_model_burst #(
 	reg [1:0]  wr_ba;
 	reg [8:0]  wr_col;
 
+	// refresh: REF commands, and the longest stretch between two (clocks).
+	// The model keeps its contents without refresh; a real chip needs 8192
+	// in every 64 ms (one per 7.8 us), and loses bits some time past that
+	integer    ref_n /*verilator public_flat_rw*/ = 0, ref_last = 0, ref_gap_max /*verilator public_flat_rw*/ = 0;
+	always @(posedge SDRAM_CLK)
+		if (!SDRAM_nCS && SDRAM_CKE && cmd == C_REF) begin
+			ref_n <= ref_n + 1;
+			if (t - ref_last > ref_gap_max) ref_gap_max <= t - ref_last;
+			ref_last <= t;
+		end
+
 	task automatic viol(input [255:0] what);
 		begin
 			violations = violations + 1;

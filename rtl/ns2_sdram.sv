@@ -4,7 +4,12 @@
 // phase, so each crossing is a register-to-register path of one fast period:
 // - requests: a four-entry FIFO per bank, written at clk (push with the
 //   address when req_full is low), read at clk_sd: the controller always has
-//   the next address when it accepts one;
+//   the next address when it accepts one. The pointers cross in Gray code,
+//   each through a register of the other clock: clk_sd sees a request only a
+//   clk_sd edge after the write, so the controller never takes an entry on
+//   the edge it is written (clk_sd's network reaches its registers about
+//   1 ns after clk's; NamcoS2.sdc relaxes those paths' hold by that edge,
+//   NS2-20);
 // - data: the fast side gathers a burst's four words (bytes n at [8n +: 8]
 //   of the 64 bits, the ROM's order) and toggles valid_t; the register holds
 //   until the bank's next burst, at least two core clocks later.
@@ -66,14 +71,25 @@ module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
 		reg [21:0] q [0:3];
 		reg [2:0]  wp;                  // clk domain
 		reg [2:0]  rp;                  // clk_sd domain
+		// the pointers in Gray code, and each as the other clock sees it
+		reg [2:0]  wp_g, rp_g;          // clk, clk_sd
+		reg [2:0]  wp_g_sd;             // wp_g at clk_sd
+		reg [2:0]  rp_g_s;              // rp_g at clk
+		wire [2:0] wp_n = wp + 1'd1;
 		always @(posedge clk)
-			if (rst) wp <= 0;
-			else if (push[gq] && !req_full[gq]) begin q[wp[1:0]] <= ain[gq]; wp <= wp + 1'd1; end
-		assign req_full[gq] = (wp ^ rp) == 3'b100;
-		// rd (or wr) while the FIFO holds a request; the acceptance pops it,
-		// and the controller's bank stays busy past it, so the next address
-		// is taken only once the bank is ready
-		wire       pend = wp != rp;
+			if (rst) begin wp <= 0; wp_g <= 0; rp_g_s <= 0; end
+			else begin
+				if (push[gq] && !req_full[gq]) begin q[wp[1:0]] <= ain[gq]; wp <= wp_n; wp_g <= wp_n ^ (wp_n >> 1); end
+				rp_g_s <= rp_g;
+			end
+		// full against the read pointer clk last saw: late, so never too full
+		wire [2:0] rp_s = {rp_g_s[2], rp_g_s[2] ^ rp_g_s[1], rp_g_s[2] ^ rp_g_s[1] ^ rp_g_s[0]};
+		assign req_full[gq] = (wp ^ rp_s) == 3'b100;
+		// rd (or wr) while the FIFO holds a request, as clk_sd sees the write
+		// pointer; the acceptance pops it, and the controller's bank stays
+		// busy past it, so the next address is taken only once the bank is
+		// ready
+		wire       pend = wp_g_sd != rp_g;
 		wire       we;
 		if (WEN[gq]) begin : g_w
 			reg        q_we [0:3];
@@ -94,9 +110,13 @@ module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
 		assign rd[gq] = pend && !we;
 		assign wr[gq] = pend && we;
 		assign qa[gq] = q[rp[1:0]];
+		wire [2:0] rp_n = rp + 1'd1;
 		always @(posedge clk_sd)
-			if (rst) rp <= 0;
-			else if (ack[gq] && pend) rp <= rp + 1'd1;
+			if (rst) begin rp <= 0; rp_g <= 0; wp_g_sd <= 0; end
+			else begin
+				wp_g_sd <= wp_g;
+				if (ack[gq] && pend) begin rp <= rp_n; rp_g <= rp_n ^ (rp_n >> 1); end
+			end
 	end endgenerate
 
 `ifdef VERILATOR

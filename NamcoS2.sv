@@ -84,6 +84,7 @@ localparam CONF_STR = {
 	// 180 degrees through the rotation framebuffer; a ROT180 set (MAME's
 	// Bubble Trouble) starts turned, and this turns it back
 	"O[17],Flip screen,Off,On;",
+	"O[18],Gun crosshair,On,Off;",
 	"P3,CRT Adjust;",
 	"P3O[101],CRT Adjust,Off,On;",
 	"P3O[100:96],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
@@ -99,7 +100,7 @@ localparam CONF_STR = {
 	"-;",
 	"R[0],Reset;",
 	// positionally matched against the <buttons> list the .mra writes
-	"J1,Button 1,Button 2,Button 3,Start,Coin,Service;",
+	"J1,Button 1,Button 2,Button 3,Start,Coin,Service,Button 4,Button 5;",
 	"V,v",`BUILD_DATE
 };
 
@@ -109,6 +110,8 @@ wire   [1:0] buttons;
 wire [127:0] status;
 wire  [10:0] ps2_key;
 wire  [31:0] joystick_0, joystick_1;
+wire  [15:0] stick_0, stick_1, rstick_0;
+wire  [24:0] ps2_mouse;
 
 wire         ioctl_download;
 wire         ioctl_wr;
@@ -138,6 +141,10 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
+	.joystick_l_analog_0(stick_0),
+	.joystick_l_analog_1(stick_1),
+	.joystick_r_analog_0(rstick_0),
+	.ps2_mouse(ps2_mouse),
 
 	.ioctl_download(ioctl_download),
 	.ioctl_wr(ioctl_wr),
@@ -158,7 +165,7 @@ wire [24:0] ioctl_addr = ioctl_addr_full[24:0];
 
 wire clk_sys;     // 49.152 MHz: the board
 wire clk_sd;      // 98.304 MHz: the SDRAM controller, CLK_VIDEO
-wire clk_sdo;     // 98.304 MHz, 2.5 ns early: the SDRAM chip (rtl/pll_ns2.v)
+wire clk_sdo;     // 98.304 MHz, 171 degrees: the SDRAM chip (rtl/pll_ns2.v)
 wire pll_locked;
 pll_ns2 pll
 (
@@ -259,11 +266,12 @@ end
 
 // ------------------------------------------------------------------
 // Keyboard: MAME's default bindings, always live, ORed with the pads.
-//   P1: arrows, Left Ctrl = B1, Left Alt = B2, Space = B3
+//   P1: arrows, Left Ctrl = B1, Left Alt = B2, Space = B3, Left Shift = B4, Z = B5
 //   P2: R/F/D/G, A = B1, S = B2, Q = B3
 //   Coin 1 = 5, Coin 2 = 6, Start 1/2 = 1/2, Service 1 = 9
 // ------------------------------------------------------------------
-reg [6:0] kb_p1 = 7'd0, kb_p2 = 7'd0;   // [0]=R [1]=L [2]=D [3]=U [4]=B1 [5]=B2 [6]=B3
+reg [8:0] kb_p1 = 9'd0;                 // [0]=R [1]=L [2]=D [3]=U [4]=B1 [5]=B2 [6]=B3 [7]=B4 [8]=B5
+reg [6:0] kb_p2 = 7'd0;
 reg kb_start1 = 1'b0, kb_start2 = 1'b0;
 reg kb_coin1 = 1'b0, kb_coin2 = 1'b0, kb_service = 1'b0;
 reg kb_toggle_d = 1'b0;
@@ -278,6 +286,8 @@ always @(posedge clk_sys) begin
 			9'h014: kb_p1[4] <= ps2_key[9];
 			9'h011: kb_p1[5] <= ps2_key[9];
 			9'h029: kb_p1[6] <= ps2_key[9];
+			9'h012: kb_p1[7] <= ps2_key[9];
+			9'h01A: kb_p1[8] <= ps2_key[9];
 			9'h02D: kb_p2[3] <= ps2_key[9];
 			9'h02B: kb_p2[2] <= ps2_key[9];
 			9'h023: kb_p2[1] <= ps2_key[9];
@@ -303,16 +313,21 @@ end
 //   MCUH: 0 P2 B3, 1 P1 B3, 2 P2 B2, 3 P1 B2, 4 P2 B1, 5 P1 B1,
 //         6 P2 right, 7 P1 right
 // MiSTer's pad bits: 0 right, 1 left, 2 down, 3 up, then the <buttons>
-// list: 4 B1, 5 B2, 6 B3, 7 Start, 8 Coin, 9 Service.
+// list: 4 B1, 5 B2, 6 B3, 7 Start, 8 Coin, 9 Service, 10 B4, 11 B5.
+// The sets with a wheel and pedals, light guns or Metal Hawk's stick map
+// the analog sticks and the mouse onto AN0-AN7 (ns2_controls, the set's
+// control mode in config byte 33); the others keep MAME's power-on values.
 // ------------------------------------------------------------------
-wire [6:0] p1 = joystick_0[6:0] | kb_p1;
-wire [6:0] p2 = joystick_1[6:0] | kb_p2;
+wire [8:0] p1 = {joystick_0[11:10], joystick_0[6:0]} | kb_p1;
+wire [8:0] p2 = {joystick_1[11:10], joystick_1[6:0]} | {2'b00, kb_p2};
 wire p1_start = joystick_0[7] | kb_start1, p2_start = joystick_1[7] | kb_start2;
 wire p1_coin  = joystick_0[8] | kb_coin1,  p2_coin  = joystick_1[8] | kb_coin2;
 wire p1_svc   = joystick_0[9] | kb_service, p2_svc  = joystick_1[9];
-wire [7:0] in_mcub = ~{p1_start, p2_start, p1[3], p2[3], p1[2], p2[2], p1[1], p2[1]};
-wire [7:0] in_mcuc = ~{p1_svc, p2_svc, p1_coin, p2_coin, 4'b0000};
-wire [7:0] in_mcuh = ~{p1[0], p2[0], p1[4], p2[4], p1[5], p2[5], p1[6], p2[6]};
+wire [7:0]  in_mcub, in_mcuc, in_mcuh;
+wire [63:0] in_analog;
+wire        guns_on, gun2_on;
+wire [8:0]  gun1_x, gun2_x;
+wire [7:0]  gun1_y, gun2_y;
 
 // ------------------------------------------------------------------
 // The NVRAM (the master's EEPROM, 8 KB): the image's default arrives with
@@ -403,7 +418,7 @@ ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
             .WRAM_SD(WRAM_SD)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
-	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(cfg_analog), .dbg_stall(1'b0), .dbg_holds(),
+	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),
 	.red(core_r), .green(core_g), .blue(core_b), .ce_pix(ce_pix), .out_x(), .out_y(), .out_valid(), .hcnt(hcnt), .vcnt(vcnt),
 	.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 	.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
@@ -474,8 +489,20 @@ ns2_mem #(.WRAM_SD(WRAM_SD)) mem (.clk(clk_sys), .rst(por_rst), .board(cfg_board
 	.sd_data0(sd_data0), .sd_data1(sd_data1), .sd_data2(sd_data2), .sd_data3(sd_data3),
 	.prog_addr(prog_addr), .prog_ba(prog_ba), .prog_din(prog_din), .prog_dsn(prog_dsn), .prog_req_t(prog_req_t), .prog_ack_t(prog_ack_t));
 
-// refresh in the horizontal blank (jtframe_sdram64's rfsh)
-ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(hcnt >= 9'd300),
+// Refresh (jtframe_sdram64's rfsh: RFSHCNT refreshes on each rise): in the
+// horizontal blank while the board runs, where it takes nothing from a line's
+// fetches. While the board is held in reset (the download, its settling, the
+// DIP wait, an OSD reset) its timing stops, so a free-running count of the
+// same line period (3072 clocks) takes over: the chip is refreshed through
+// all of it, or the rows written early in a download decay before the game
+// starts (NS2-19).
+reg  [11:0] rf_cnt = 12'd0;
+reg         sd_rfsh = 1'b0;
+always @(posedge clk_sys) begin
+	rf_cnt  <= rf_cnt == 12'd3071 ? 12'd0 : rf_cnt + 12'd1;
+	sd_rfsh <= reset ? rf_cnt >= 12'd2400 : hcnt >= 9'd300;
+end
+ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(sd_rfsh),
 	.addr0(sd_addr0), .addr1(sd_addr1), .addr2(sd_addr2), .addr3(sd_addr3), .push(sd_push), .req_full(sd_full), .valid_t(sd_valid_t),
 	.push_we(sd_push_we), .push_din(sd_push_din), .push_dsn(sd_push_dsn),
 	.data0(sd_data0), .data1(sd_data1), .data2(sd_data2), .data3(sd_data3),
@@ -516,6 +543,31 @@ assign AUDIO_R = aud_r;
 // ns2_video's own syncs. crt_chain applies the analog geometry controls,
 // and video_mixer drives VGA_*.
 // ------------------------------------------------------------------
+wire       flip_180 = (cfg[3][6] ^ status[17]) & ~direct_video;
+
+// the controls (above): the guns aim at the picture as displayed
+ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),
+	.an_default(cfg_analog), .idle_b(cfg[34]), .idle_h(cfg[35]), .p1(p1), .p2(p2), .start1(p1_start), .start2(p2_start),
+	.coin1(p1_coin), .coin2(p2_coin), .svc1(p1_svc), .svc2(p2_svc),
+	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .mouse(ps2_mouse),
+	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .analog(in_analog),
+	.guns(guns_on), .g2_on(gun2_on), .g1_x(gun1_x), .g2_x(gun2_x), .g1_y(gun1_y), .g2_y(gun2_y));
+
+// the guns' crosshairs (OSD "Gun crosshair"): a 7-pixel cross each, white
+// for player 1 and yellow for player 2 (once player 2 has aimed), over the
+// board's picture
+function xhair(input [8:0] x, input [8:0] y, input [8:0] gx, input [7:0] gy);
+	reg [8:0] dx, dy;
+	begin
+		dx = x - gx; dy = y - {1'b0, gy};
+		xhair = (dy == 0 && (dx < 9'd4 || dx > 9'd508)) || (dx == 0 && (dy < 9'd4 || dy > 9'd508));
+	end
+endfunction
+wire        xh_on = guns_on && !status[18];
+wire        xh1 = xh_on && xhair(hcnt, vcnt, gun1_x, gun1_y);
+wire        xh2 = xh_on && gun2_on && xhair(hcnt, vcnt, gun2_x, gun2_y);
+wire [23:0] core_rgb = xh1 ? 24'hffffff : xh2 ? 24'hffff00 : {core_r, core_g, core_b};
+
 wire ce_pix;
 
 wire        rt_ce, rt_hs, rt_vs, rt_hb, rt_vb, rt_vb_hs;
@@ -527,7 +579,7 @@ video_retime #(
 	.VS_A(10'd0), .VE_A(10'd224), .VS_B(10'd0), .VE_B(10'd224), .VS_REL(10'd16)
 ) video_retime (
 	.clk_w(clk_sys), .reset_w(reset), .ce_w(ce_pix),
-	.hcount_w({1'b0, hcnt}), .vcount_w({1'b0, vcnt}), .rgb_w({core_r, core_g, core_b}),
+	.hcount_w({1'b0, hcnt}), .vcount_w({1'b0, vcnt}), .rgb_w(core_rgb),
 	.mode1(1'b0), .tall240(1'b0),
 	.clk_r(clk_sd),
 	.ce_r(rt_ce), .rgb_r(rt_rgb), .hs_r(rt_hs), .vs_r(rt_vs), .de_r(),
@@ -537,7 +589,6 @@ assign CLK_VIDEO = clk_sd;
 
 // the scandoubler is off whenever the rotation framebuffer is on (NMK-28):
 // rotating, or turning the picture 180 degrees
-wire       flip_180 = (cfg[3][6] ^ status[17]) & ~direct_video;
 wire       fb_rotating = ~((status[9:8] == 2'd0) | direct_video) | ((status[9:8] == 2'd0) & flip_180);
 wire [2:0] fx = direct_video ? 3'd0 : status[3:1];
 wire       scandoubler_en = ((fx != 3'd0) || forced_scandoubler) && ~fb_rotating;

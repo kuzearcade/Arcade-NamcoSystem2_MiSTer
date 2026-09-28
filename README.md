@@ -4,9 +4,10 @@ A MiSTer FPGA core for **Namco System 2** (1987-1993): 61 sets, 28 games and
 their alternates, on five bitstreams.
 
 **In development.** Every set boots and runs its attract mode on a DE10-Nano.
-One joystick, three buttons, Start, Coin and Service are mapped to MAME's
-default ports for every set. Per-game layouts, and the analog controls of
-the driving and light-gun games, are still to do (see [To Do](#to-do)).
+The joystick games use MAME's default ports (one joystick, three buttons,
+Start, Coin, Service). The driving games' wheel and pedals, the light guns
+and Metal Hawk's stick are mapped onto the MCU's analog channels (see
+[Controls](#controls)).
 See `docs/PLAN.md` for the plan and its gates, and `docs/known-issues.md`
 for every finding (NS2-n).
 
@@ -39,42 +40,68 @@ GPL-3.0 (see `LICENSE`); third-party files keep their own notices.
 
 The `.mra`s are in `releases/`, the alternates in
 `releases/_alternatives/_<game>/`. Each loads its bitstream by name.
-"Analog" marks the controls not yet mapped. Those games run their attract
-mode but cannot yet be steered or aimed.
 
 | Game | Year | MAME set | Bitstream | Controls | Alternates |
 |---|---|---|---|---|---|
-| Final Lap (Rev E) | 1987 | `finallap` | STD | analog: steering, pedals | `finallapc`, `finallapd`, `finallapjb`, `finallapjc` |
+| Final Lap (Rev E) | 1987 | `finallap` | STD | wheel, pedals, gear | `finallapc`, `finallapd`, `finallapjb`, `finallapjc` |
 | Assault (Rev B) | 1988 | `assault` | STD | two joysticks per player (the right one not mapped) | `assaultj`, `assaultp` |
-| Metal Hawk (Rev C) | 1988 | `metlhawk` | MH | analog: stick | `metlhawkj` |
+| Metal Hawk (Rev C) | 1988 | `metlhawk` | MH | analog stick, lever | `metlhawkj` |
 | Mirai Ninja (Japan, set 1) | 1988 | `mirninja` | STD | joystick | `mirninjaa` |
 | Ordyne (World) | 1988 | `ordyne` | STD | joystick | `ordynej`, `ordyneje` |
 | Phelios | 1988 | `phelios` | STD | joystick | `pheliosj` |
 | Burning Force (Japan, new version (Rev C)) | 1989 | `burnforc` | STD | joystick | `burnforco` |
-| Dirt Fox (Japan) | 1989 | `dirtfoxj` | STD | analog: steering, pedals | |
+| Dirt Fox (Japan) | 1989 | `dirtfoxj` | STD | wheel, pedals, gears | |
 | Finest Hour (Japan) | 1989 | `finehour` | STD | joystick | |
-| Four Trax (World) | 1989 | `fourtrax` | STD | analog: steering, pedals | `fourtraxa`, `fourtraxj` |
+| Four Trax (World) | 1989 | `fourtrax` | STD | wheel, pedals, gear | `fourtraxa`, `fourtraxj` |
 | Marvel Land (Japan) | 1989 | `marvland` | STD | joystick | `marvlandup` |
-| Valkyrie no Densetsu (Japan) | 1989 | `valkyrie` | STD | joystick | |
+| Valkyrie no Densetsu (Japan) | 1989 | `valkyrie` | STD | joystick | English translation by A-M (patches `valkyrie`) |
 | Dragon Saber (World, DO2) | 1990 | `dsaber` | STD | joystick | `dsabera`, `dsaberj` |
-| Final Lap 2 (World, Rev B) | 1990 | `finalap2` | STD | analog: steering, pedals | `finalap2j`, `finalap2jb` |
-| Golly! Ghost! | 1990 | `gollygho` | STD | analog: light guns | |
+| Final Lap 2 (World, Rev B) | 1990 | `finalap2` | STD | wheel, pedals, gear | `finalap2j`, `finalap2jb` |
+| Golly! Ghost! | 1990 | `gollygho` | STD | light guns | |
 | Kyuukai Douchuuki (Japan, new version (Rev B)) | 1990 | `kyukaidk` | STD | joystick | `kyukaidko` |
 | Rolling Thunder 2 | 1990 | `rthun2` | STD | joystick | `rthun2j` |
-| Steel Gunner (Rev B) | 1990 | `sgunner` | SG | analog: light guns | `sgunnerj` |
+| Steel Gunner (Rev B) | 1990 | `sgunner` | SG | light guns | `sgunnerj` |
 | Cosmo Gang the Video (US) | 1991 | `cosmogng` | STD | joystick | `cosmogngj` |
-| Steel Gunner 2 (US) | 1991 | `sgunner2` | SG | analog: light guns | `sgunner2j` |
-| Bubble Trouble - Golly! Ghost! 2 (World, Rev B) | 1992 | `bubbletr` | STD | analog: light guns | `bubbletrj` |
-| Final Lap 3 (World, Rev C) | 1992 | `finalap3` | STD | analog: steering, pedals | `finalap3a`, `finalap3bl`, `finalap3j`, `finalap3jc` |
-| Lucky & Wild | 1992 | `luckywld` | LW | analog: steering, pedals, light guns | `luckywldj` |
+| Steel Gunner 2 (US) | 1991 | `sgunner2` | SG | light guns | `sgunner2j` |
+| Bubble Trouble - Golly! Ghost! 2 (World, Rev B) | 1992 | `bubbletr` | STD | light guns | `bubbletrj` |
+| Final Lap 3 (World, Rev C) | 1992 | `finalap3` | STD | wheel, pedals, gear | `finalap3a`, `finalap3bl`, `finalap3j`, `finalap3jc` |
+| Lucky & Wild | 1992 | `luckywld` | LW | wheel, pedals, light guns | `luckywldj` |
 | Super World Stadium (Japan) | 1992 | `sws` | STD | joystick | |
 | Super World Stadium '92 (Japan) | 1992 | `sws92` | STD | joystick | `sws92g` |
-| Suzuka 8 Hours (World, Rev C) | 1992 | `suzuka8h` | SZ | analog: steering, pedals | `suzuka8hj` |
-| Suzuka 8 Hours 2 (World, Rev B) | 1993 | `suzuk8h2` | SZ | analog: steering, pedals | `suzuk8h2j` |
+| Suzuka 8 Hours (World, Rev C) | 1992 | `suzuka8h` | SZ | wheel, pedals | `suzuka8hj` |
+| Suzuka 8 Hours 2 (World, Rev B) | 1993 | `suzuk8h2` | SZ | wheel, pedals | `suzuk8h2j` |
 | Super World Stadium '93 (Japan) | 1993 | `sws93` | STD | joystick | |
 
 Tested on the board: every standard-bitstream set (22 parents and 27
 alternates), and the parents on the other four bitstreams.
+
+## Controls
+
+The analog inputs follow MAME's ports and ranges (`rtl/ns2_controls.sv`);
+each set's mode is in its `.mra` (config byte 33), and the button names
+show in MiSTer's mapping menu.
+
+- **Wheel and pedals** (Final Lap 1-3, Four Trax, Dirt Fox, Suzuka 8
+  Hours 1 and 2, Lucky & Wild): steer with the left stick, or the d-pad
+  (the wheel returns to centre on release). Accelerate with Button 1 or
+  the right stick up; brake with Button 2 or the right stick down (Lucky
+  & Wild: Button 2 and Button 3). Button 3 shifts gear (a toggle, as the
+  cabinet's lever) in Final Lap and Four Trax; Dirt Fox shifts up with
+  down and down with up. Final Lap and Dirt Fox have no Start button: a
+  credit starts the game.
+- **Light guns** (Golly! Ghost!, Bubble Trouble, Steel Gunner 1 and 2,
+  Lucky & Wild): a MiSTer light gun or the left stick aims (player 2:
+  the second). The mouse aims for player 1, with its left button the
+  trigger and its right button Steel Gunner's missile. Button 1 is the
+  trigger, and Button 2 the missile. The aim matches the game's own sight,
+  flipped for the ROT180 sets. The OSD's "Gun crosshair" shows a white
+  cross for player 1 and a yellow one for player 2, once player 2 has aimed.
+- **Metal Hawk:** the left stick (or d-pad) flies, and the right stick's Y,
+  or Buttons 4 and 5, move the altitude lever. Button 1 and Button 2 are
+  the cabinet's two buttons.
+
+Keyboard: arrows, Left Ctrl (B1), Left Alt (B2), Space (B3), Left Shift
+(B4), Z (B5); 1 and 2 Start, 5 and 6 Coin.
 
 ## Bitstreams
 
@@ -104,14 +131,8 @@ reported; the game loads zeros and shows a blank screen.
 
 ## To Do
 
-- **Analog controls:** the steering and pedals of Final Lap 1-3, Dirt Fox,
-  Four Trax, Suzuka 8 Hours 1 and 2 and Lucky & Wild; the light guns of
-  Golly! Ghost!, Bubble Trouble, Steel Gunner 1 and 2 and Lucky & Wild
-  (MiSTer's gun and mouse input onto the MCU's analog channels, with
-  MAME's calibration); Metal Hawk's analog stick. Today these inputs sit at
-  MAME's power-on values.
-- **Per-game controls:** Assault's twin sticks, and each set's own button
-  names and count in its `.mra`.
+- **Per-game controls:** Assault's twin sticks (its two joysticks each
+  on the MCU's ports), and Lucky & Wild's second player's wheel-less gun.
 - **Feature parity (M5):** savestates, pause, cheats, autofire.
 - **Pictures against MAME:** the remaining line differences in Suzuka 8
   Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),

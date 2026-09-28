@@ -215,7 +215,7 @@ def mra_text(name, sets, gm):
     for bits, nm, ids in dips:
         L.append(f'    <dip bits="{bits}" name="{x(nm)}" ids="{x(",".join(ids))}"/>')
     L += ['  </switches>', '',
-          '  <buttons names="Button 1,Button 2,Button 3,Start,Coin,Service" default="A,B,X,Start,R,L"/>', '',
+          f'  <buttons names="{BUTTONS.get(g["inputs"], BUTTONS[None])}" default="A,B,X,Start,R,L,Y,Select"/>', '',
           f'  <rom index="0" zip="{zips}" md5="none">']
     for p in parts:
         if p[0] == 'comment':
@@ -240,6 +240,17 @@ def mra_text(name, sets, gm):
 
 
 # ------------------------------------------------------------------ the check
+def downloaded(img, n, sets, gm):
+    """What the core's download does to the stand-in lanes (ns2_mem)."""
+    img = bytearray(img)
+    cfg = R.config_block(n, sets, gm)
+    img[0x0300001:0x0500000:2] = bytes(len(img[0x0300001:0x0500000:2]))
+    for lane, bit in ((0, 4), (1, 5)):
+        if cfg[3] >> bit & 1:
+            img[0x0200000 + lane:0x0300000:2] = bytes(len(img[0x0200000 + lane:0x0300000:2]))
+    return bytes(img)
+
+
 def assemble(text, name, gm):
     """The image MiSTer's mra loader builds from the text."""
     root = ET.fromstring(text)
@@ -268,7 +279,28 @@ def assemble(text, name, gm):
                     if c != '0':
                         buf[k::w] = d[int(c) - 1::nb][:words]
             out += buf
+    # MiSTer applies each <patch> to the assembled image (tools/ns2_patch_mra.py)
+    for el in rom.iter('patch'):
+        off, b = int(el.get('offset'), 0), bytes.fromhex(''.join(el.text.split()))
+        out[off:off + len(b)] = b
     return bytes(out)
+
+
+# the pad's buttons (the core's J1: B1, B2, B3, Start, Coin, Service, B4, B5)
+# as each control mode uses them (rtl/ns2_controls.sv), by MAME input ports
+BUTTONS = {
+    None: 'Button 1,Button 2,Button 3,Start,Coin,Service,-,-',
+    'finallap': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
+    'finalap3': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
+    'fourtrax': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
+    'dirtfox': 'Accelerator,Brake,-,Start,Coin,Service,-,-',
+    'suzuka': 'Accelerator,Brake,-,Start,Coin,Service,-,-',
+    'gollygho': 'Trigger,-,-,Start,Coin,Service,-,-',
+    'bubbletr': 'Trigger,-,-,Start,Coin,Service,-,-',
+    'sgunner': 'Trigger,Bomb,-,Start,Coin,Service,-,-',
+    'luckywld': 'Fire,Accelerator,Brake,Start,Coin,Service,-,-',
+    'metlhawk': 'Button 1,Button 2,-,Start,Coin,Service,Lever Up,Lever Down',
+}
 
 
 def main():
@@ -282,14 +314,7 @@ def main():
     for n in names:
         text, has_nv = mra_text(n, sets, gm)
         if a.check:
-            img = bytearray(assemble(text, n, gm))
-            # what the core's download does to the stand-in lanes (ns2_mem)
-            cfg = R.config_block(n, sets, gm)
-            img[0x0300001:0x0500000:2] = bytes(len(img[0x0300001:0x0500000:2]))
-            for lane, bit in ((0, 4), (1, 5)):
-                if cfg[3] >> bit & 1:
-                    img[0x0200000 + lane:0x0300000:2] = bytes(len(img[0x0200000 + lane:0x0300000:2]))
-            img = bytes(img)
+            img = downloaded(assemble(text, n, gm), n, sets, gm)
             _, ref = R.build(n, sets, gm)
             ok = img == ref
             if not ok:

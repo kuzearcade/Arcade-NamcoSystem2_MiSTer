@@ -71,3 +71,8 @@ sim/rtl/*/65c02.uc
 
 # Quartus build logs (build.sh)
 /build*.log
+
+# The Valkyrie translation as <patch>es (tools/ns2_patch_mra.py): the generated copy; releases/ holds the committed one.
+/valkyrie_mra_patch/
+# The Valkyrie translation loading its ROMs from valkyriee.zip (tools/ns2_patch_mra.py --zip), held back.
+/valkyrie_mra_no_patch/

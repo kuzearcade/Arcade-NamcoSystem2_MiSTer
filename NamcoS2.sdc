@@ -56,3 +56,41 @@ set_multicycle_path -hold  1 -from $vsz_ac -to $vsz_ds
 # them on the clock they change.
 set_false_path -from [get_registers {*|dip_sw[*][*]}]
 set_false_path -from [get_registers {emu|cfg[*][*]}]
+
+# ------------------------------------------------------------------
+# The SDRAM interface (NS2-19). Without these the pins are unconstrained and
+# nothing checks the chip clock's phase (rtl/pll_ns2.v outclk_2, forwarded
+# through an altddio_out). The chip, CL2 at 98.304 MHz, as the MiSTer SDRAM
+# boards' slowest parts allow: tAC 6.0 ns, tOH 2.5 ns, tIS 1.5 ns, tIH
+# 0.8 ns; the board's traces 0.3-1.0 ns each way.
+# - Commands, addresses, masks and write data leave on a clk_sd edge from
+#   the I/O registers, for the chip's next edge.
+# - Read data: jtframe_sdram64 (CL2, SHIFTED=0) takes the word the chip
+#   drives from its edge on the second clk_sd edge after it (multicycle 2).
+# ------------------------------------------------------------------
+create_generated_clock -name sdram_clk_pin -source [get_pins {emu|pll|altera_pll_i|general[2].gpll~PLL_OUTPUT_COUNTER|divclk}] [get_ports {SDRAM_CLK}]
+set sd_out [get_ports {SDRAM_A[*] SDRAM_BA[*] SDRAM_nCS SDRAM_nRAS SDRAM_nCAS SDRAM_nWE SDRAM_DQML SDRAM_DQMH SDRAM_CKE SDRAM_DQ[*]}]
+set_output_delay -clock sdram_clk_pin -max [expr 1.5 + 1.0 - 0.3] $sd_out
+set_output_delay -clock sdram_clk_pin -min [expr -0.8 + 0.3 - 1.0] $sd_out
+set_input_delay  -clock sdram_clk_pin -max [expr 6.0 + 1.0 + 1.0] [get_ports {SDRAM_DQ[*]}]
+set_input_delay  -clock sdram_clk_pin -min [expr 2.5 + 0.3 + 0.3] [get_ports {SDRAM_DQ[*]}]
+set_multicycle_path -setup -end 2 -from [get_clocks sdram_clk_pin] -to [get_clocks {emu|pll|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk}]
+set_multicycle_path -hold  -end 1 -from [get_clocks sdram_clk_pin] -to [get_clocks {emu|pll|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk}]
+
+# ------------------------------------------------------------------
+# ns2_sdram's request FIFOs and its bursts back (NS2-20): clk writes an entry and its Gray write
+# pointer; clk_sd takes the pointer through a register, so it reads an entry
+# at least one clk_sd edge after the write, never on the edge of it. clk_sd's
+# network reaches its registers about 1 ns after clk's, and on that shared
+# edge an entry's short path to jtframe's latch cannot be padded (both in one
+# LAB): the hold check moves to the edge before. The read pointer goes back
+# the same way (Gray; clk sees it late, so the FIFO is never seen too full).
+# ------------------------------------------------------------------
+set sd_clk_sys {emu|pll|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}
+set sd_clk_sd  {emu|pll|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk}
+set_multicycle_path -hold -end 1 -from [get_registers {*|ns2_sdram:sdram|g_req[*].q[*]* *|ns2_sdram:sdram|g_req[*].g_w.q_* *|ns2_sdram:sdram|g_req[*].wp_g[*]}] -to [get_clocks $sd_clk_sd]
+set_multicycle_path -hold -end 1 -from [get_registers {*|ns2_sdram:sdram|g_req[*].rp_g[*]}] -to [get_clocks $sd_clk_sys]
+# The bursts back: ns2_sdram changes a bank's data and toggles valid_t on one
+# clk_sd edge; ns2_bank_arb takes the toggle through a register of clk and the
+# data a clk edge after that, never on the edge they change.
+set_multicycle_path -hold -end 1 -from [get_registers {*|ns2_sdram:sdram|data0[*] *|ns2_sdram:sdram|data1[*] *|ns2_sdram:sdram|data2[*] *|ns2_sdram:sdram|data3[*] *|ns2_sdram:sdram|valid_t[*]}] -to [get_clocks $sd_clk_sys]

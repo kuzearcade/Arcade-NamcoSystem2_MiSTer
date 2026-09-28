@@ -174,6 +174,24 @@ BOARDS = {'finallap': 1, 'finallap_c68': 1, 'finalap2': 1, 'finalap3': 1, 'base_
           'metlhawk': 2, 'sgunner': 3, 'sgunner2': 3, 'suzuka8h': 4, 'luckywld': 5}
 
 
+# the control mode (config byte 33) and MCUB's and MCUH's idle values (bytes
+# 34-35; MAME reads a bit no field defines as 0) by the set's MAME input
+# ports (namcos2.cpp; the idle values as MAME's captures read them): AN5
+# wheel, AN6 brake, AN7 accelerator; the guns' channels as their ports
+CONTROLS = {
+    'finallap': (0x05, 0xff, 0xff),   # wheel, pedals, toggled gear (MCUH 5); no Start
+    'finalap3': (0x05, 0xff, 0xff),
+    'fourtrax': (0x15, 0xff, 0xff),   # the same, Start on MCUB 7/6
+    'dirtfox':  (0x21, 0xa0, 0xff),   # wheel, pedals, gears on MCUB 5 (down) / 7 (up)
+    'suzuka':   (0x11, 0xc0, 0xff),   # wheel, pedals, Start
+    'gollygho': (0x82, 0xff, 0xff),   # guns AN0-3, triggers MCUB 5/4
+    'bubbletr': (0xc2, 0xff, 0xff),   # the same, reversed (its crosshair's scale -1)
+    'sgunner':  (0x12, 0xff, 0xff),   # guns AN4/5 X, AN6/7 Y; triggers MCUH 5/4, bombs 3/2
+    'luckywld': (0x2a, 0xff, 0xff),   # wheel, pedals and guns AN4 X1, AN2 Y1, AN3 X2, AN1 Y2; fire MCUH 5/4
+    'metlhawk': (0x03, 0xc0, 0xa0),   # stick AN6 X, AN5 Y, AN7 lever; B1 MCUH 5, B2 MCUH 7
+}
+
+
 def config_block(name, sets=None, gm=None):
     """The core's configuration of a set, 48 bytes at image 0x00D6000 (the
     MiSTer top latches it from the download; not ROM data):
@@ -184,7 +202,14 @@ def config_block(name, sets=None, gm=None):
            its even [4] / odd [5] bytes 0 (MAME loads the other lane only,
            rthun2 and suzuka8h: ns2_mem drom_empty); the set is ROT180 [6]
       4-20 its table: entry i's {valid, value[15:0]} at bits 17i.. (LSB first)
-      21-32 MAME's power-on AN0-AN7 and MCUDI0-MCUDI3 (tools/ns2_ports.py)"""
+      21-32 MAME's power-on AN0-AN7 and MCUDI0-MCUDI3 (tools/ns2_ports.py)
+      33   the control mode (rtl/ns2_controls.sv, CONTROLS by the set's
+           MAME input ports): [1:0] 0 digital, 1 wheel and pedals, 2 light
+           guns, 3 Metal Hawk's stick; [2] a toggled gear shift; [3] Lucky
+           & Wild; guns: [5:4] their channels, [6] reversed, [7] the
+           triggers on MCUB; wheel and pedals: [4] Start on MCUB, [5] the
+           gears on MCUB (Dirt Fox)
+      34-35 MCUB's and MCUH's idle values (modes other than 0)"""
     import ns2_keys
     sets = sets or parse()
     gm = gm or games()
@@ -205,7 +230,8 @@ def config_block(name, sets=None, gm=None):
     for i, (ok, v) in enumerate(tab):
         bits |= ((int(ok) << 16) | (v & 0xffff)) << (17 * i)
     import ns2_ports
-    return b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(ns2_ports.ports(name)) + bytes(15)
+    return (b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(ns2_ports.ports(name))
+            + bytes(CONTROLS.get(g['inputs'], (0, 0xff, 0xff))) + bytes(12))
 
 
 def build_region(region, files):

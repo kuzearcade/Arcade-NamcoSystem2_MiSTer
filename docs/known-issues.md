@@ -973,3 +973,202 @@ clocks, or alternating two priority orders (the grant's extra input cost
 clk_sd -0.6 ns, and the overruns stayed); the tiles over two banks (bank 3
 was the last in the order: worse).
 
+
+## NS2-17 — No sprites in play on the C355 boards: the sprite RAM's page-0 mirror (closed, measured)
+
+**On the board:** Steel Gunner 1 and 2 and Suzuka 8 Hours drew no sprites
+in play: no enemies, no sight, no bike, only the tile and ROZ layers. The
+player could not see what shot them. The release before NS2-16 (d10672c5)
+did the same, so NS2-16 did not cause it.
+
+**Why M1 passed:** the video harness (`sim/rtl/video_state`) loads MAME's
+captured C355 RAM straight into the RAM, and renders Steel Gunner's play
+exactly (5 of 5). What MAME does on the CPU's write never reaches it.
+
+**The cause, measured in M3** (`sim/rtl/ns2_hw`, `VDUMP=F` writes the C355
+RAM at frame F's end): Steel Gunner's attract loses its sprites from frame
+153, the zoomed logo. At frame 170 the RTL's 0xa100 words match MAME's
+except the list at 0x1000-0x10ff (MAME: 0x100, 1, 2, 3 ...; the RTL: 0)
+and the first table entry at 0x0000. MAME's
+`namco_c355spr_device::spriteram_w` writes words 0x8000-0x8fff (the CPU's
+810000, the table) and 0xa000-0xa1ff (814000, the list) into page 0 as
+well (0x0000, 0x1000), where the sprites are drawn from. The game writes
+its lists there, so page 0's list stayed empty.
+
+**The fix** (`ns2_video.sv`): the CPU port writes the page-0 copy on the
+clock after the write. The select is a one-clock pulse, and the address
+and data are held through the access's capture step, so the port is free.
+There is one address mux on the port, and it still infers as a true
+dual-port RAM.
+- M3, Steel Gunner: frames 114-199 exact, the sprite frames included; 183
+  of 200 (the rest are the boot's RAM test, as before). Suzuka 163 of 200
+  and Lucky & Wild 115 of 200, unchanged (their first 200 frames write
+  page 0 directly). M1 unchanged (exact).
+- On the board: Suzuka's bike, rider, pit crew, signs and dust draw in
+  play.
+
+## NS2-18 — M5: the analog controls (closed for the wheel, pedals, guns and Metal Hawk's stick, measured)
+
+The driving games' wheel and pedals, the light guns and Metal Hawk's stick
+reach the MCU's analog channels (`rtl/ns2_controls.sv`), as MAME's ports
+and ranges (namcos2.cpp). Each set's mode is config byte 33, with MCUB's
+and MCUH's idle values in bytes 34-35 (`tools/ns2_romdata.py` CONTROLS).
+- **The ports as MAME reads them.** The joystick sets keep MAME's default
+  ports. Every other mode sets only its own inputs' bits and holds the rest
+  at MAME's idle values. MAME reads a bit no field defines as 0 (Dirt Fox
+  MCUB 0xa0, Suzuka 0xc0, Metal Hawk MCUB 0xc0 and MCUH 0xa0, as MAME's
+  captures read them). Final Lap's MCUB and MCUH are DIPs (car type,
+  automatic car select, on-screen diagnostics) except the gear: the
+  default map's d-pad would have set them.
+- **Wheel and pedals:** the left stick, or the d-pad stepping 8 a frame
+  and returning to centre, gives the wheel (AN5, 0x01-0xff). Button 1 or
+  the right stick up gives the accelerator (AN7, 0-0x80); Button 2 or the
+  right stick down gives the brake (AN6, 0-0x40), ramping 16 and 8 a frame
+  as MAME's key delta. Button 3 toggles the gear (MCUH 5) in Final Lap and
+  Four Trax. Dirt Fox's gears are MCUB 5 and 7 (the d-pad's up and down).
+  Final Lap and Dirt Fox have no Start: a credit starts them.
+- **Guns:** the position on the displayed picture, 0-255, as MAME's
+  crosshair maps it, turned 180 degrees for the ROT180 sets. Bubble
+  Trouble's values are reversed (its crosshair's scale is -1). A MiSTer
+  gun or the left stick aims; the mouse aims for player 1 (left button
+  trigger, right button missile), whichever moved last. The OSD crosshair
+  is the core's (white player 1, yellow player 2 once player 2 aims).
+- **Metal Hawk:** the left stick flies (AN6 X, AN5 Y, 0x20-0xe0); the
+  right stick's Y or Buttons 4 and 5 move the lever (AN7).
+- The outputs are registered: the combinational ports put the MCU and
+  video paths at clk_sys -0.35 ns. A clock of latency on an input changes
+  nothing a game can see.
+
+**Measured:** `sim/rtl/ns2_controls` checks every mode against MAME's
+ports (73 checks). On the board:
+- Final Lap and Four Trax started and reached speed; Final Lap steered.
+  Suzuka: 140 km/h, leaning into a corner. Dirt Fox: 82 km/h, and the
+  d-pad's down shifted LOW to MID.
+- Golly! Ghost! and Bubble Trouble: the core's crosshair sits at the centre
+  of the game's own sight, at the centre and part-way across (the games
+  clamp their sight inside the screen at the edges).
+- Steel Gunner's results screen counted player 1's shots (MISS SHOT 2);
+  Steel Gunner 2's missile count fell with Button 2.
+- Metal Hawk flew left and right, the lever moved the altitude, and Button
+  1 scored.
+
+- Lucky & Wild: the accelerator took the car from 60 to 138 km/h, the brake
+  from 78 to 0, and the core's crosshair sits in the game's sight.
+
+**Open:** Assault's twin sticks. Metal Hawk's ROZ layer shows dark and torn lines
+at some zooms on the board. The release before this change shows them too,
+so this change did not cause them.
+
+## NS2-19 — Black screens and crashes on other boards: no refresh in the download, and the SDRAM clock's phase (closed in analysis; open: confirmation on other boards)
+
+**Reported:** on other users' boards some games boot to a black screen, or
+crash after a couple of minutes. The test board shows neither.
+
+**Compared with the other kuzecores** (SandScrp, GingaNin, NMK16, NMKBP964,
+MS1BCD, MS1Z; no reports from their users), which all share one `sdram.sv`:
+
+| | the other kuzecores | NamcoS2 (before) |
+|---|---|---|
+| controller | `sdram.sv`, 96 MHz, CL3 | `jtframe_sdram64`, 98.304 MHz, CL2 |
+| chip clock | the controller's, inverted (180 degrees) through an `altddio_out` | a PLL output at 270 degrees through an `altddio_out` |
+| refresh | a free-running timer in the SDRAM's clock (740 clocks, 7.7 us), from the PLL's lock on | `rfsh` from the board's raster (`hcnt >= 300`), 9 a line |
+| SDRAM I/O constraints | none | none |
+
+**1. No refresh while the board is in reset.** The raster stops in reset
+(`ns2_video`: `hcnt <= 0`), so `rfsh` never rises. The reset lasts through
+the ROM download, its settling, the DIP wait and any OSD reset. The first
+rows written by the download (the CPUs' programs, at the image's start)
+wait unrefreshed until the game starts. The ARM's download of the 18 MB
+image takes seconds, and a chip keeps its bits only 64 ms by the spec
+(more by luck, less when warm). A decayed program word is a black screen,
+or a crash when the code first runs. The SDRAM model in the sims keeps its
+contents forever, so no sim showed it. It now counts REF commands
+(`sdram_model_burst.sv`, `ref_n`, `ref_gap_max`). M3, Phelios:
+- before (`RFSH_OLD=1`): 0 REFs in the 1.59 s download; the longest gap is
+  the whole download.
+- after: 9,219 REFs per 64 ms in the download (longest gap 62 us), and
+  10,240 in play as before. The download takes 0.9% longer; the pictures
+  are as before.
+
+The fix (`NamcoS2.sv`): while `reset` holds the board, a free-running
+count of the line period (3072 clocks) drives `rfsh`; otherwise the
+horizontal blank does, as before, where refresh takes nothing from a
+line's fetches.
+
+**2. The chip clock's phase.** The pins had no constraints, so nothing
+checked the phase. The design assumed the 270-degree clock was 2.54 ns
+early. TimeQuest shows the forwarded clock reaches SDRAM_CLK about 5.4 ns
+after clk_sd reaches the I/O registers (the global network, 3 ns to the
+DDIO cell, its 1.7 ns, the output buffer's 2.5 ns). The chip's clock was
+therefore about 2.9 ns late, not early.
+
+`NamcoS2.sdc` now constrains the interface: CL2 at the MiSTer boards'
+slowest chips (tAC 6.0, tOH 2.5, tIS 1.5, tIH 0.8 ns), traces 0.3-1.0 ns,
+and the read taken two clk_sd edges after the chip's edge
+(`jtframe_sdram64`, SHIFTED=0). The standard bitstream's seed-3 netlist,
+worst of the four corners, with the chip clock moved from 270 degrees:
+
+| chip clock | read setup | command setup | command hold |
+|---|---|---|---|
+| 270 degrees (before) | -2.27 | 3.44 | -0.68 |
+| 217 degrees (-1.5 ns) | -0.77 | 1.94 | 0.82 |
+| 180 degrees (the other kuzecores') | 0.28 | 0.90 | 1.86 |
+| 164 degrees (-3.0 ns) | 0.73 | 0.44 | 2.32 |
+| 146 degrees (-3.5 ns) | 1.23 | -0.06 | 2.82 |
+
+The read's setup fails by 2.3 ns at the slow corner. It passes on a
+board with a fast chip, short traces and a cool FPGA, as the test board's.
+A slower module, or the board warming over the first minutes, closes the
+window: a garbled fetch is a crash, or a black screen at boot. The window
+where all three pass is about 150-190 degrees. The chip clock is now 171
+degrees (`rtl/pll_ns2.v` `4832 ps`, 19 of the VCO's 254.3 ps steps), its
+centre. The constraints make every build check it.
+
+## NS2-20 — Hold on the SDRAM's clock crossings: the request FIFOs and the bursts back (closed, measured)
+
+**Seen:** after NS2-19's rebuild, Suzuka failed on eight seeds, and half of
+them on hold at clk_sd (-0.46 to -0.81 ns). The paths are `ns2_sdram`'s
+request FIFO entries (clk) into jtframe's latch (`ba*_addr_l`, clk_sd):
+one flop, one LUT, one flop in the same LAB. clk_sd's network reaches its
+registers about 1 ns after clk's (skew +0.99 ns), and the fitter, with
+hold optimisation on all paths, had no route to pad inside the LAB. Lucky &
+Wild then showed the same on the bursts back (`data0` into `ns2_bank_arb`,
+clk_sys, -0.30 ns).
+
+**A real hazard, not only a report:**
+- Out: a push into an empty FIFO changes the entry and the write pointer
+  (hence `pend`) on one clk edge. On the shared clk_sd edge the latch could
+  take `pend` early and only some bits of the new address: a read of the
+  wrong address.
+- Back: `ns2_sdram` changes a bank's data and toggles `valid_t` on one
+  clk_sd edge, and `bank_arb` took the data on the clk edge it saw the
+  toggle. On a shared edge that is an early toggle with part of the burst.
+
+**The fix:**
+- Out (`ns2_sdram.sv`): the write pointer crosses in Gray code through a
+  clk_sd register, and `pend` comes from that. The controller sees a request
+  at least one clk_sd edge after its entry is written, never on that edge.
+  The read pointer goes back to clk the same way, so the FIFO is seen full
+  late, never too full.
+- Back (`ns2_bank_arb.sv`): the toggle goes through a clk register, and the
+  burst is taken a clk edge after that, never on the edge it changes. It
+  has held for more than 10 ns by then, and `ns2_sdram` holds it for two
+  core clocks.
+- `NamcoS2.sdc`: the hold check of exactly those paths (the FIFO entries,
+  the Gray pointers, the bursts and the toggle) moves to the edge before.
+  Setup is checked as before.
+- The cost is a clk_sd cycle for a request into an empty FIFO, and a clk
+  cycle for a burst back.
+
+**Measured:**
+- M3: Phelios 39 of 40 pictures and Lucky & Wild 53 of 60 (the same 7
+  frames) as before. The data cache waits 0.12% of its clocks (0.11%
+  before).
+- Phelios's play (`PLAY=500`, NS2-16's scene): 0 overruns, busiest line
+  2,820 of 3,072 (2,812 before). Frame 802's lines take about 1,980 clocks;
+  a tile miss returns in 14.8 on average; the queue is never full.
+- Quartus: every build passes hold on clk and clk_sd (+0.22 ns or better),
+  and the SDRAM pins pass (+0.62 ns or better). Passing seeds: STD 3, MH 5,
+  SG 12 (and 13), SZ 5 (and 14), LW 22.
+- On the board: Phelios, Metal Hawk, Steel Gunner 2, Suzuka and Lucky & Wild
+  boot and play on the five rebuilt bitstreams.

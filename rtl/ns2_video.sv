@@ -211,12 +211,26 @@ module ns2_video #(
 	always @(posedge clk)
 		if (HAS_C169 && cs_c169 && cw_l) begin c169_l[cpu_addr[15:1]] <= cpu_dout[7:0]; kq_l <= cpu_dout[7:0]; end
 		else if (HAS_C169) kq_l <= c169_l[cpu_addr[15:1]];
+	// namco_c355spr_device::spriteram_w: a write to words 0x8000-0x8fff (the
+	// table, 810000) or 0xa000-0xa0ff (the list, 814000) is also written to
+	// page 0 (0x0000, 0x1000), which the renderer reads. The copy goes in the
+	// clock after the write: the select is a one-clock pulse and the CPU's
+	// address and data are held through the access's capture step
+	wire [15:0] c355_w  = cpu_addr[16:1];
+	wire        c355_mt = c355_w[15:12] == 4'h8, c355_ml = c355_w[15:8] == 8'ha0;
+	reg         c355_mp, c355_mph, c355_mpl;   // a copy pending: its lanes
+	always @(posedge clk) begin
+		c355_mp  <= HAS_C355 && c355_in && cw && (c355_mt || c355_ml);
+		c355_mph <= c355_in && cw_h;
+		c355_mpl <= c355_in && cw_l;
+	end
+	wire [15:0] c355_pa = c355_mp ? (c355_mt ? {4'h0, c355_w[11:0]} : {8'h10, c355_w[7:0]}) : c355_w;
 	always @(posedge clk)
-		if (HAS_C355 && c355_in && cw_h) begin c355_h[cpu_addr[16:1]] <= cpu_dout[15:8]; cq_h <= cpu_dout[15:8]; end
-		else if (HAS_C355) cq_h <= c355_h[cpu_addr[16:1]];
+		if (HAS_C355 && ((c355_in && cw_h) || (c355_mp && c355_mph))) begin c355_h[c355_pa] <= cpu_dout[15:8]; cq_h <= cpu_dout[15:8]; end
+		else if (HAS_C355) cq_h <= c355_h[c355_pa];
 	always @(posedge clk)
-		if (HAS_C355 && c355_in && cw_l) begin c355_l[cpu_addr[16:1]] <= cpu_dout[7:0]; cq_l <= cpu_dout[7:0]; end
-		else if (HAS_C355) cq_l <= c355_l[cpu_addr[16:1]];
+		if (HAS_C355 && ((c355_in && cw_l) || (c355_mp && c355_mpl))) begin c355_l[c355_pa] <= cpu_dout[7:0]; cq_l <= cpu_dout[7:0]; end
+		else if (HAS_C355) cq_l <= c355_l[c355_pa];
 	// the C116 sits on D7-D0 and takes any byte of the word (MAME's
 	// umask16(0x00ff).cswidth(16)): a byte write to the even address (UDS
 	// alone) writes too, with the byte the 68000 puts on both lanes

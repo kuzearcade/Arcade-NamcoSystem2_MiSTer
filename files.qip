@@ -32,6 +32,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_m740.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_sound.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c140.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_rom_cache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_controls.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_wram_cache.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_mem.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_bank_arb.sv

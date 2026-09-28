@@ -1,12 +1,17 @@
 // The core's PLL (docs/PLAN.md 2.2), from the 50 MHz reference:
 //   outclk_0  49.152 MHz  clk_sys: the board (fx68k phases /2, the pixel /8)
 //   outclk_1  98.304 MHz  clk_sd:  jtframe_sdram64 and CLK_VIDEO
-//   outclk_2  98.304 MHz, 2.54 ns early: the SDRAM chip's clock (SDRAM_CLK,
+//   outclk_2  98.304 MHz, 171 degrees: the SDRAM chip's clock (SDRAM_CLK,
 //             through an altddio_out). jtframe_sdram64 launches a command
-//             on an edge for the chip to take on the next, and takes read
-//             data on the edge after the chip drives it; with Cyclone V's
-//             pin delays that leaves the chip's clock a window of about
-//             -4 to +2 ns around the controller's.
+//             on an edge for the chip to take on the next, and takes a CL2
+//             read's word on the second edge after the chip's edge that
+//             drives it. The clock reaches the pin about 5.4 ns later than
+//             clk_sd reaches the I/O registers (the global network, the DDIO
+//             cell and the output buffer), so the phase is set by
+//             NamcoS2.sdc's SDRAM I/O constraints, not by the nominal edge:
+//             the window where the read's setup and the chip's command setup
+//             and hold all pass at every corner is about 150-190 degrees,
+//             and 171 is its centre (docs/known-issues.md NS2-19).
 // Fractional: 49.152 / 50 is 3072 / 3125. The template is Quartus's own
 // altera_pll instance (as the MiSTer cores' rtl/pll/pll_0002.v).
 `timescale 1ns/10ps
@@ -29,10 +34,10 @@ module pll_ns2 (
 		.output_clock_frequency1("98.304000 MHz"),
 		.phase_shift1("0 ps"),
 		.duty_cycle1(50),
-		// 270 degrees (-2.54 ns): the VCO runs at 491.6 MHz and a phase is
-		// a multiple of an eighth of its period (254.3 ps), 30 of them here
+		// 171 degrees: the VCO runs at 491.6 MHz and a phase is a multiple of
+		// an eighth of its period (254.3 ps), 19 of them here
 		.output_clock_frequency2("98.304000 MHz"),
-		.phase_shift2("7628 ps"),
+		.phase_shift2("4832 ps"),
 		.duty_cycle2(50),
 		.output_clock_frequency3("0 MHz"), .phase_shift3("0 ps"), .duty_cycle3(50),
 		.output_clock_frequency4("0 MHz"), .phase_shift4("0 ps"), .duty_cycle4(50),

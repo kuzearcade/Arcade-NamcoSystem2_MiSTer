@@ -2,7 +2,11 @@
 // stream as the video's (req held until ack; data back in request order
 // with valid). Requests go into ns2_sdram's FIFO for the bank; a tag FIFO
 // remembers whose each one is, and a returning burst (the bank's valid_t
-// toggle) goes to the client at its head. Up to 8 bursts in flight.
+// toggle) goes to the client at its head. Up to 8 bursts in flight. The
+// toggle crosses from clk_sd through a register of this clock, so the burst
+// is taken a clock after the toggle is seen, never on the edge it changes
+// (clk_sd's network is about 1 ns late; ns2_sdram holds the burst two core
+// clocks; NamcoS2.sdc relaxes the data's hold by that edge, NS2-20).
 // A client's request with its `we` high is a write (ns2_sdram WEN): pushed
 // with its word and mask, acked, and nothing comes back (no tag).
 module ns2_bank_arb #(parameter N = 2) (
@@ -32,6 +36,7 @@ module ns2_bank_arb #(parameter N = 2) (
 	wire         tfull = (tw ^ tr) == 4'b1000;
 	reg [TW-1:0] rr;                          // the client after the last one served
 	reg          vseen;
+	reg          vtog_s;                      // vtog at this clock
 
 	// the next client: the first requester from rr on, not acked last clock
 	// (the lowest at or above rr, else the lowest)
@@ -53,7 +58,8 @@ module ns2_bank_arb #(parameter N = 2) (
 
 	always @(posedge clk) begin
 		ack <= 0; valid <= 0; push <= 1'b0;
-		if (rst) begin tw <= 0; tr <= 0; rr <= 0; vseen <= 1'b0; end
+		vtog_s <= vtog;
+		if (rst) begin tw <= 0; tr <= 0; rr <= 0; vseen <= 1'b0; vtog_s <= 1'b0; end
 		else begin
 			// a request: into the bank's FIFO, its tag into ours
 			if (sel_ok && !full && !tfull && !push) begin
@@ -64,8 +70,8 @@ module ns2_bank_arb #(parameter N = 2) (
 				rr <= sel == N - 1 ? 0 : sel + 1'd1;
 			end
 			// a burst back: to the client at the tag FIFO's head
-			if (vtog != vseen) begin
-				vseen <= vtog;
+			if (vtog_s != vseen) begin
+				vseen <= vtog_s;
 				valid[tag[tr[2:0]]] <= 1'b1; data <= vdata;
 				tr <= tr + 1'd1;
 			end
