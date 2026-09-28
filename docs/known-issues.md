@@ -1244,6 +1244,6 @@ the ROZ whole: no black lines, nothing torn. Lucky & Wild (seed 27; no
 cache, its C169 keeps the per-pixel fetch) boots and runs its attract as
 before.
 
-The command merge is in the SDRAM controller every bitstream shares: the
-released STD, SG and SZ bitstreams predate it and are rebuilt before the
-next release.
+The command merge is in the SDRAM controller every bitstream shares, so the
+release of 2026-09-28 rebuilds all five (STD 5, MH 6, SG 12, SZ 5, LW 27),
+each tested on the board.
