@@ -16,8 +16,7 @@
 //   * High scores are the games' own EEPROM (D6): ioctl index 4 loads the
 //     .nvm over the default the image carries, and an upload saves it.
 //   * The raster is 384 x 264 at 6.144 MHz (clk_sys / 8), 288 x 224 visible.
-//   * Not yet (M5): savestates, cheats, autofire, pause, flip, the analog
-//     controls and light guns.
+//   * Not yet (M5): savestates, cheats, autofire, pause.
 module emu
 (
 	`include "sys/emu_ports.vh"
@@ -81,8 +80,8 @@ localparam CONF_STR = {
 	"HBO[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"HBO[3:1],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"H0O[9:8],Orientation,Horz,Vert 90,Vert 270;",
-	// 180 degrees through the rotation framebuffer; a ROT180 set (MAME's
-	// Bubble Trouble) starts turned, and this turns it back
+	// 180 degrees in the core, on every video path (ns2_flipbuf); a ROT180
+	// set (MAME's Bubble Trouble) starts turned, and this turns it back
 	"O[17],Flip screen,Off,On;",
 	"O[18],Gun crosshair,On,Off;",
 	"P3,CRT Adjust;",
@@ -202,15 +201,19 @@ end
 
 // The game's reset: held for the whole download, then for a tail restarted
 // by every ioctl session, until the <switches> have arrived (MS1-53) and
-// until a set's configuration has.
+// until a set's configuration has. A change of the DIPs after the first
+// <switches> does not reset: the games keep their test-mode settings (the
+// FLIP among them) in the EEPROM, and write them as the test switch goes off
+// (NS2-22); a reset there would lose them. "Reset to apply" still resets.
+reg         sw_seen  = 1'b0;
+wire        dl_hold  = ioctl_download & ~(ioctl_index == 16'd254 & sw_seen);
 reg [23:0] dl_tail = {24{1'b1}};
 always @(posedge clk_sys) begin
-	if (ioctl_download)              dl_tail <= 24'd0;
+	if (dl_hold)                     dl_tail <= 24'd0;
 	else if (dl_tail != {24{1'b1}})  dl_tail <= dl_tail + 1'd1;
 end
 wire dl_settling = (dl_tail != {24{1'b1}});
 
-reg         sw_seen  = 1'b0;
 reg  [27:0] sw_tmo   = 28'd0;
 always @(posedge clk_sys) begin
 	if (ioctl_download) begin
@@ -248,7 +251,7 @@ wire [31:0]  cfg_dials  = {cfg[32], cfg[31], cfg[30], cfg[29]};
 wire [135:0] cfg_ktable = {cfg[20], cfg[19], cfg[18], cfg[17], cfg[16], cfg[15], cfg[14], cfg[13], cfg[12],
                            cfg[11], cfg[10], cfg[9], cfg[8], cfg[7], cfg[6], cfg[5], cfg[4]};
 
-wire reset = RESET | status[0] | buttons[1] | ioctl_download | dl_settling | wait_switches | ~pll_locked | ~cfg_ok;
+wire reset = RESET | status[0] | buttons[1] | dl_hold | dl_settling | wait_switches | ~pll_locked | ~cfg_ok;
 
 // ------------------------------------------------------------------
 // The .mra <switches> block, ioctl index 254, 16-bit words. Byte 0 is
@@ -373,7 +376,7 @@ wire  [7:0] nv_data = mem_nv_we ? mem_nv_data : nvl_data;
 reg nv_dirty = 1'b0, osd_d = 1'b0, save_d = 1'b0, up_req = 1'b0;
 always @(posedge clk_sys) begin
 	osd_d <= OSD_STATUS; save_d <= status[30];
-	if (ioctl_download || ioctl_upload) nv_dirty <= 1'b0;
+	if (dl_nv || ioctl_upload) nv_dirty <= 1'b0;
 	else if (nv_cpu_we && !reset) nv_dirty <= 1'b1;
 	up_req <= (status[30] && !save_d) || (OSD_STATUS && !osd_d && nv_dirty);
 end
@@ -544,7 +547,12 @@ assign AUDIO_R = aud_r;
 // ns2_video's own syncs. crt_chain applies the analog geometry controls,
 // and video_mixer drives VGA_*.
 // ------------------------------------------------------------------
-wire       flip_180 = (cfg[3][6] ^ status[17]) & ~direct_video;
+// Flip screen (and a ROT180 set's own turn): 180 degrees in the core
+// (ns2_flipbuf, NS2-22), on every video path; with Orientation's quarter
+// turns, screen_rotate turns the picture on HDMI instead
+wire       flip_180 = cfg[3][6] ^ status[17];
+wire  [1:0] orientation = status[9:8];
+wire        no_rotate = (orientation == 2'd0) | direct_video;
 
 // the controls (above): the guns aim at the picture as displayed
 ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),
@@ -586,11 +594,27 @@ video_retime #(
 	.ce_r(rt_ce), .rgb_r(rt_rgb), .hs_r(rt_hs), .vs_r(rt_vs), .de_r(),
 	.hb_r(rt_hb), .vb_r(rt_vb), .vb_hs_r(rt_vb_hs)
 );
+
+// the in-core flip: every frame through DDR, shown turned a frame later
+wire        fl_ce, fl_hs, fl_vs, fl_hb, fl_vb, fl_vb_hs;
+wire [23:0] fl_rgb;
+wire        fl_owns, fl_rd, fl_we;
+wire  [7:0] fl_burstcnt, fl_be;
+wire [28:0] fl_addr;
+wire [63:0] fl_din;
+ns2_flipbuf flipbuf (
+	.clk(clk_sd), .enable(flip_180 & no_rotate),
+	.ce_in(rt_ce), .rgb_in(rt_rgb), .hs_in(rt_hs), .vs_in(rt_vs), .hb_in(rt_hb), .vb_in(rt_vb), .vb_hs_in(rt_vb_hs),
+	.ce_out(fl_ce), .rgb_out(fl_rgb), .hs_out(fl_hs), .vs_out(fl_vs), .hb_out(fl_hb), .vb_out(fl_vb), .vb_hs_out(fl_vb_hs),
+	.owns(fl_owns), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(fl_burstcnt), .DDRAM_ADDR(fl_addr),
+	.DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(fl_rd),
+	.DDRAM_DIN(fl_din), .DDRAM_BE(fl_be), .DDRAM_WE(fl_we)
+);
 assign CLK_VIDEO = clk_sd;
 
 // the scandoubler is off whenever the rotation framebuffer is on (NMK-28):
 // rotating, or turning the picture 180 degrees
-wire       fb_rotating = ~((status[9:8] == 2'd0) | direct_video) | ((status[9:8] == 2'd0) & flip_180);
+wire       fb_rotating = ~no_rotate;
 wire [2:0] fx = direct_video ? 3'd0 : status[3:1];
 wire       scandoubler_en = ((fx != 3'd0) || forced_scandoubler) && ~fb_rotating;
 assign VGA_SL = fx[2:1];
@@ -602,8 +626,8 @@ crt_chain #(
 	.HTOTAL0(10'd384), .HTOTAL1(10'd384), .DIV0(5'd16), .DIV1(5'd16),
 	.VTOTAL(264), .LINE_PX(304), .VSIZE_MAX(VSIZE_MAX)
 ) crt_chain (
-	.clk(clk_sd), .ce_in(rt_ce), .rgb_in(rt_rgb),
-	.hs_in(rt_hs), .vs_in(rt_vs), .hb_in(rt_hb), .vb_in(rt_vb), .vb_hs_in(rt_vb_hs),
+	.clk(clk_sd), .ce_in(fl_ce), .rgb_in(fl_rgb),
+	.hs_in(fl_hs), .vs_in(fl_vs), .hb_in(fl_hb), .vb_in(fl_vb), .vb_hs_in(fl_vb_hs),
 	.mode1(1'b0), .enable(crt_on),
 	.hsize($signed(status[100:96])), .hpos_raw(status[85:79]),
 	.vshift($signed(status[78:74])), .vsize_code(status[107:104]),
@@ -630,19 +654,30 @@ video_mixer #(.LINE_LENGTH(304), .HALF_DEPTH(0), .GAMMA(0)) video_mixer (
 // Orientation: the sets are ROT0; "Vert 90" and "Vert 270" are for
 // cabinets whose monitor is on its side.
 // ------------------------------------------------------------------
-wire  [1:0] orientation = status[9:8];
 wire        video_rotated;
-wire        no_rotate = (orientation == 2'd0) | direct_video;
+// screen_rotate's side of the DDR port
+wire  [7:0] sr_burstcnt, sr_be;
+wire [28:0] sr_addr;
+wire [63:0] sr_din;
+wire        sr_we, sr_rd;
 wire        rotate_ccw = (orientation == 2'd2);
 screen_rotate screen_rotate (
 	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL),
 	.VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_HS(VGA_HS), .VGA_VS(VGA_VS), .VGA_DE(VGA_DE),
-	.rotate_ccw(rotate_ccw), .no_rotate(no_rotate), .flip(flip_180), .video_rotated(video_rotated),
+	.rotate_ccw(rotate_ccw), .no_rotate(no_rotate), .flip(flip_180 & ~no_rotate), .video_rotated(video_rotated),
 	.FB_EN(FB_EN), .FB_FORMAT(FB_FORMAT), .FB_WIDTH(FB_WIDTH), .FB_HEIGHT(FB_HEIGHT),
 	.FB_BASE(FB_BASE), .FB_STRIDE(FB_STRIDE), .FB_VBL(FB_VBL), .FB_LL(FB_LL),
-	.DDRAM_CLK(DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(DDRAM_BURSTCNT), .DDRAM_ADDR(DDRAM_ADDR),
-	.DDRAM_DIN(DDRAM_DIN), .DDRAM_BE(DDRAM_BE), .DDRAM_WE(DDRAM_WE), .DDRAM_RD(DDRAM_RD)
+	.DDRAM_CLK(DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(sr_burstcnt), .DDRAM_ADDR(sr_addr),
+	.DDRAM_DIN(sr_din), .DDRAM_BE(sr_be), .DDRAM_WE(sr_we), .DDRAM_RD(sr_rd)
 );
+// the DDR port: the flip buffer's while it has a frame or a transfer,
+// screen_rotate's otherwise (they are never wanted together)
+assign DDRAM_BURSTCNT = fl_owns ? fl_burstcnt : sr_burstcnt;
+assign DDRAM_ADDR     = fl_owns ? fl_addr     : sr_addr;
+assign DDRAM_DIN      = fl_owns ? fl_din      : sr_din;
+assign DDRAM_BE       = fl_owns ? fl_be       : sr_be;
+assign DDRAM_WE       = fl_owns ? fl_we       : sr_we;
+assign DDRAM_RD       = fl_owns ? fl_rd       : sr_rd;
 assign FB_FORCE_BLANK = 1'b0;
 
 reg [26:0] act_cnt;

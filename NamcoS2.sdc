@@ -51,10 +51,9 @@ set vsz_ds [get_registers {*|crt_chain:crt_chain|crt_vsize:u_vsize|o_de_start[*]
 set_multicycle_path -setup 2 -from $vsz_ac -to $vsz_ds
 set_multicycle_path -hold  1 -from $vsz_ac -to $vsz_ds
 
-# The DIP bank and the set's configuration change only while the core is
-# held in reset for the download and its tail (MS1-53), so nothing samples
-# them on the clock they change.
-set_false_path -from [get_registers {*|dip_sw[*][*]}]
+# The set's configuration changes only while the core is held in reset for
+# the download and its tail (MS1-53), so nothing samples it on the clock it
+# changes. (The DIP bank now changes while the game runs, NS2-22: timed.)
 set_false_path -from [get_registers {emu|cfg[*][*]}]
 
 # ------------------------------------------------------------------
@@ -94,3 +93,9 @@ set_multicycle_path -hold -end 1 -from [get_registers {*|ns2_sdram:sdram|g_req[*
 # clk_sd edge; ns2_bank_arb takes the toggle through a register of clk and the
 # data a clk edge after that, never on the edge they change.
 set_multicycle_path -hold -end 1 -from [get_registers {*|ns2_sdram:sdram|data0[*] *|ns2_sdram:sdram|data1[*] *|ns2_sdram:sdram|data2[*] *|ns2_sdram:sdram|data3[*] *|ns2_sdram:sdram|valid_t[*]}] -to [get_clocks $sd_clk_sys]
+
+# hps_io's video_calc: the video's measurements (CLK_VIDEO) read into the
+# HPS's register (clk_sys). The HPS polls them, and they hold for frames at a
+# time, so the crossing is not timed (a hold miss appeared here on a build
+# with NS2-22's flip buffer)
+set_false_path -from [get_registers {*|video_calc:video_calc|vid_*}] -to [get_registers {*|video_calc:video_calc|dout[*]}]

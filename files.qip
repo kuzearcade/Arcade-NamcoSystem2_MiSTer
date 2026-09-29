@@ -24,6 +24,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c123.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_roz.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c45.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c169.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_flipbuf.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c355.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_sprite_a.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ns2_c65.sv

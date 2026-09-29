@@ -1247,3 +1247,81 @@ before.
 The command merge is in the SDRAM controller every bitstream shares, so the
 release of 2026-09-28 rebuilds all five (STD 5, MH 6, SG 12, SZ 5, LW 27),
 each tested on the board.
+
+## NS2-22 — Flip: the test mode's FLIP was lost to a DIP reset, and the OSD's Flip screen reached only HDMI
+
+**Reported:** changing a game's flip does not save, and the OSD's Flip
+screen does nothing.
+
+**The games' flip is a test-mode setting in the EEPROM, not a DIP.** Phelios's
+GAME OPTIONS has FLIP; set ON, the C123 turns the tilemaps at once (on the
+board too). MAME shows when the game keeps it: with the Service Mode DIP on,
+FLIP set ON, then the DIP off, the EEPROM's two option bytes change on the
+frame after the switch goes off (a per-frame poll of 0x180081 / 0x180091),
+and the game restarts turned. On the core, MiSTer sends every DIP change as
+an ioctl session (index 254), and the core held the board in reset for any
+session: the switch went off inside a reset, the game never wrote, and the
+`.nvm` (saved by hand after) was unchanged byte for byte.
+
+**Fix:** after the first `<switches>` of a load, a DIP session no longer
+resets (`dl_hold` in `NamcoS2.sv`; the ROM and NVRAM loads still do, and
+"Reset to apply" still resets). The EEPROM's dirty flag is cleared only by
+the NVRAM's own load and save, not by a DIP session, so opening the OSD
+after leaving test mode saves the `.nvm`.
+
+**The OSD's Flip screen** turned the picture through screen_rotate's
+framebuffer, which only the HDMI scaler reads, and was off under direct
+video: on the analog board and direct video it did nothing. The other cores
+mirror their readback in the core, but here the board draws each line during
+the one before, and the games change registers and video RAM mid-frame
+(NS2-5's bands), so the picture cannot be drawn bottom-up.
+
+`rtl/ns2_flipbuf.sv` turns it after video_retime, in CLK_VIDEO:
+- Each frame is written to DDR as it is shown (two frames, 144 words a line
+  of two pixels each, at 0x30000000; screen_rotate's buffers are at
+  0x24000000). The next frame's time shows it turned: line y is the stored
+  line 223 - y, fetched during line y - 1 into the half of a two-line buffer
+  not being shown, and read backwards. One frame late while on; off, the
+  stream passes unchanged.
+- The writes go through a 64-pair FIFO; a line's read is 9 bursts of 16,
+  with the controller back in IDLE between them, where a FIFO a quarter full
+  writes first. The first line of a frame is read once the last one written
+  has left the FIFO.
+- The DDR port is screen_rotate's unless the flip buffer has a frame or a
+  transfer in hand. With Orientation's quarter turns (HDMI only)
+  screen_rotate still does the turn. The scandoubler and CRT Adjust now work
+  with Flip screen on.
+- Cost: 3 M10K, a 64 x 50 MLAB FIFO.
+
+**Measured (Verilator, `sim/rtl/ns2_flipbuf`: the module alone with a DDR model):** a 384 x 264
+stream, every pixel of frames 2-5 the previous frame turned (258,048
+pixels): with random wait states (1 in 4) and 5-25 clocks of read latency,
+and with 1 in 2 and 50-350 clocks (the FIFO's peak 27 of 64; before the
+interleave it overflowed at 89). Switching on and off over 12 frames (`SLOW=1` too): each frame turned or
+straight as expected (774,144 pixels), and the port free through the
+picture of a frame with the flip off.
+
+**On the board:**
+- Flip screen (Steel Gunner, HDMI): the picture turned whole, no seam or
+  swapped half, and back when off.
+- Phelios (the standard bitstream): Service Mode on from the OSD entered
+  the test mode without a reset; FLIP set ON turned the picture; Service
+  Mode off restarted the game turned, and opening the OSD saved the `.nvm`
+  at once (the option bytes changed; the rest of the options as before).
+  Loaded again, the game starts turned.
+- Steel Gunner: the same save works (MAME's test mode reads FLIP ON from
+  the saved `.nvm`). Its attract ignores FLIP, in MAME too.
+- The capture sees HDMI only; the analog output is not measured.
+
+**The builds:** the flip buffer moves the placement, and the SDRAM
+controller's grant paths (`cmd`, `sdram_a`, `dq_pad`, clk_sd) missed by 0.05
+to 0.3 ns on some seeds. One standard-bitstream build missed hold on
+hps_io's `video_calc` (the video's measurements, CLK_VIDEO, into the HPS's
+register, clk_sys): a false path now, as the HPS polls values that hold for
+frames. The DIP bank's false path is gone, as it now changes while the game
+runs.
+Seeds: STD 5, MH 9, SG 13, SZ 6, LW 33, every clock met, setup and hold (the
+flip buffer adds 3 M10K: LW 544 of 553). On the board with these: Phelios
+as above; Suzuka 8 Hours with Flip screen (the road whole, turned); Metal
+Hawk's demo (the ROZ clean); Lucky & Wild with Flip screen; Steel Gunner's
+attract.
