@@ -103,6 +103,25 @@ int main(int argc, char **argv) {
 	t->p1 = 0x20; frames(10); expect("lw accel B2", an(7), 0x80); expect("lw B2 presses no bit", t->mcuh & 0x08, 0x08);
 	t->p1 = 0x40; frames(10); expect("lw brake B3", an(6), 0x40);
 
+	// the d-pad aims (8 a frame, it stays): Lucky & Wild's player 2 (AN3 X2,
+	// AN1 Y2), its player 1's d-pad still the wheel
+	reset(0x2a);
+	frames(1); expect("lw P2 crosshair hidden", t->g2_on, 0);
+	t->p2 = 0x01; frames(4); expect("lw P2 d-pad right: AN3", an(3), 0xa0); expect("lw P2 crosshair shown", t->g2_on, 1);
+	t->p2 = 0x08; frames(2); expect("lw P2 d-pad up: AN1", an(1), 0x70); expect("lw P2 X stays", an(3), 0xa0);
+	t->p2 = 0; frames(3); expect("lw P2 aim stays when released", an(3), 0xa0);
+	t->p2 = 0x01; frames(40); expect("lw P2 right edge", an(3), 0xff);
+	t->p2 = 0x10; clk(); clk(); expect("lw P2 fire", t->mcuh & 0x10, 0x00);
+	t->p2 = 0; t->stick2 = stick(3, -2); clk(); clk(); expect("lw P2 resting stick keeps the d-pad's aim", an(3), 0xff);
+	t->stick2 = stick(-128, 0); clk(); clk(); expect("lw P2 stick pushed takes over", an(3), 0x00);
+	t->stick2 = 0; t->p1 = 0x01; frames(4); expect("lw P1 d-pad steers", an(5) > 0x80, 1); expect("lw P1 d-pad does not aim", an(4), 0x80);
+	// Golly! Ghost!: player 1's d-pad aims (AN0 X1, AN1 Y1)
+	reset(0x82);
+	t->p1 = 0x02; frames(4); expect("gg P1 d-pad left: AN0", an(0), 0x60);
+	t->p1 = 0x04; frames(1); expect("gg P1 d-pad down: AN1", an(1), 0x88);
+	t->p1 = 0; for (int i = 0; i < 3; i++) mouse(40, 0, 0); expect("gg mouse takes over", an(0), 0xf8);
+	t->p1 = 0x02; frames(1); expect("gg d-pad takes back from its own position", an(0), 0x58);
+
 	// Metal Hawk: AN5 Y, AN6 X, AN7 lever, 0x20-0xe0; B1 bit 5, B2 bit 7
 	reset(0x03, 0xc0, 0xa0);
 	t->stick1 = stick(-128, 127); frames(1);

@@ -97,26 +97,52 @@ module ns2_controls (
 	end
 
 	// ------------------------------------------------------------ the guns
-	// player 1: the mouse or the stick, whichever moved last; player 2: the stick
+	// Each gun aims from the stick (or a MiSTer gun), the d-pad (8 a frame,
+	// MAME's key delta; it stays where it is left), or for player 1 the
+	// mouse: whichever moved last. Lucky & Wild's player 1 steers with the
+	// d-pad, so aims from the stick or the mouse. A stick takes over from
+	// the d-pad only when pushed (a resting stick's noise does not).
+	localparam [1:0] SRC_STICK = 2'd0, SRC_MOUSE = 2'd1, SRC_PAD = 2'd2;
 	reg  [7:0] m_x = 8'h80, m_y = 8'h80;
-	reg        m_t, use_mouse;
-	reg [15:0] s1_d;
+	reg  [7:0] k1x = 8'h80, k1y = 8'h80, k2x = 8'h80, k2y = 8'h80;
+	reg  [1:0] src1 = SRC_STICK, src2 = SRC_STICK;
+	reg        m_t;
+	reg [15:0] s1_d, s2_d;
+	wire       pad1_ok = !mode[3];
+	wire       pad1 = pad1_ok && |p1[3:0], pad2 = |p2[3:0];
 	wire signed [8:0] mdx = {mouse[4], mouse[15:8]}, mdy = {mouse[5], mouse[23:16]};
+	function [7:0] pad_step(input [7:0] v, input dec, input inc);
+		pad_step = dec ? (v < 8'd8 ? 8'd0 : v - 8'd8) : inc ? (v > 8'd247 ? 8'd255 : v + 8'd8) : v;
+	endfunction
 	always @(posedge clk) begin
 		m_t <= mouse[24];
 		s1_d <= stick1;
+		s2_d <= stick2;
+		if (tick) begin
+			if (pad1_ok) begin k1x <= pad_step(k1x, p1[1], p1[0]); k1y <= pad_step(k1y, p1[3], p1[2]); end
+			k2x <= pad_step(k2x, p2[1], p2[0]); k2y <= pad_step(k2y, p2[3], p2[2]);
+		end
 		if (mouse[24] != m_t) begin
 			m_x <= clamp($signed({3'b000, m_x}) + mdx, 8'h00, 8'hff);
 			m_y <= clamp($signed({3'b000, m_y}) - mdy, 8'h00, 8'hff);
-			if (mdx != 0 || mdy != 0) use_mouse <= 1'b1;
 		end
-		if (stick1 != s1_d) use_mouse <= 1'b0;
+		// the last to move aims (later lines win within a clock)
+		if (stick1 != s1_d && (src1 != SRC_PAD || big(sx1) || big(sy1))) src1 <= SRC_STICK;
+		if (mouse[24] != m_t && (mdx != 0 || mdy != 0)) src1 <= SRC_MOUSE;
+		if (pad1) src1 <= SRC_PAD;
+		if (stick2 != s2_d && (big(sx2) || big(sy2))) src2 <= SRC_STICK;
+		if (pad2) src2 <= SRC_PAD;
+		if (reset) begin
+			src1 <= SRC_STICK; src2 <= SRC_STICK;
+			m_x <= 8'h80; m_y <= 8'h80; k1x <= 8'h80; k1y <= 8'h80; k2x <= 8'h80; k2y <= 8'h80;
+		end
 	end
+	wire       use_mouse = src1 == SRC_MOUSE;
 	// positions on the displayed picture, 0-255
-	wire [7:0] d1x = use_mouse ? m_x : {~stick1[7], stick1[6:0]};
-	wire [7:0] d1y = use_mouse ? m_y : {~stick1[15], stick1[14:8]};
-	wire [7:0] d2x = {~stick2[7], stick2[6:0]};
-	wire [7:0] d2y = {~stick2[15], stick2[14:8]};
+	wire [7:0] d1x = use_mouse ? m_x : src1 == SRC_PAD ? k1x : {~stick1[7], stick1[6:0]};
+	wire [7:0] d1y = use_mouse ? m_y : src1 == SRC_PAD ? k1y : {~stick1[15], stick1[14:8]};
+	wire [7:0] d2x = src2 == SRC_PAD ? k2x : {~stick2[7], stick2[6:0]};
+	wire [7:0] d2y = src2 == SRC_PAD ? k2y : {~stick2[15], stick2[14:8]};
 	// on the board's picture
 	wire [7:0] n1x = flip ? ~d1x : d1x, n1y = flip ? ~d1y : d1y;
 	wire [7:0] n2x = flip ? ~d2x : d2x, n2y = flip ? ~d2y : d2y;
@@ -130,7 +156,7 @@ module ns2_controls (
 		g1_x <= g1x_p[11:3]; g2_x <= g2x_p[11:3];
 		g1_y <= g1y_p[10:3]; g2_y <= g2y_p[10:3];
 	end
-	always @(posedge clk) if (reset) g2_on <= 1'b0; else if (big(sx2) || big(sy2)) g2_on <= 1'b1;
+	always @(posedge clk) if (reset) g2_on <= 1'b0; else if (big(sx2) || big(sy2) || pad2) g2_on <= 1'b1;
 	wire trig1 = p1[4] || (use_mouse && mouse[0]);
 	wire bomb1 = p1[5] || (use_mouse && mouse[1]);
 

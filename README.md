@@ -90,8 +90,11 @@ show in MiSTer's mapping menu.
   down and down with up. Final Lap and Dirt Fox have no Start button: a
   credit starts the game.
 - **Light guns** (Golly! Ghost!, Bubble Trouble, Steel Gunner 1 and 2,
-  Lucky & Wild): a MiSTer light gun or the left stick aims (player 2:
-  the second). The mouse aims for player 1, with its left button the
+  Lucky & Wild): a MiSTer light gun, the left stick or the d-pad aims
+  (player 2: the second pad's), whichever moved last; the d-pad moves the
+  sight and leaves it there. In Lucky & Wild player 1's d-pad steers, so
+  player 1 aims with a gun, the stick or the mouse, and player 2 with
+  anything. The mouse aims for player 1, with its left button the
   trigger and its right button Steel Gunner's missile. Button 1 is the
   trigger, and Button 2 the missile. The aim matches the game's own sight,
   flipped for the ROT180 sets. The OSD's "Gun crosshair" shows a white
@@ -143,7 +146,6 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 
 ## To Do
 
-- **Per-game controls:** Lucky & Wild's second player's wheel-less gun.
 - **Feature parity (M5):** savestates, pause, cheats, autofire.
 - **Pictures against MAME:** the remaining line differences in Suzuka 8
   Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),

@@ -1388,3 +1388,32 @@ every clock; A10-A0 differ only on a NOP.
   (clk_sd +0.136, +0.160, +0.400, +0.490, +0.317 ns). SZ took five seeds
   (two missed HDMI or clk_sys); LW's 34 and 35 both met. On the board:
   Assault (above), Metal Hawk, Steel Gunner, Suzuka 8 Hours, Lucky & Wild.
+
+## NS2-25 — The guns from the d-pad: Lucky & Wild's player 2 on a digital pad (closed, measured)
+
+Lucky & Wild's second gun (AN3 X2, AN1 Y2, fire MCUH 4) took the second
+pad's analog stick or a MiSTer gun only, so a player 2 with a digital pad
+(a PlayStation Classic controller, say) or the keyboard could fire but not
+aim. The same held for both players in the other gun games, player 1 having
+the mouse besides.
+
+Now each gun also aims from its pad's d-pad, 8 a frame (MAME's key delta
+for the guns), staying where it is left; whichever moved last aims: the
+stick (or gun), the d-pad, or for player 1 the mouse. A stick takes over
+from the d-pad only when pushed past 12, so a resting analog stick's noise
+does not snap the sight back. In Lucky & Wild player 1's d-pad is the wheel
+and does not aim. Player 2's crosshair shows once its d-pad is used too.
+The aim's state is cleared by a reset.
+
+**Measured:** `sim/rtl/ns2_controls` (116 of 116): Lucky & Wild's player 2
+d-pad steps AN3 and AN1 by 8 a frame and holds, its crosshair shows, it
+fires, a resting stick keeps the d-pad's aim and a pushed one takes over,
+and player 1's d-pad still steers without aiming; Golly! Ghost!'s player 1
+d-pad aims, the mouse takes over, and the d-pad takes back from its own
+position.
+
+**On the board:** Lucky & Wild, two players from the keyboard (player 2 a
+digital pad): player 2's d-pad took the game's second sight to the right
+edge and the left, the core's yellow crosshair with it. Golly! Ghost!:
+player 1's d-pad moved the sight left, up, then to the bottom right.
+Seeds STD 6, MH 11, SG 14, SZ 10, LW 34, every clock met.
