@@ -300,6 +300,7 @@ BUTTONS = {
     'sgunner': 'Trigger,Bomb,-,Start,Coin,Service,-,-',
     'luckywld': 'Fire,Accelerator,Brake,Start,Coin,Service,-,-',
     'metlhawk': 'Button 1,Button 2,-,Start,Coin,Service,Lever Up,Lever Down',
+    'assault': 'Fire,Sticks Apart,Turn Left,Start,Coin,Service,Turn Right,Sticks Together',
 }
 
 

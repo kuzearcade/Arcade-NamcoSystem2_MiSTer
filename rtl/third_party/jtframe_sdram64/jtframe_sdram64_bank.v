@@ -209,8 +209,10 @@ always @(*) begin
     // that the top can OR the write mask into A12/A11 (MiSTer's DQM)
     // without decoding the command
     sdram_a[12:11] =  do_act ? addr_row[12:11] : 2'b00;
+    // NS2 local change (NS2-24): the address only with a command (0 with
+    // NOP, the SDRAM ignores it), so that the top ORs the banks' addresses
     sdram_a[10:0] = do_act ? addr_row[10:0] :
-            { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], addr[AW-1], addr[8:0]};
+            (do_read | do_prech) ? { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], addr[AW-1], addr[8:0]} : 11'd0;
 end
 
 always @(posedge clk) begin

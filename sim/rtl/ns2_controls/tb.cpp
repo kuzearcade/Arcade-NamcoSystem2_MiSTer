@@ -19,7 +19,7 @@ static uint16_t stick(int x, int y) { return (uint16_t)(((y & 0xff) << 8) | (x &
 static void reset(unsigned mode, unsigned ib = 0xff, unsigned ih = 0xff) {
 	t->mode = mode; t->idle_b = ib; t->idle_h = ih; t->flip = 0; t->an_default = 0x8080808080ffffffULL;
 	t->p1 = t->p2 = 0; t->start1 = t->start2 = t->coin1 = t->coin2 = t->svc1 = t->svc2 = 0;
-	t->stick1 = t->stick2 = t->rstick1 = 0; t->mouse = 0;
+	t->stick1 = t->stick2 = t->rstick1 = t->rstick2 = 0; t->mouse = 0; t->dial_default = 0xffffff0f;
 	t->reset = 1; clk(); clk(); t->reset = 0; clk();
 }
 static void mouse(int dx, int dy, int btn) {
@@ -126,6 +126,31 @@ int main(int argc, char **argv) {
 	t->p1 = 0x08; clk(); clk(); expect("df gear down (up)", t->mcub, 0x80);
 	t->p1 = 0x04; clk(); clk(); expect("df gear up (down)", t->mcub, 0x20);
 	t->p1 = 0; t->start1 = 1; clk(); clk(); expect("df no Start", t->mcub, 0xa0);
+
+	// Assault: two 4-way sticks a player (MAME's assault ports). MCUB: P1 L
+	// up 5, down 3, left 1 (P2 4, 2, 0); MCUH: P1 L right 7, B1 5, R up 3,
+	// R down 1 (P2 6, 4, 2, 0); MCUDI0: P1 R left 3, right 1 (P2 2, 0)
+	reset(0x04);
+	clk(); expect("as idle MCUB", t->mcub, 0xff); expect("as idle MCUH", t->mcuh, 0xff); expect("as idle MCUDI0", t->dials & 0xff, 0x0f);
+	expect("as MCUDI1-3 MAME's", t->dials >> 8, 0xffffff);
+	t->stick1 = stick(0, -128); t->rstick1 = stick(0, -128); clk(); clk();
+	expect("as P1 both sticks up: L up", t->mcub, 0xdf); expect("as P1 both up: R up", t->mcuh, 0xf7);
+	t->stick1 = stick(127, 20); t->rstick1 = stick(-128, 30); clk(); clk();
+	expect("as P1 L right (4-way)", t->mcuh, 0x7f); expect("as P1 R left", t->dials & 0xff, 0x07);
+	t->stick1 = 0; t->rstick1 = stick(100, 0); clk(); clk(); expect("as P1 R right", t->dials & 0xff, 0x0d);
+	t->rstick1 = 0; t->stick2 = stick(-128, 0); t->rstick2 = stick(0, 127); clk(); clk();
+	expect("as P2 L left", t->mcub, 0xfe); expect("as P2 R down", t->mcuh, 0xfe);
+	t->stick2 = t->rstick2 = 0;
+	t->p1 = 0x08; clk(); clk(); expect("as d-pad up: both up (L)", t->mcub, 0xdf); expect("as d-pad up: both up (R)", t->mcuh, 0xf7);
+	t->p1 = 0x0a; clk(); clk(); expect("as d-pad 4-way: up before left", t->mcub, 0xdf);
+	t->p1 = 0x01; clk(); clk(); expect("as d-pad right: L right", t->mcuh, 0x7f); expect("as d-pad right: R right", t->dials & 0xff, 0x0d);
+	t->p1 = 0x40; clk(); clk(); expect("as B3 turn left: L down", t->mcub, 0xf7); expect("as B3: R up", t->mcuh, 0xf7);
+	t->p1 = 0x80; clk(); clk(); expect("as B4 turn right: L up", t->mcub, 0xdf); expect("as B4: R down", t->mcuh, 0xfd);
+	t->p1 = 0x20; clk(); clk(); expect("as B2 apart: L left", t->mcub, 0xfd); expect("as B2: R right", t->dials & 0xff, 0x0d);
+	t->p1 = 0x100; clk(); clk(); expect("as B5 together: L right", t->mcuh, 0x7f); expect("as B5: R left", t->dials & 0xff, 0x07);
+	t->p1 = 0x10; t->p2 = 0x10; t->start1 = 1; clk(); clk(); expect("as fire both", t->mcuh, 0xcf); expect("as Start 1", t->mcub, 0x7f);
+	// the other digital sets keep MAME's default ports and dials
+	reset(0x00); t->rstick1 = stick(100, 0); clk(); clk(); expect("mode 0 dials untouched", t->dials & 0xff, 0x0f);
 
 	printf("%d of %d checks passed\n", checks - fails, checks);
 	return fails != 0;

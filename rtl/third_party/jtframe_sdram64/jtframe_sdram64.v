@@ -165,12 +165,24 @@ assign {next_ba, next_cmd, next_a } =
 // bank still take the mux above, the same when one bank is granted.
 wire [3:0] bank_cmd  = bx0_cmd & bx1_cmd & bx2_cmd & bx3_cmd;
 wire [3:0] next_cmdf = init ? init_cmd : (rfshing ? rfsh_cmd : (prog_en ? pre_cmd : bank_cmd));
+// NS2 local change (NS2-24): the address the same way. A bank (u_prog
+// too) drives 0 without a command, and none commands while another holds
+// the grant or the refresh runs; the refresh's address is A10 (its
+// precharge-all). So the address is their OR, but for init (a register);
+// it differs from the mux only on a NOP, whose address the SDRAM ignores
+// (A12/A11, MiSTer's DQM, are the same on every clock: 0 but with ACTIVE).
+wire [12:0] next_af = init ? init_a : (bx0_a | bx1_a | bx2_a | bx3_a | pre_a | {2'b00, rfshing, 10'd0});
 `ifdef VERILATOR
 // the merge equals the priority mux, clock by clock (the sims count any miss)
 integer ns2_cmd_miss /*verilator public_flat_rd*/ = 0;
 always @(posedge clk) if (!rst && next_cmdf != next_cmd) begin
     ns2_cmd_miss <= ns2_cmd_miss + 1;
     if (ns2_cmd_miss < 5) $display("jtframe_sdram64: cmd merge %b, mux %b (bg %b)", next_cmdf, next_cmd, bg);
+end
+integer ns2_addr_miss /*verilator public_flat_rd*/ = 0;
+always @(posedge clk) if (!rst && (next_af[12:11] != next_a[12:11] || (next_cmd != 4'b0111 && next_af != next_a))) begin
+    ns2_addr_miss <= ns2_addr_miss + 1;
+    if (ns2_addr_miss < 5) $display("jtframe_sdram64: addr merge %h, mux %h (cmd %b bg %b)", next_af, next_a, next_cmd, bg);
 end
 `endif
 
@@ -219,7 +231,7 @@ always @(posedge clk) begin
     prog_ack <= pre_ack;
 
     sdram_ba      <= next_ba;
-    sdram_a[10:0] <= next_a[10:0];
+    sdram_a[10:0] <= next_af[10:0];
 
     wr_l <= wr_aux & ~ba_rdy;
 
@@ -233,9 +245,9 @@ always @(posedge clk) begin
         // with ACTIVE (the banks since the change there; init and refresh
         // always), and a write's cycle is never an ACTIVE (one command a
         // clock): the mask ORs in, and the command decode leaves the path
-        sdram_a[12:11] <= next_a[12:11] | (wr_cycle ? mask_mux : 2'd0);
+        sdram_a[12:11] <= next_af[12:11] | (wr_cycle ? mask_mux : 2'd0);
     end else begin
-        sdram_a[12:11] <= next_a[12:11];
+        sdram_a[12:11] <= next_af[12:11];
         dqm <= wr_cycle ? mask_mux : 2'd0;
     end
 end

@@ -1055,7 +1055,7 @@ ports (73 checks). On the board:
 - Lucky & Wild: the accelerator took the car from 60 to 138 km/h, the brake
   from 78 to 0, and the core's crosshair sits in the game's sight.
 
-**Open:** Assault's twin sticks. Metal Hawk's ROZ layer shows dark and torn lines
+**Open:** Assault's twin sticks (closed by NS2-23). Metal Hawk's ROZ layer shows dark and torn lines
 at some zooms on the board. The release before this change shows them too,
 so this change did not cause them.
 
@@ -1325,3 +1325,66 @@ flip buffer adds 3 M10K: LW 544 of 553). On the board with these: Phelios
 as above; Suzuka 8 Hours with Flip screen (the road whole, turned); Metal
 Hawk's demo (the ROZ clean); Lucky & Wild with Flip screen; Steel Gunner's
 attract.
+
+## NS2-23 — Assault's twin sticks (closed, measured)
+
+MAME's `assault` ports (Assault, Assault (Japan), Assault Plus) give each
+player two 4-way sticks, a tank's two tracks: the left stick on MCUB (up 5 /
+4, down 3 / 2, left 1 / 0, P1 / P2) and MCUH (right 7 / 6), the right stick
+on MCUH (up 3 / 2, down 1 / 0) and the dial port MCUDI0 at the MCU's $3000
+(right 1 / 0, left 3 / 2); fire MCUH 5 / 4. Mode 0 (MAME's default ports)
+had put Button 2 and Button 3 on the right stick's up and down by the same
+bits, and nothing on its left and right.
+
+Control mode 0x04 (`tools/ns2_romdata.py` CONTROLS, `rtl/ns2_controls.sv`):
+- The left and right analog sticks are the two sticks (4-way: the larger
+  axis past 12). The d-pad drives both alike: forward, back, sideways.
+- Turn Left (B3) pushes the left stick down and the right up; Turn Right
+  (B4) the reverse; Sticks Apart (B2) and Sticks Together (B5) push them
+  out and in. The buttons win over the sticks.
+- The controls now drive the dial port (MCUDI0-3), MAME's power-on values
+  (config bytes 29-32) except Assault's bits. Player 2's right stick is
+  wired (hps_io `joystick_r_analog_1`).
+
+**Measured:**
+- `sim/rtl/ns2_controls`: each stick direction, the d-pad, the four
+  buttons and fire, both players, on the bits above (73 checks, all pass).
+- MAME, Assault in play: both sticks up drive the tank forward; the left
+  down and the right up turn the view clockwise, the tank turning left;
+  the sticks apart bring up a target sight over the tank.
+- The `.mra`s (all three) still assemble to the reference image
+  (`ns2_mra.py --check`).
+
+**On the board** (the standard bitstream with NS2-24): Assault (Rev B), a
+game started from the d-pad and buttons: the d-pad's up drives the tank
+forward (the ground moves past it), Turn Left turns the view and Turn
+Right turns it back, Sticks Apart changes the tank's sprite as in MAME.
+
+## NS2-24 — The SDRAM's address merged like its command (closed, measured)
+
+After NS2-22 and NS2-23, one build in eight met timing: the misses were all
+on clk_sd into `jtframe_sdram64`'s `sdram_a` (from the refresh's `help` and
+`rfshing`, the latch's `noreq` and `rd_l`, a bank's `st`), through the
+grant's priority mux, by 0.015 to 0.665 ns. The command had the same path
+and was merged in NS2-21.
+
+A local change, the same way: a bank (the download's `u_prog` too) drives
+its address only with a command (0 with NOP, which the SDRAM ignores), and
+no bank commands while another holds the grant or the refresh runs; the
+refresh's address is A10 (its precharge-all). So `sdram_a` is the OR of the
+banks', `u_prog`'s and the refresh's A10, but for init (a register). A12/A11
+(MiSTer's DQM with the write mask ORed in) are the same as the mux's on
+every clock; A10-A0 differ only on a NOP.
+
+**Measured:**
+- In simulation the merge is compared with the mux on every clock (A12/A11)
+  and every command (all): Phelios (40 frames), Lucky & Wild (60), Metal
+  Hawk's play (to frame 1030), 0 differences, the pictures as before, 0
+  SDRAM violations.
+- The builds: STD 5, MH 9 and SG 14 met every clock at once, clk_sd at
+  +0.136, +0.160, +0.400 ns; LW at seed 33 met clk_sd with +0.329 ns (its
+  miss was HDMI's).
+- Seeds: STD 5, MH 9, SG 14, SZ 10, LW 34, every clock met, setup and hold
+  (clk_sd +0.136, +0.160, +0.400, +0.490, +0.317 ns). SZ took five seeds
+  (two missed HDMI or clk_sys); LW's 34 and 35 both met. On the board:
+  Assault (above), Metal Hawk, Steel Gunner, Suzuka 8 Hours, Lucky & Wild.

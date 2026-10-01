@@ -3,7 +3,8 @@
 // AN0-AN7, per the set's control mode (config byte 33, tools/ns2_romdata.py):
 //   [1:0] 0 digital (MAME's default ports), 1 wheel and pedals, 2 light
 //         guns, 3 Metal Hawk's analog stick
-//   [2]   the gear shift is a toggle on MCUH bit 5 (B3: Final Lap, Four Trax)
+//   [2]   digital: Assault's twin sticks (below); wheel: the gear shift is
+//         a toggle on MCUH bit 5 (B3: Final Lap, Four Trax)
 //   [3]   Lucky & Wild: the wheel and pedals and the guns
 //   the guns:
 //   [5:4] their channels: 0 AN0 X1, AN1 Y1, AN2 X2, AN3 Y2 (Golly!
@@ -37,10 +38,12 @@ module ns2_controls (
 	input      [8:0]  p1, p2,
 	input             start1, start2, coin1, coin2, svc1, svc2,
 	input      [15:0] stick1, stick2, // left sticks {Y, X}, signed; a light gun's position
-	input      [15:0] rstick1,        // player 1's right stick {Y, X}
+	input      [15:0] rstick1, rstick2, // the right sticks {Y, X}
+	input      [31:0] dial_default,   // MAME's power-on MCUDI0-3 (config bytes 29-32)
 	input      [24:0] mouse,          // ps2_mouse: [24] toggles per packet, [15:8] dx, [23:16] dy, [0] L [1] R
 	output reg [7:0]  mcub, mcuc, mcuh,   // registered (a clock after the inputs)
 	output reg [63:0] analog,
+	output reg [31:0] dials,          // MCUDI0-3 ($3000-$3003)
 	// the guns' positions on the board's picture (pixels), for the crosshair
 	output            guns,
 	output reg        g2_on,          // player 2's gun has moved (its crosshair shows)
@@ -131,10 +134,45 @@ module ns2_controls (
 	wire trig1 = p1[4] || (use_mouse && mouse[0]);
 	wire bomb1 = p1[5] || (use_mouse && mouse[1]);
 
+	// ------------------------------------------------------------ Assault
+	// Two 4-way sticks a player, a tank's two tracks (MAME's assault ports):
+	// the left on MCUB (up, down, left) and MCUH 7/6 (right), the right on
+	// MCUH (up, down) and MCUDI0 (right, left). The analog sticks drive them
+	// one each; the d-pad drives both alike (forward, back, sideways); B3
+	// and B4 turn (left track back and right forward, and the reverse); B2
+	// and B5 push the sticks apart and together. {U, D, L, R} each.
+	function [3:0] dir4(input signed [7:0] x, input signed [7:0] y);
+		reg [7:0] ax, ay;
+		begin
+			ax = x[7] ? -x : x; ay = y[7] ? -y : y;
+			if (!big(x) && !big(y)) dir4 = 4'b0000;
+			else if (ay >= ax) dir4 = y[7] ? 4'b1000 : 4'b0100;
+			else dir4 = x[7] ? 4'b0010 : 4'b0001;
+		end
+	endfunction
+	// the d-pad, 4-way: up / down before left / right
+	function [3:0] pad4(input [3:0] udlr);
+		pad4 = udlr[3] ? 4'b1000 : udlr[2] ? 4'b0100 : udlr[1] ? 4'b0010 : udlr[0] ? 4'b0001 : 4'b0000;
+	endfunction
+	function [7:0] twin(input [8:0] p, input [15:0] ls, input [15:0] rs);   // {left, right}
+		reg [3:0] al, ar, pd;
+		begin
+			al = dir4(ls[7:0], ls[15:8]); ar = dir4(rs[7:0], rs[15:8]); pd = pad4(p[3:0]);
+			twin = {al != 0 ? al : pd, ar != 0 ? ar : pd};
+			if (p[6]) twin = {4'b0100, 4'b1000};        // B3: turn left
+			if (p[7]) twin = {4'b1000, 4'b0100};        // B4: turn right
+			if (p[5]) twin = {4'b0010, 4'b0001};        // B2: apart
+			if (p[8]) twin = {4'b0001, 4'b0010};        // B5: together
+		end
+	endfunction
+	wire [7:0] t1 = twin(p1, stick1, rstick1), t2 = twin(p2, stick2, rstick2);
+	wire [3:0] l1 = t1[7:4], r1 = t1[3:0], l2 = t2[7:4], r2 = t2[3:0];
+
 	// ------------------------------------------------------------ the ports
 	reg [7:0]  mcub_c, mcuc_c, mcuh_c;
 	reg [63:0] analog_c;
-	always @(posedge clk) begin mcub <= mcub_c; mcuc <= mcuc_c; mcuh <= mcuh_c; analog <= analog_c; end
+	reg [31:0] dials_c;
+	always @(posedge clk) begin mcub <= mcub_c; mcuc <= mcuc_c; mcuh <= mcuh_c; analog <= analog_c; dials <= dials_c; end
 	wire trig2 = p2[4], bomb2 = p2[5];
 	always @(*) begin
 		// MAME's default ports (namcos2.cpp NAMCOS2_MCU_PORT_*_DEFAULT), active low
@@ -142,6 +180,13 @@ module ns2_controls (
 		mcuc_c = ~{svc1, svc2, coin1, coin2, 4'b0000};
 		mcuh_c = ~{p1[0], p2[0], p1[4], p2[4], p1[5], p2[5], p1[6], p2[6]};
 		analog_c = an_default;
+		dials_c  = dial_default;
+		if (kind == 2'd0 && mode[2]) begin
+			// Assault: {U, D, L, R} = [3:0] of each stick
+			mcub_c = ~{start1, start2, l1[3], l2[3], l1[2], l2[2], l1[1], l2[1]};
+			mcuh_c = ~{l1[0], l2[0], p1[4], p2[4], r1[3], r2[3], r1[2], r2[2]};
+			dials_c[3:0] = ~{r1[1], r2[1], r1[0], r2[0]};
+		end
 		if (kind != 2'd0) begin
 			mcub_c = idle_b;
 			mcuh_c = idle_h;

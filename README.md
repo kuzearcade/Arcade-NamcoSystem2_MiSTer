@@ -6,8 +6,8 @@ their alternates, on five bitstreams.
 **In development.** Every set boots and runs its attract mode on a DE10-Nano.
 The joystick games use MAME's default ports (one joystick, three buttons,
 Start, Coin, Service). The driving games' wheel and pedals, the light guns
-and Metal Hawk's stick are mapped onto the MCU's analog channels (see
-[Controls](#controls)).
+and Metal Hawk's stick are mapped onto the MCU's analog channels, and
+Assault's twin sticks onto its ports (see [Controls](#controls)).
 See `docs/PLAN.md` for the plan and its gates, and `docs/known-issues.md`
 for every finding (NS2-n).
 
@@ -44,7 +44,7 @@ The `.mra`s are in `releases/`, the alternates in
 | Game | Year | MAME set | Bitstream | Controls | Alternates |
 |---|---|---|---|---|---|
 | Final Lap (Rev E) | 1987 | `finallap` | STD | wheel, pedals, gear | `finallapc`, `finallapd`, `finallapjb`, `finallapjc` |
-| Assault (Rev B) | 1988 | `assault` | STD | two joysticks per player (the right one not mapped) | `assaultj`, `assaultp` |
+| Assault (Rev B) | 1988 | `assault` | STD | two joysticks per player | `assaultj`, `assaultp` |
 | Metal Hawk (Rev C) | 1988 | `metlhawk` | MH | analog stick, lever | `metlhawkj` |
 | Mirai Ninja (Japan, set 1) | 1988 | `mirninja` | STD | joystick | `mirninjaa` |
 | Ordyne (World) | 1988 | `ordyne` | STD | joystick | `ordynej`, `ordyneje` |
@@ -96,6 +96,11 @@ show in MiSTer's mapping menu.
   trigger, and Button 2 the missile. The aim matches the game's own sight,
   flipped for the ROT180 sets. The OSD's "Gun crosshair" shows a white
   cross for player 1 and a yellow one for player 2, once player 2 has aimed.
+- **Assault** (and Assault Plus): two 4-way sticks a player, the tank's
+  two tracks. The left and right analog sticks are the two sticks; the
+  d-pad pushes both the same way (forward, back, sideways). Button 1
+  fires; Turn Left (B3) and Turn Right (B4) push the sticks opposite ways;
+  Sticks Apart (B2) and Sticks Together (B5) push them out and in.
 - **Metal Hawk:** the left stick (or d-pad) flies, and the right stick's Y,
   or Buttons 4 and 5, move the altitude lever. Button 1 and Button 2 are
   the cabinet's two buttons.
@@ -138,8 +143,7 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 
 ## To Do
 
-- **Per-game controls:** Assault's twin sticks (its two joysticks each
-  on the MCU's ports), and Lucky & Wild's second player's wheel-less gun.
+- **Per-game controls:** Lucky & Wild's second player's wheel-less gun.
 - **Feature parity (M5):** savestates, pause, cheats, autofire.
 - **Pictures against MAME:** the remaining line differences in Suzuka 8
   Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),

@@ -109,7 +109,7 @@ wire   [1:0] buttons;
 wire [127:0] status;
 wire  [10:0] ps2_key;
 wire  [31:0] joystick_0, joystick_1;
-wire  [15:0] stick_0, stick_1, rstick_0;
+wire  [15:0] stick_0, stick_1, rstick_0, rstick_1;
 wire  [24:0] ps2_mouse;
 
 wire         ioctl_download;
@@ -143,6 +143,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.joystick_l_analog_0(stick_0),
 	.joystick_l_analog_1(stick_1),
 	.joystick_r_analog_0(rstick_0),
+	.joystick_r_analog_1(rstick_1),
 	.ps2_mouse(ps2_mouse),
 
 	.ioctl_download(ioctl_download),
@@ -328,6 +329,7 @@ wire p1_coin  = joystick_0[8] | kb_coin1,  p2_coin  = joystick_1[8] | kb_coin2;
 wire p1_svc   = joystick_0[9] | kb_service, p2_svc  = joystick_1[9];
 wire [7:0]  in_mcub, in_mcuc, in_mcuh;
 wire [63:0] in_analog;
+wire [31:0] in_dials;
 wire        guns_on, gun2_on;
 wire [8:0]  gun1_x, gun2_x;
 wire [7:0]  gun1_y, gun2_y;
@@ -422,7 +424,7 @@ ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
             .WRAM_SD(WRAM_SD)) board (
 	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
-	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(cfg_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),
+	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(in_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),
 	.red(core_r), .green(core_g), .blue(core_b), .ce_pix(ce_pix), .out_x(), .out_y(), .out_valid(), .hcnt(hcnt), .vcnt(vcnt),
 	.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 	.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
@@ -558,7 +560,7 @@ wire        no_rotate = (orientation == 2'd0) | direct_video;
 ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),
 	.an_default(cfg_analog), .idle_b(cfg[34]), .idle_h(cfg[35]), .p1(p1), .p2(p2), .start1(p1_start), .start2(p2_start),
 	.coin1(p1_coin), .coin2(p2_coin), .svc1(p1_svc), .svc2(p2_svc),
-	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .mouse(ps2_mouse),
+	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .rstick2(rstick_1), .dial_default(cfg_dials), .dials(in_dials), .mouse(ps2_mouse),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .analog(in_analog),
 	.guns(guns_on), .g2_on(gun2_on), .g1_x(gun1_x), .g2_x(gun2_x), .g1_y(gun1_y), .g2_y(gun2_y));
 

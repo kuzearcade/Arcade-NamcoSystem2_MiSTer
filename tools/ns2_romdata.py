@@ -189,6 +189,7 @@ CONTROLS = {
     'sgunner':  (0x12, 0xff, 0xff),   # guns AN4/5 X, AN6/7 Y; triggers MCUH 5/4, bombs 3/2
     'luckywld': (0x2a, 0xff, 0xff),   # wheel, pedals and guns AN4 X1, AN2 Y1, AN3 X2, AN1 Y2; fire MCUH 5/4
     'metlhawk': (0x03, 0xc0, 0xa0),   # stick AN6 X, AN5 Y, AN7 lever; B1 MCUH 5, B2 MCUH 7
+    'assault':  (0x04, 0xff, 0xff),   # two 4-way sticks a player: MCUB, MCUH, MCUDI0
 }
 
 
@@ -205,7 +206,8 @@ def config_block(name, sets=None, gm=None):
       21-32 MAME's power-on AN0-AN7 and MCUDI0-MCUDI3 (tools/ns2_ports.py)
       33   the control mode (rtl/ns2_controls.sv, CONTROLS by the set's
            MAME input ports): [1:0] 0 digital, 1 wheel and pedals, 2 light
-           guns, 3 Metal Hawk's stick; [2] a toggled gear shift; [3] Lucky
+           guns, 3 Metal Hawk's stick; [2] digital: Assault's twin
+           sticks, wheel: a toggled gear shift; [3] Lucky
            & Wild; guns: [5:4] their channels, [6] reversed, [7] the
            triggers on MCUB; wheel and pedals: [4] Start on MCUB, [5] the
            gears on MCUB (Dirt Fox)
