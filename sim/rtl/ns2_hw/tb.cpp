@@ -86,6 +86,15 @@ int main(int argc, char **argv) {
 	#define REFN rm->top__DOT__u_model__DOT__ref_n
 	#define REFG rm->top__DOT__u_model__DOT__ref_gap_max
 	const int ref0 = REFN; REFG = 0;
+	// the shortest command intervals the model saw (sdram_model_burst.sv)
+	auto mins = [&](const char *when) {
+		#define M(x) rm->top__DOT__u_model__DOT__m_##x
+		const double ck = 1e9 / 98304000.0;
+		printf("SDRAM intervals (%s), clocks/ns: tRCD %d/%.1f tRP %d/%.1f tRAS %d/%.1f tRC %d/%.1f tRRD %d/%.1f tWR %d/%.1f tRFC %d/%.1f tMRD %d; writes over reads %d\n",
+		       when, M(rcd), M(rcd) * ck, M(rp), M(rp) * ck, M(ras), M(ras) * ck, M(rc), M(rc) * ck, M(rrd), M(rrd) * ck,
+		       M(wr), M(wr) * ck, M(rfc), M(rfc) * ck, M(mrd), rm->top__DOT__u_model__DOT__wr_rd);
+		#undef M
+	};
 	const bool skip0 = getenv("DL_SKIP0") != nullptr;
 	uint64_t c0 = cyc, words = 0;
 	for (size_t a = 0; a < img.size(); a += 2) {
@@ -121,6 +130,7 @@ int main(int argc, char **argv) {
 	}
 	printf("download: %llu words in %llu clocks (%.1f per word); violations %u\n", (unsigned long long)words,
 	       (unsigned long long)(cyc - c0), (double)(cyc - c0) / (words ? words : 1), t->violations);
+	mins("download");
 	// a chip needs 8192 refreshes in every 64 ms: one per 7.8 us on average
 	printf("refresh in the download: %d REFs in %.1f ms (%.1f per 64 ms), longest gap %.1f us\n", REFN - ref0,
 	       (cyc - c0) / 49152.0, (REFN - ref0) * 64.0 / ((cyc - c0) / 49152.0 + 1e-9), REFG * 1e6 / 98304000.0);
@@ -333,6 +343,7 @@ int main(int argc, char **argv) {
 	}
 	printf("refresh in play: %d REFs in %.1f ms (%.1f per 64 ms), longest gap %.1f us\n", REFN - ref1,
 	       (cyc - cr) / 49152.0, (REFN - ref1) * 64.0 / ((cyc - cr) / 49152.0 + 1e-9), REFG * 1e6 / 98304000.0);
+	mins("download and play");
 	printf("pictures: %d of %d exact; SDRAM violations %u; video: busiest line %u of 3072 clocks, overrun sources %02x\n",
 	       exact, n, t->violations, t->line_busy_max, t->overrun_src);
 	// the caches: reads, misses, waits (clocks)

@@ -5,6 +5,7 @@
 module jtframe_sdram64_init #(parameter
     HF      =1,
     BURSTLEN=64,
+    CL      =2,     // NS2 local change (NS2-27)
     XL      =0
 ) (
     input               rst,
@@ -69,7 +70,7 @@ always @(posedge clk) begin
                 end
                 3'd3: begin
                     init_cmd <= CMD_LOAD_MODE;
-                    sdram_a  <= {10'b00_1_00_010_0,BURSTLEN==64?3'b010:(BURSTLEN==32?3'b001:3'b000)}; // CAS Latency = 2, burst = 1-4
+                    sdram_a  <= {6'b000_1_00,CL==3?3'b011:3'b010,1'b0,BURSTLEN==64?3'b010:(BURSTLEN==32?3'b001:3'b000)}; // CAS Latency = CL, burst = 1-4
                     wait_cnt <= 14'd3;
                 end
                 3'd4: begin

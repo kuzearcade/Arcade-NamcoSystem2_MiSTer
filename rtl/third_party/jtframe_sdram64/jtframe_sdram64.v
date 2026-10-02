@@ -9,6 +9,11 @@ module jtframe_sdram64 #(
               HF=1,     // 1 for HF operation (idle cycles), 0 for LF operation
                         // HF operation starts at 66.6MHz (1/15ns)
               SHIFTED =0,
+              // NS2 local change (NS2-27): the CAS latency (2 or 3), and
+              // XRC=1 adds a clock to tRCD and tRP (2 clocks are 20.3 ns at
+              // 98.304 MHz, short of the -7 grade parts' 20-21 ns)
+              CL      =2,
+              XRC     =0,
               BA0_LEN =64, // 1=16 bits, 2=32 bits, 4=64 bits
               BA1_LEN =64,
               BA2_LEN =64,
@@ -287,7 +292,7 @@ jtframe_sdram64_latch #(.LATCH(LATCH),.AW(AW)) u_latch(
     .noreq      ( noreq     )
 );
 
-jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN)) u_init(
+jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN),.CL(CL)) u_init(
     .rst        ( rst       ),
     .clk        ( clk       ),
 
@@ -297,7 +302,7 @@ jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN)) u_init(
     .sdram_a    ( init_a    )
 );
 
-jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT)) u_rfsh(
+jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT),.XRC(XRC)) u_rfsh(
     .rst        ( rfsh_rst  ),
     .clk        ( clk       ),
 
@@ -316,6 +321,8 @@ jtframe_sdram64_bank #(
     .AW       ( AW      ),
     .HF       ( HF      ),
     .SHIFTED  ( SHIFTED ),
+    .CL       ( CL      ),
+    .XRC      ( XRC     ),
     .BALEN    ( PROG_LEN),
     .BURSTLEN ( BURSTLEN),
     // The programmer always precharges all banks
@@ -372,6 +379,8 @@ jtframe_sdram64_bank #(
     .AW       ( AW            ),
     .HF       ( HF            ),
     .SHIFTED  ( SHIFTED       ),
+    .CL       ( CL            ),
+    .XRC      ( XRC           ),
     .BURSTLEN ( BURSTLEN      ),
     .BALEN    ( BA0_LEN       ),
     .AUTOPRECH( BA0_AUTOPRECH )
@@ -420,6 +429,8 @@ jtframe_sdram64_bank #(
     .AW       ( AW            ),
     .HF       ( HF            ),
     .SHIFTED  ( SHIFTED       ),
+    .CL       ( CL            ),
+    .XRC      ( XRC           ),
     .BURSTLEN ( BURSTLEN      ),
     .BALEN    ( BA1_LEN       ),
     .AUTOPRECH( BA1_AUTOPRECH )
@@ -467,6 +478,8 @@ jtframe_sdram64_bank #(
     .AW       ( AW            ),
     .HF       ( HF            ),
     .SHIFTED  ( SHIFTED       ),
+    .CL       ( CL            ),
+    .XRC      ( XRC           ),
     .BURSTLEN ( BURSTLEN      ),
     .BALEN    ( BA2_LEN       ),
     .AUTOPRECH( BA2_AUTOPRECH )
@@ -514,6 +527,8 @@ jtframe_sdram64_bank #(
     .AW       ( AW            ),
     .HF       ( HF            ),
     .SHIFTED  ( SHIFTED       ),
+    .CL       ( CL            ),
+    .XRC      ( XRC           ),
     .BURSTLEN ( BURSTLEN      ),
     .BALEN    ( BA3_LEN       ),
     .AUTOPRECH( BA3_AUTOPRECH )

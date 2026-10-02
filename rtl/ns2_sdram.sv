@@ -20,7 +20,7 @@
 // WEN: the banks that take writes (the NB bitstream's work RAMs, bank 1): a
 // request pushed with push_we writes one 16-bit word (its mask active low)
 // and returns nothing.
-module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
+module ns2_sdram #(parameter [3:0] WEN = 4'b0000, parameter CL = 2, parameter XRC = 0) (
 	input             clk,
 	input             clk_sd,
 	input             rst,
@@ -189,7 +189,7 @@ module ns2_sdram #(parameter [3:0] WEN = 4'b0000) (
 `endif
 	jtframe_sdram64 #(.AW(22), .HF(1), .BA0_LEN(64), .BA1_LEN(64), .BA2_LEN(64), .BA3_LEN(64), .PROG_LEN(16),
 	                  .BA0_WEN(WEN[0]), .BA1_WEN(WEN[1]), .BA2_WEN(WEN[2]), .BA3_WEN(WEN[3]),
-	                  .MISTER(1), .RFSHCNT(9), .BAPRIO(1)) u_ctl (
+	                  .MISTER(1), .RFSHCNT(9), .BAPRIO(1), .CL(CL), .XRC(XRC)) u_ctl (
 		.rst(rst), .clk(clk_sd), .init(init),
 		.ba0_addr(qa[0]), .ba1_addr(qa[1]), .ba2_addr(qa[2]), .ba3_addr(qa[3]),
 		.rd(rd), .wr(wr),

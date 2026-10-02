@@ -101,10 +101,17 @@ show in MiSTer's mapping menu.
   cross for player 1 and a yellow one for player 2, once player 2 has aimed.
 - **Assault** (and Assault Plus): two 4-way sticks a player, the tank's
   two tracks. The left and right analog sticks are the two sticks, each
-  its own track; with neither pushed, the d-pad pushes both the same way
-  (forward, back, sideways). Button 1
-  fires; Turn Left (B3) and Turn Right (B4) push the sticks opposite ways;
-  Sticks Apart (B2) and Sticks Together (B5) push them out and in.
+  its own track. The right stick can also be four buttons, Right Up, Down,
+  Left and Right (B6-B9): if the right stick does nothing, the pad's
+  sticks are not reaching the core as analog (MiSTer sends them only when
+  the pad's mapping marks them analog), so bind the right stick's four
+  directions to those buttons in the core's Define joystick buttons, or
+  map the pad's analog sticks in MiSTer's main menu. Until a player has
+  used the right stick, the d-pad (or the left stick without analog)
+  pushes both sticks the same way (forward, back, sideways); after, it is
+  the left stick only. Button 1 fires; Turn Left (B3) and Turn Right (B4)
+  push the sticks opposite ways; Sticks Apart (B2) and Sticks Together
+  (B5) push them out and in.
 - **Metal Hawk:** the left stick (or d-pad) flies, and the right stick's Y,
   or Buttons 4 and 5, move the altitude lever. Button 1 and Button 2 are
   the cabinet's two buttons.

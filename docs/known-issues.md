@@ -1366,6 +1366,36 @@ game started from the d-pad and buttons: the d-pad's up drives the tank
 forward (the ground moves past it), Turn Left turns the view and Turn
 Right turns it back, Sticks Apart changes the tank's sprite as in MAME.
 
+**Follow-up: both tracks on the left stick (reported after v2026-10-02).**
+Main_MiSTer (`input.cpp`) sends a pad's analog sticks to the core only
+when the pad's system mapping (its gamecontrollerdb entry or the main
+menu's definition) marks the axes analog (`stick_l`, `stick_r`); it also
+presses the d-pad from the left stick past `DPAD_THRESHOLD` (50% by
+default). A pad without that mapping reaches the core as the d-pad alone:
+the left stick pushed both tracks through the d-pad, and the right stick
+did nothing. The virtual pad above has the firmware's Xbox mapping, so it
+did not show this.
+- The right stick can also be four buttons, B6-B9 (J1's Button 6-9, the
+  `.mra`s' Right Up, Right Down, Right Left, Right Right): any input,
+  the right stick's directions too, can be bound to them.
+- A player who has used the right stick, analog or buttons, since the
+  reset drives the left track with the left analog stick or the d-pad and
+  the right track with the right stick. Before that the d-pad pushes both,
+  as before, for a single-stick pad.
+- `sim/rtl/ns2_controls`: 137 checks, all pass (the buttons alone and
+  with the d-pad, both players, the latch, the turn buttons over it).
+- On the board, Assault's own switch test (Service Mode), a virtual pad
+  made as Linux's xpad driver makes an XInput pad (GP2040-CE's default
+  mode, the reporter's FightBox R10 Dual's: 045e:028e v0114, axes X Y Z RX
+  RY RZ and the hat, the gamecontrollerdb's Xbox 360 entry): each stick at
+  30% (under MiSTer's 50% d-pad threshold, so the analog values alone) in
+  each direction lights its own stick's switch only, both players; both at
+  full drive both. The same on v2026-10-02 and with this change. (A first
+  virtual pad with four axes shifted the database's axis numbers, and
+  Main_MiSTer keeps a GUID's axis numbering until it restarts: its right
+  stick came out wrong until the board was rebooted. A real pad reports
+  all six.)
+
 ## NS2-24 — The SDRAM's address merged like its command (closed, measured)
 
 After NS2-22 and NS2-23, one build in eight met timing: the misses were all
@@ -1567,3 +1597,75 @@ already falls) and, where the YM2151 plays (Burning Force: +4/+5/+9 dB at
 
 Cost: the C140's filter 2 DSPs and its history; the YM2151's FIFO 1 M10K
 (LW: 41,489 ALMs (99%), 546 of 553 M10K).
+
+## NS2-27 — The SDRAM's timing for the slower chips: CL3, a clock more of tRCD and tRP (closed in analysis; open: confirmation on other boards)
+
+**Reported:** NS2-19's black screens and crashes, much rarer since its fixes,
+still on some users' boards.
+
+**Compared with the other kuzecores** (`sdram.sv`, no reports): the same I/O
+settings (fast input and output registers, maximum current, 3.3-V LVTTL)
+and refresh within the spec, but CL3 at 96 MHz where NamcoS2 ran CL2 at
+98.304 MHz. CL2 at 10.17 ns a clock is at the edge of the -7 grade chips
+some MiSTer SDRAM modules carry (CL2 needs tCK >= 10 ns there).
+
+**Measured, every command interval.** `sdram_model_burst.sv` now keeps the
+shortest interval it sees of each timing; M3 prints them (download, then
+download and play). Phelios, Suzuka 8 Hours (work RAM in the SDRAM: writes)
+and Lucky & Wild, before:
+
+| | clocks | ns | the datasheets' minimum |
+|---|---|---|---|
+| tRCD (ACTIVE to READ/WRITE) | 2 | 20.3 | 15-18 (-6), 20-21 (-7) |
+| tRP (PRECHARGE to ACTIVE) | 2 | 20.3 | 15-18 (-6), 20-21 (-7) |
+| tRAS | 6 | 61.0 | 42 |
+| tRC | 11 | 111.9 | 60-63 |
+| tRRD | 3 | 30.5 | 12-14 |
+| tWR (last write to PRECHARGE) | 4 | 40.7 | 2 clocks / 14 |
+| tRFC (REF to the next command) | 7 | 71.2 | 60-66 |
+
+Everything has margin but tRCD and tRP, at or under the -7 parts' minimum,
+and CL2 itself. The model also now masks read data with DQM two clocks
+after it is sampled (MiSTer wires DQML/DQMH to A11/A12, so an ACTIVE's
+row bits mask a read word due then): the controller's windows are checked,
+at either CAS latency.
+
+**The change** (`jtframe_sdram64`, local parameters; `NamcoS2.sv` sets them):
+- `CL=3`: the mode register, and each bank's `DST` (READ + CL). `in_busy`,
+  which spaces two reads, stays counted from the READ: back-to-back reads
+  every 4 clocks at either CL. The read capture's SDC is the same (the
+  word is still taken on the second clk_sd edge after the chip's).
+- `XRC=1`: a clock more of tRCD and tRP (30.5 ns), the refresh's PRECHARGE
+  ALL too (its cycle a clock longer, tRFC as before).
+- Timing: the command and address paths into the pins were clk_sd's worst
+  and got worse. A bank now drives A10-A0 while it holds the grant (one
+  bank at most; none while the refresh runs), chosen by its state, not by
+  `do_*` (which wait on the other banks' dbusy/dqm/act). A12/A11 (MiSTer's
+  DQM) stay on `do_act`.
+
+**Measured:**
+- `sim/rtl/sdram_probe`, 64-bit reads saturating all four banks, every
+  word checked: 0 bad words, 0 violations, both arbitrations. Random rows
+  12.59 -> 10.50 M/s (CL3 alone 11.80), sequential 15.68 -> 15.65.
+- M3, before -> after (pictures exact as before in every run):
+
+| set | pictures | busiest line (of 3,072 clocks) |
+|---|---|---|
+| Phelios attract | 20/20 | 2,734 -> 2,866 |
+| Phelios play (`PLAY=500`, 800 frames) | the same frames | 2,820 -> 2,869 |
+| Assault attract | 277/300 (as NS2-14) | 2,734 -> 2,866 |
+| Metal Hawk play (`PLAY=900`, to 1,100) | the same frames | 2,535 -> 2,589 |
+| Lucky & Wild attract | 53/60, the same frames | 2,155 -> 2,215 |
+| Steel Gunner 2 attract | 53/60, the same frames | 1,974 -> 1,974 |
+| Suzuka 8 Hours attract | 19/20 | 1,974 -> 1,974 |
+
+  No overruns; the download takes 15% more clocks (under a second). The
+  play runs' differing frames are the ones where the game already differs
+  from MAME's capture; their pixel counts move a little, as the CPUs'
+  waits change.
+- Builds: STD seed 9, MH 12, SG 15, SZ 18, LW 45, every clock met (SZ and
+  LW took several seeds; before the address change none of six met). On
+  the board with these: Phelios, Assault (its switch test, NS2-23),
+  Steel Gunner, Metal Hawk (its ROZ demo), Suzuka 8 Hours, Lucky & Wild; with the first CL3 builds
+  (before the address change): Phelios, Assault, Rolling Thunder 2, Steel
+  Gunner 2.

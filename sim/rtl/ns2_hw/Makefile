@@ -6,7 +6,10 @@ G_SG := -GHAS_SPRA=0 -GHAS_ROZ=0 -GHAS_C45=0 -GHAS_C169=0 -GHAS_C355=1
 G_MH := -GHAS_SPRA=1 -GHAS_ROZ=0 -GHAS_C45=0 -GHAS_C169=1 -GHAS_C355=0
 G_SZ := -GHAS_SPRA=0 -GHAS_ROZ=0 -GHAS_C45=1 -GHAS_C169=0 -GHAS_C355=1 -GWRAM_SD=1
 G_LW := -GHAS_SPRA=0 -GHAS_ROZ=0 -GHAS_C45=1 -GHAS_C169=1 -GHAS_C355=1 -GWRAM_SD=1
-OBJ := $(if $(VARIANT),obj_$(VARIANT),obj_dir)
+# SD="-GSD_CL=3 -GSD_XRC=1" the SDRAM's timing (NS2-27), into obj_<variant><SDTAG>
+SD ?=
+SDTAG ?=
+OBJ := $(if $(VARIANT),obj_$(VARIANT),obj_dir)$(SDTAG)
 R := ../../../rtl
 T := $(R)/third_party
 SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \
@@ -18,7 +21,7 @@ SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.
 $(OBJ)/Vtop: tb.cpp $(SRCS) Makefile
 	verilator --cc --exe --build -O3 -j 8 -CFLAGS -O2 --x-assign fast --x-initial fast -Wno-fatal -Wno-WIDTH \
 		-Wno-BLKANDNBLK -Wno-MULTIDRIVEN -Wno-UNOPTFLAT -Wno-CASEINCOMPLETE -Wno-LATCH -Wno-BLKSEQ -I$(R) -I$(T)/fx68k \
-		--top-module top $(G_$(VARIANT)) --Mdir $(OBJ) $(SRCS) tb.cpp -o Vtop
+		--top-module top $(G_$(VARIANT)) $(SD) --Mdir $(OBJ) $(SRCS) tb.cpp -o Vtop
 	ln -sf $(R)/63705.uc 63705.uc
 	ln -sf $(T)/fx68k/microrom.mem microrom.mem
 	ln -sf $(T)/fx68k/nanorom.mem nanorom.mem

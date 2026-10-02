@@ -99,7 +99,7 @@ localparam CONF_STR = {
 	"-;",
 	"R[0],Reset;",
 	// positionally matched against the <buttons> list the .mra writes
-	"J1,Button 1,Button 2,Button 3,Start,Coin,Service,Button 4,Button 5;",
+	"J1,Button 1,Button 2,Button 3,Start,Coin,Service,Button 4,Button 5,Button 6,Button 7,Button 8,Button 9;",
 	"V,v",`BUILD_DATE
 };
 
@@ -317,13 +317,15 @@ end
 //   MCUH: 0 P2 B3, 1 P1 B3, 2 P2 B2, 3 P1 B2, 4 P2 B1, 5 P1 B1,
 //         6 P2 right, 7 P1 right
 // MiSTer's pad bits: 0 right, 1 left, 2 down, 3 up, then the <buttons>
-// list: 4 B1, 5 B2, 6 B3, 7 Start, 8 Coin, 9 Service, 10 B4, 11 B5.
+// list: 4 B1, 5 B2, 6 B3, 7 Start, 8 Coin, 9 Service, 10 B4, 11 B5; 12-15
+// B6-B9, Assault's right stick as buttons (up, down, left, right).
 // The sets with a wheel and pedals, light guns or Metal Hawk's stick map
 // the analog sticks and the mouse onto AN0-AN7 (ns2_controls, the set's
 // control mode in config byte 33); the others keep MAME's power-on values.
 // ------------------------------------------------------------------
 wire [8:0] p1 = {joystick_0[11:10], joystick_0[6:0]} | kb_p1;
 wire [8:0] p2 = {joystick_1[11:10], joystick_1[6:0]} | {2'b00, kb_p2};
+wire [3:0] rp1 = joystick_0[15:12], rp2 = joystick_1[15:12];
 wire p1_start = joystick_0[7] | kb_start1, p2_start = joystick_1[7] | kb_start2;
 wire p1_coin  = joystick_0[8] | kb_coin1,  p2_coin  = joystick_1[8] | kb_coin2;
 wire p1_svc   = joystick_0[9] | kb_service, p2_svc  = joystick_1[9];
@@ -509,7 +511,9 @@ always @(posedge clk_sys) begin
 	rf_cnt  <= rf_cnt == 12'd3071 ? 12'd0 : rf_cnt + 12'd1;
 	sd_rfsh <= reset ? rf_cnt >= 12'd2400 : hcnt >= 9'd300;
 end
-ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(sd_rfsh),
+// CL3 and 3-clock tRCD/tRP (NS2-27): the -7 grade chips on some MiSTer
+// SDRAM boards ask 20-21 ns of tRCD/tRP, and 10 ns a clock at CL2
+ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000), .CL(3), .XRC(1)) sdram (.clk(clk_sys), .clk_sd(clk_sd), .rst(por_rst), .init(), .rfsh(sd_rfsh),
 	.addr0(sd_addr0), .addr1(sd_addr1), .addr2(sd_addr2), .addr3(sd_addr3), .push(sd_push), .req_full(sd_full), .valid_t(sd_valid_t),
 	.push_we(sd_push_we), .push_din(sd_push_din), .push_dsn(sd_push_dsn),
 	.data0(sd_data0), .data1(sd_data1), .data2(sd_data2), .data3(sd_data3),
@@ -569,7 +573,7 @@ wire        no_rotate = (orientation == 2'd0) | direct_video;
 
 // the controls (above): the guns aim at the picture as displayed
 ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),
-	.an_default(cfg_analog), .idle_b(cfg[34]), .idle_h(cfg[35]), .p1(p1), .p2(p2), .start1(p1_start), .start2(p2_start),
+	.an_default(cfg_analog), .idle_b(cfg[34]), .idle_h(cfg[35]), .p1(p1), .p2(p2), .rp1(rp1), .rp2(rp2), .start1(p1_start), .start2(p2_start),
 	.coin1(p1_coin), .coin2(p2_coin), .svc1(p1_svc), .svc2(p2_svc),
 	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .rstick2(rstick_1), .dial_default(cfg_dials), .dials(in_dials), .mouse(ps2_mouse),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .analog(in_analog),

@@ -286,7 +286,7 @@ def assemble(text, name, gm):
     return bytes(out)
 
 
-# the pad's buttons (the core's J1: B1, B2, B3, Start, Coin, Service, B4, B5)
+# the pad's buttons (the core's J1: B1, B2, B3, Start, Coin, Service, B4, B5, B6-B9)
 # as each control mode uses them (rtl/ns2_controls.sv), by MAME input ports
 BUTTONS = {
     None: 'Button 1,Button 2,Button 3,Start,Coin,Service,-,-',
@@ -300,7 +300,7 @@ BUTTONS = {
     'sgunner': 'Trigger,Bomb,-,Start,Coin,Service,-,-',
     'luckywld': 'Fire,Accelerator,Brake,Start,Coin,Service,-,-',
     'metlhawk': 'Button 1,Button 2,-,Start,Coin,Service,Lever Up,Lever Down',
-    'assault': 'Fire,Sticks Apart,Turn Left,Start,Coin,Service,Turn Right,Sticks Together',
+    'assault': 'Fire,Sticks Apart,Turn Left,Start,Coin,Service,Turn Right,Sticks Together,Right Up,Right Down,Right Left,Right Right',
 }
 
 

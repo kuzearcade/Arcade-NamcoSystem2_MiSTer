@@ -6,8 +6,12 @@ J := ../../../rtl/third_party/jtframe_sdram64
 # jtframe_sdram64's bank arbitration: 0 = randomised (the D3 choice), 1 = fixed
 # priority to bank 0 (starves banks 2 and 3 under load)
 BAPRIO ?= 0
+# CL (2/3) and XRC (1: tRCD/tRP 3 clocks), NS2-27; OBJ the build's directory
+CL ?= 2
+XRC ?= 0
+OBJ ?= obj_dir
 SRCS := probe_top.sv ../../models/sdram_model_burst.sv $(wildcard $(J)/*.v)
-obj_dir/Vprobe_top: tb.cpp $(SRCS) Makefile
+$(OBJ)/Vprobe_top: tb.cpp $(SRCS) Makefile
 	verilator --cc --exe --build -O3 -j 8 -CFLAGS -O3 --x-assign fast --x-initial fast -Wno-fatal -Wno-WIDTH \
 		-Wno-PINCONNECTEMPTY -Wno-UNOPTFLAT -Wno-CASEINCOMPLETE -Wno-TIMESCALEMOD -Wno-MULTIDRIVEN -Wno-LATCH \
-		-DVERILATOR -GBAPRIO=$(BAPRIO) --top-module probe_top $(SRCS) tb.cpp -o Vprobe_top
+		-DVERILATOR -GBAPRIO=$(BAPRIO) -GCL=$(CL) -GXRC=$(XRC) --Mdir $(OBJ) --top-module probe_top $(SRCS) tb.cpp -o Vprobe_top

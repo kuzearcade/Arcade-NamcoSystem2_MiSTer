@@ -59,13 +59,15 @@ set_false_path -from [get_registers {emu|cfg[*][*]}]
 # ------------------------------------------------------------------
 # The SDRAM interface (NS2-19). Without these the pins are unconstrained and
 # nothing checks the chip clock's phase (rtl/pll_ns2.v outclk_2, forwarded
-# through an altddio_out). The chip, CL2 at 98.304 MHz, as the MiSTer SDRAM
-# boards' slowest parts allow: tAC 6.0 ns, tOH 2.5 ns, tIS 1.5 ns, tIH
+# through an altddio_out). The chip at 98.304 MHz, as the MiSTer SDRAM
+# boards' slowest parts allow (CL2's tAC; the core runs CL3 since NS2-27,
+# whose 5.4 ns this keeps as margin): tAC 6.0 ns, tOH 2.5 ns, tIS 1.5 ns, tIH
 # 0.8 ns; the board's traces 0.3-1.0 ns each way.
 # - Commands, addresses, masks and write data leave on a clk_sd edge from
 #   the I/O registers, for the chip's next edge.
-# - Read data: jtframe_sdram64 (CL2, SHIFTED=0) takes the word the chip
-#   drives from its edge on the second clk_sd edge after it (multicycle 2).
+# - Read data: jtframe_sdram64 (SHIFTED=0) takes the word the chip drives
+#   from its edge on the second clk_sd edge after it (multicycle 2), at
+#   either CAS latency (its DST is READ + CL).
 # ------------------------------------------------------------------
 create_generated_clock -name sdram_clk_pin -source [get_pins {emu|pll|altera_pll_i|general[2].gpll~PLL_OUTPUT_COUNTER|divclk}] [get_ports {SDRAM_CLK}]
 set sd_out [get_ports {SDRAM_A[*] SDRAM_BA[*] SDRAM_nCS SDRAM_nRAS SDRAM_nCAS SDRAM_nWE SDRAM_DQML SDRAM_DQMH SDRAM_CKE SDRAM_DQ[*]}]

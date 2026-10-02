@@ -5,7 +5,7 @@
 module top #(
 	// a bitstream's blocks (NamcoS2.sv): make VARIANT=SG|MH|SZ|LW
 	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1,
-	parameter WRAM_SD = 0
+	parameter WRAM_SD = 0, parameter SD_CL = 2, parameter SD_XRC = 0
 ) (
 	input             clk,
 	input             clk_sd,
@@ -180,7 +180,7 @@ module top #(
 	wire [12:0] a;
 	wire [1:0]  ba;
 	assign dq = dq_oe ? dq_q : sdram_din;
-	ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000)) u_sd (.clk(clk), .clk_sd(clk_sd), .rst(rst), .init(sd_init), .rfsh(rfsh),
+	ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000), .CL(SD_CL), .XRC(SD_XRC)) u_sd (.clk(clk), .clk_sd(clk_sd), .rst(rst), .init(sd_init), .rfsh(rfsh),
 		.addr0(sd_addr0), .addr1(sd_addr1), .addr2(sd_addr2), .addr3(sd_addr3), .push(sd_push), .req_full(sd_full), .valid_t(sd_valid_t),
 		.push_we(sd_push_we), .push_din(sd_push_din), .push_dsn(sd_push_dsn),
 		.data0(sd_data0), .data1(sd_data1), .data2(sd_data2), .data3(sd_data3),

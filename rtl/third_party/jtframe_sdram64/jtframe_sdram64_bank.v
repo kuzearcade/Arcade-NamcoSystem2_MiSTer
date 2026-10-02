@@ -9,6 +9,8 @@ module jtframe_sdram64_bank #(
               HF=1,     // 1 for HF operation (idle cycles), 0 for LF operation
                         // HF operation starts at 66.6MHz (1/15ns)
               SHIFTED      =0,
+              CL           =2,  // NS2 local change (NS2-27), see jtframe_sdram64
+              XRC          =0,
               AUTOPRECH    =0,
               PRECHARGE_ALL=0,
               BALEN        =64, // 16, 32 or 64 bits
@@ -65,11 +67,11 @@ localparam ROW=13,
 // states
 localparam IDLE    = 0,
            // AUTOPRECH 1+2(1)
-           PRE_ACT = HF ? 2:1,
+           PRE_ACT = (HF ? 2:1) + XRC,
            ACT     = PRE_ACT+1,
-           PRE_RD  = PRE_ACT + (HF ? 2:1),
+           PRE_RD  = PRE_ACT + (HF ? 2:1) + XRC,
            READ    = PRE_RD+1,
-           DST     = READ + (SHIFTED==1 ? 1 : 2) ,
+           DST     = READ + CL - (SHIFTED==1 ? 1 : 0) ,
            DTICKS  = BURSTLEN==64 ? 4 : (BURSTLEN==32?2:1),
            BUSY    = DST+(DTICKS-1),
            RDY     = DST + (BALEN==16 ? 0 : (BALEN==32? 1 : 3)),
@@ -123,7 +125,7 @@ always @(posedge clk) begin
         dqm_busy  <= 0; // |{st[RDY-2:READ]}
     end else begin
         if(next_st[READ]) in_busy <= 1;
-        else if( st[(BALEN==16? READ+1 : RDY-2)] || next_st[READ-1:0]!=0 ) in_busy<=0;
+        else if( st[(BALEN==16? READ+1 : RDY-CL)] || next_st[READ-1:0]!=0 ) in_busy<=0; // NS2-27: RDY-2 at CL2, kept to the READ
 
         if(next_st[READ]) in_busy64 <= 1;
         else if( st[BUSY] || next_st[READ-1:0]!=0 ) in_busy64<=0;
@@ -158,6 +160,9 @@ always @(*) begin
 end
 
 wire row_match = match && actd && !AUTOPRECH[0];
+// the command do_* would issue, from the state alone (NS2-27, the address)
+wire sel_act = st[PRE_ACT] | (st[IDLE] & prechd & ~actd);
+wire sel_pre = st[IDLE] & ~prechd & ~row_match;
 
 always @(*) begin
     do_prech = 0;
@@ -209,10 +214,14 @@ always @(*) begin
     // that the top can OR the write mask into A12/A11 (MiSTer's DQM)
     // without decoding the command
     sdram_a[12:11] =  do_act ? addr_row[12:11] : 2'b00;
-    // NS2 local change (NS2-24): the address only with a command (0 with
-    // NOP, the SDRAM ignores it), so that the top ORs the banks' addresses
-    sdram_a[10:0] = do_act ? addr_row[10:0] :
-            (do_read | do_prech) ? { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], addr[AW-1], addr[8:0]} : 11'd0;
+    // NS2 local change (NS2-24): the address only while granted (0 without
+    // the grant), so that the top ORs the banks' addresses: one bank at most
+    // holds bg, and none while the refresh runs. NS2-27: chosen by the state
+    // alone (sel_act, sel_pre), not by do_*, which wait on the other banks'
+    // dbusy/dqm/act: on a granted NOP the address is ignored. A12/A11 above
+    // stay on do_act (MiSTer's DQM)
+    sdram_a[10:0] = !bg ? 11'd0 : sel_act ? addr_row[10:0] :
+            { sel_pre ? PRECHARGE_ALL[0] : AUTOPRECH[0], addr[AW-1], addr[8:0]};
 end
 
 always @(posedge clk) begin

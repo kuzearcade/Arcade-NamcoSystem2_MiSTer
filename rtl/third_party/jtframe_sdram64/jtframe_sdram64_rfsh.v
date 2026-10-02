@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Date: 29-4-2021 */
 /* verilator coverage_off */
-module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
+module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0, XRC=0)
 (
     input               rst,
     input               clk,
@@ -22,8 +22,10 @@ module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
 // HF=0 -> 60MHz  (16.67ns)
 // HF=1 -> 100MHz (10ns)
 
-localparam STW  = 3+7-(HF==1? 0 : 4),
-           RFRSH= HF?2:1;
+// NS2 local change (NS2-27): XRC adds a clock to the PRECHARGE ALL's tRP,
+// and to the cycle so that tRFC stays
+localparam STW  = 3+7-(HF==1? 0 : 4)+XRC,
+           RFRSH= (HF?2:1)+XRC;
 
 localparam CW=6;
 localparam [STW-1:0] ONE=1;

@@ -6,7 +6,7 @@
 // the fetches of captured MAME frames). Every word is checked against the
 // preloaded pattern (mem[word] = word address hash), so the probe also proves
 // the data path: it found the PRE_RD fix in jtframe_sdram64_bank.v.
-module probe_top #(parameter BAPRIO = 1) (
+module probe_top #(parameter BAPRIO = 1, parameter CL = 2, parameter XRC = 0) (
 	input             clk,
 	input             rst,
 	input             rfsh,
@@ -40,7 +40,7 @@ module probe_top #(parameter BAPRIO = 1) (
 	assign dq = dq_oe ? dq_q : sdram_din;
 
 	jtframe_sdram64 #(.AW(AW), .HF(1), .BA0_LEN(64), .BA1_LEN(64), .BA2_LEN(64), .BA3_LEN(64),
-	                  .BA0_WEN(0), .MISTER(1), .RFSHCNT(9), .BAPRIO(BAPRIO)) u_ctl (
+	                  .BA0_WEN(0), .MISTER(1), .RFSHCNT(9), .BAPRIO(BAPRIO), .CL(CL), .XRC(XRC)) u_ctl (
 		.rst(rst), .clk(clk), .init(init),
 		.ba0_addr(addr[0]), .ba1_addr(addr[1]), .ba2_addr(addr[2]), .ba3_addr(addr[3]),
 		.rd(rd), .wr(4'd0),

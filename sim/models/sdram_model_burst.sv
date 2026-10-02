@@ -43,6 +43,19 @@ module sdram_model_burst #(
 	integer    t = 0, t_act [0:3], t_pre [0:3], t_last_act = -100;
 	integer    i;
 	reg [8:0]  rcol;
+	// the shortest interval seen for each timing (clocks), whatever the chip's
+	// grade: tb prints them in ns against the datasheets' minimums. tWR is the
+	// last write's clock to the PRECHARGE (or REF's PRECHARGE ALL), tRFC a
+	// REF to the next command, tMRD a LOAD MODE to the next command; wr_rd
+	// counts WRITEs issued while a read's words are still due on DQ
+	integer    m_rcd /*verilator public_flat_rw*/ = 99, m_rp /*verilator public_flat_rw*/ = 99,
+	           m_ras /*verilator public_flat_rw*/ = 99, m_rc /*verilator public_flat_rw*/ = 99,
+	           m_rrd /*verilator public_flat_rw*/ = 99, m_wr /*verilator public_flat_rw*/ = 99,
+	           m_rfc /*verilator public_flat_rw*/ = 99, m_mrd /*verilator public_flat_rw*/ = 99,
+	           wr_rd /*verilator public_flat_rw*/ = 0;
+	integer    t_wr [0:3], t_ref = -100, t_mode = -100;
+	reg        any_q;
+	initial for (i = 0; i < 4; i = i + 1) t_wr[i] = -100;
 	initial for (i = 0; i < 4; i = i + 1) begin is_open[i] = 0; t_act[i] = -100; t_pre[i] = -100; end
 
 	// read pipeline: up to CL + BL words ahead
@@ -74,10 +87,20 @@ module sdram_model_burst #(
 		end
 	endtask
 
+	// DQM masks read data two clocks after it is sampled (both CLs). MiSTer's
+	// boards wire DQML/DQMH to A11/A12, so an ACTIVE's row bits mask any read
+	// word due two clocks later: the word comes back as dead_word, and
+	// dqm_hits counts read words masked (a controller should make none)
+	reg  [1:0] dqm_h1 = 2'b00;
+	integer    dqm_hits /*verilator public_flat_rw*/ = 0;
 	always @(posedge SDRAM_CLK) begin
 		t = t + 1;
 		DQ_OE <= q_val[0];
-		DQ_Q  <= q_data[0];
+		// q_data[0] is the word for the next edge; DQM sampled one edge before
+		// this one is two before that
+		DQ_Q  <= {dqm_h1[1] ? 8'hde : q_data[0][15:8], dqm_h1[0] ? 8'had : q_data[0][7:0]};
+		if (q_val[0] && dqm_h1 != 2'b00) dqm_hits = dqm_hits + 1;
+		dqm_h1 = {SDRAM_DQMH, SDRAM_DQML};
 		for (i = 0; i < 15; i = i + 1) begin q_val[i] = q_val[i + 1]; q_data[i] = q_data[i + 1]; end
 		q_val[15] = 0;
 		// write burst data
@@ -88,8 +111,14 @@ module sdram_model_burst #(
 			wr_left = wr_left - 1;
 		end
 		if (!SDRAM_nCS && SDRAM_CKE && cmd != 3'b111 && $test$plusargs("cmdlog")) $display("  t=%0d cmd %0d ba %0d a %h", t, cmd, SDRAM_BA, SDRAM_A);
+		if (!SDRAM_nCS && SDRAM_CKE && cmd != 3'b111) begin
+			if (t - t_ref < m_rfc) m_rfc = t - t_ref;
+			if (t - t_mode < m_mrd) m_mrd = t - t_mode;
+		end
 		if (!SDRAM_nCS && SDRAM_CKE) case (cmd)
+			C_REF: t_ref = t;
 			C_MODE: begin
+				t_mode = t;
 				bl = 4'd1 << SDRAM_A[2:0];
 				cl = SDRAM_A[6:4];
 				wsingle = SDRAM_A[9];
@@ -99,6 +128,9 @@ module sdram_model_burst #(
 				if (t - t_pre[SDRAM_BA] < tRP) viol("tRP");
 				if (t - t_act[SDRAM_BA] < tRC) viol("tRC");
 				if (t - t_last_act < tRRD) viol("tRRD");
+				if (t - t_pre[SDRAM_BA] < m_rp) m_rp = t - t_pre[SDRAM_BA];
+				if (t - t_act[SDRAM_BA] < m_rc) m_rc = t - t_act[SDRAM_BA];
+				if (t - t_last_act < m_rrd) m_rrd = t - t_last_act;
 				open_row[SDRAM_BA] = SDRAM_A;
 				is_open[SDRAM_BA] = 1;
 				t_act[SDRAM_BA] = t;
@@ -108,12 +140,15 @@ module sdram_model_burst #(
 				for (i = 0; i < 4; i = i + 1)
 					if ((SDRAM_A[10] || i == SDRAM_BA) && is_open[i]) begin
 						if (t - t_act[i] < tRAS) viol("tRAS");
+						if (t - t_act[i] < m_ras) m_ras = t - t_act[i];
+						if (t - t_wr[i] < m_wr) m_wr = t - t_wr[i];
 						is_open[i] = 0; t_pre[i] = t;
 					end
 			end
 			C_RD, C_WR: begin
 				if (!is_open[SDRAM_BA]) viol("READ/WRITE on a closed bank");
 				if (t - t_act[SDRAM_BA] < tRCD) viol("tRCD");
+				if (t - t_act[SDRAM_BA] < m_rcd) m_rcd = t - t_act[SDRAM_BA];
 				if (cmd == C_RD) begin
 					for (i = 0; i < bl; i = i + 1) begin
 						// word i on DQ during clock CL + i after the command (the pipeline
@@ -125,6 +160,10 @@ module sdram_model_burst #(
 						q_data[cl - 2 + i] = mem[{SDRAM_BA, open_row[SDRAM_BA], rcol}];
 					end
 				end else begin
+					any_q = 0;
+					for (i = 0; i < 4; i = i + 1) any_q = any_q | q_val[i];
+					if (any_q || DQ_OE) wr_rd = wr_rd + 1;
+					t_wr[SDRAM_BA] = t + (wsingle ? 0 : bl - 1);
 					wr_ba = SDRAM_BA; wr_col = SDRAM_A[8:0];
 					if (!SDRAM_DQML) mem[{SDRAM_BA, open_row[SDRAM_BA], SDRAM_A[8:0]}][7:0]  = DQ_IN[7:0];
 					if (!SDRAM_DQMH) mem[{SDRAM_BA, open_row[SDRAM_BA], SDRAM_A[8:0]}][15:8] = DQ_IN[15:8];

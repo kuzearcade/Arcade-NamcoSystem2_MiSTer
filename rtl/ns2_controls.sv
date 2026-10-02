@@ -36,6 +36,7 @@ module ns2_controls (
 	input      [7:0]  idle_b, idle_h, // MCUB's and MCUH's idle values (config bytes 34-35)
 	// players: [0] R [1] L [2] D [3] U [4] B1 [5] B2 [6] B3 [7] B4 [8] B5
 	input      [8:0]  p1, p2,
+	input      [3:0]  rp1, rp2,       // Assault's right stick as buttons: [0] U [1] D [2] L [3] R
 	input             start1, start2, coin1, coin2, svc1, svc2,
 	input      [15:0] stick1, stick2, // left sticks {Y, X}, signed; a light gun's position
 	input      [15:0] rstick1, rstick2, // the right sticks {Y, X}
@@ -164,11 +165,17 @@ module ns2_controls (
 	// Two 4-way sticks a player, a tank's two tracks (MAME's assault ports):
 	// the left on MCUB (up, down, left) and MCUH 7/6 (right), the right on
 	// MCUH (up, down) and MCUDI0 (right, left). The analog sticks drive them
-	// one each, and while either is pushed the d-pad is left out: MiSTer
-	// also presses the d-pad from the left analog stick, which would push
-	// the right stick with it. With neither pushed the d-pad drives both
-	// alike (forward, back, sideways); B3 and B4 turn (left track back and
-	// right forward, and the reverse); B2 and B5 push the sticks apart and
+	// one each. MiSTer also presses the d-pad from the left analog stick,
+	// and sends a pad's analog sticks only when its mapping marks them
+	// analog: without, the left stick reaches the core as the d-pad alone,
+	// and the right not at all. So the right stick can also be four buttons
+	// (B6-B9, rp: a stick's directions can be bound to them). A player who
+	// has used the right stick (analog or buttons, `tw` since reset) drives
+	// the left track with the left analog stick or the d-pad and the right
+	// with the right stick. Until then the left analog stick drives the
+	// left track, and the d-pad (with no analog stick pushed) both alike:
+	// forward, back, sideways. B3 and B4 turn (left track back and right
+	// forward, and the reverse); B2 and B5 push the sticks apart and
 	// together. {U, D, L, R} each.
 	function [3:0] dir4(input signed [7:0] x, input signed [7:0] y);
 		reg [7:0] ax, ay;
@@ -183,18 +190,28 @@ module ns2_controls (
 	function [3:0] pad4(input [3:0] udlr);
 		pad4 = udlr[3] ? 4'b1000 : udlr[2] ? 4'b0100 : udlr[1] ? 4'b0010 : udlr[0] ? 4'b0001 : 4'b0000;
 	endfunction
-	function [7:0] twin(input [8:0] p, input [15:0] ls, input [15:0] rs);   // {left, right}
-		reg [3:0] al, ar, pd;
+	function [7:0] twin(input [8:0] p, input [3:0] rp, input tw, input [15:0] ls, input [15:0] rs);   // {left, right}
+		reg [3:0] al, ar, pd, pr;
 		begin
 			al = dir4(ls[7:0], ls[15:8]); ar = dir4(rs[7:0], rs[15:8]); pd = pad4(p[3:0]);
-			twin = (al != 0 || ar != 0) ? {al, ar} : {pd, pd};
+			pr = pad4({rp[0], rp[1], rp[2], rp[3]});
+			if (tw) twin = {al != 0 ? al : pd, ar != 0 ? ar : pr};
+			else    twin = (al != 0 || ar != 0) ? {al, ar} : {pd, pd};
 			if (p[6]) twin = {4'b0100, 4'b1000};        // B3: turn left
 			if (p[7]) twin = {4'b1000, 4'b0100};        // B4: turn right
 			if (p[5]) twin = {4'b0010, 4'b0001};        // B2: apart
 			if (p[8]) twin = {4'b0001, 4'b0010};        // B5: together
 		end
 	endfunction
-	wire [7:0] t1 = twin(p1, stick1, rstick1), t2 = twin(p2, stick2, rstick2);
+	// a player's right stick in use (analog past the 4-way threshold, or B6-B9)
+	reg tw1, tw2;
+	always @(posedge clk)
+		if (reset) begin tw1 <= 1'b0; tw2 <= 1'b0; end
+		else begin
+			if (rp1 != 0 || dir4(rstick1[7:0], rstick1[15:8]) != 0) tw1 <= 1'b1;
+			if (rp2 != 0 || dir4(rstick2[7:0], rstick2[15:8]) != 0) tw2 <= 1'b1;
+		end
+	wire [7:0] t1 = twin(p1, rp1, tw1, stick1, rstick1), t2 = twin(p2, rp2, tw2, stick2, rstick2);
 	wire [3:0] l1 = t1[7:4], r1 = t1[3:0], l2 = t2[7:4], r2 = t2[3:0];
 
 	// ------------------------------------------------------------ the ports

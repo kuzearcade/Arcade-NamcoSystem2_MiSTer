@@ -18,7 +18,7 @@ static void expect(const char *what, unsigned got, unsigned want) {
 static uint16_t stick(int x, int y) { return (uint16_t)(((y & 0xff) << 8) | (x & 0xff)); }
 static void reset(unsigned mode, unsigned ib = 0xff, unsigned ih = 0xff) {
 	t->mode = mode; t->idle_b = ib; t->idle_h = ih; t->flip = 0; t->an_default = 0x8080808080ffffffULL;
-	t->p1 = t->p2 = 0; t->start1 = t->start2 = t->coin1 = t->coin2 = t->svc1 = t->svc2 = 0;
+	t->p1 = t->p2 = 0; t->rp1 = t->rp2 = 0; t->start1 = t->start2 = t->coin1 = t->coin2 = t->svc1 = t->svc2 = 0;
 	t->stick1 = t->stick2 = t->rstick1 = t->rstick2 = 0; t->mouse = 0; t->dial_default = 0xffffff0f;
 	t->reset = 1; clk(); clk(); t->reset = 0; clk();
 }
@@ -168,6 +168,21 @@ int main(int argc, char **argv) {
 	t->stick1 = stick(0, -128); t->rstick1 = stick(0, 127); t->p1 = 0x08; clk(); clk();
 	expect("as both analog (turn right): L up", t->mcub, 0xdf); expect("as ...: R down", t->mcuh, 0xfd);
 	t->stick1 = t->rstick1 = 0;
+	// the right stick used: the d-pad (the left stick without analog) drives the left track only
+	t->p1 = 0x08; clk(); clk(); expect("as twin: d-pad up: L up", t->mcub, 0xdf); expect("as twin: d-pad up: R neutral", t->mcuh, 0xff);
+	// a pad with no analog sticks: d-pad and B6-B9 (the right stick bound to them)
+	reset(0x04);
+	t->p1 = 0x08; clk(); clk(); expect("as no analog, B6-B9 unused: d-pad up drives both (R)", t->mcuh, 0xf7);
+	t->p1 = 0x00; t->rp1 = 0x2; clk(); clk(); expect("as B7 (right down) alone: L neutral", t->mcub, 0xff); expect("as B7: R down", t->mcuh, 0xfd);
+	t->p1 = 0x08; t->rp1 = 0x2; clk(); clk(); expect("as d-pad up + B7: L up", t->mcub, 0xdf); expect("as d-pad up + B7: R down", t->mcuh, 0xfd);
+	t->p1 = 0x08; t->rp1 = 0x0; clk(); clk(); expect("as twin: d-pad up alone: L up", t->mcub, 0xdf); expect("as twin: d-pad up alone: R neutral", t->mcuh, 0xff);
+	t->p1 = 0x00; t->rp1 = 0x1; clk(); clk(); expect("as B6 right up", t->mcuh, 0xf7);
+	t->rp1 = 0x4; clk(); clk(); expect("as B8 right left", t->dials & 0xff, 0x07);
+	t->rp1 = 0x8; clk(); clk(); expect("as B9 right right", t->dials & 0xff, 0x0d);
+	t->rp1 = 0x0; t->rp2 = 0x1; clk(); clk(); expect("as P2 B6 right up", t->mcuh, 0xfb);
+	t->rp2 = 0; t->p1 = 0x40; clk(); clk(); expect("as twin: B3 turn left still: L down", t->mcub, 0xf7); expect("as twin B3: R up", t->mcuh, 0xf7);
+	// the d-pad's tests below: player 1 has not used the right stick
+	reset(0x04);
 	t->p1 = 0x08; clk(); clk(); expect("as d-pad up: both up (L)", t->mcub, 0xdf); expect("as d-pad up: both up (R)", t->mcuh, 0xf7);
 	t->p1 = 0x0a; clk(); clk(); expect("as d-pad 4-way: up before left", t->mcub, 0xdf);
 	t->p1 = 0x01; clk(); clk(); expect("as d-pad right: L right", t->mcuh, 0x7f); expect("as d-pad right: R right", t->dials & 0xff, 0x0d);
