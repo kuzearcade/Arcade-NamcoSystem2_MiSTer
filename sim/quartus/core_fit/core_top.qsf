@@ -29,6 +29,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c65.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c68.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_m740.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_sound.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_ym_fifo.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_c140.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_rom_cache.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../../rtl/ns2_mem.sv

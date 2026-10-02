@@ -12,7 +12,7 @@ T := $(R)/third_party
 SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \
 	$(R)/ns2_video.sv $(R)/ns2_c123.sv $(R)/ns2_roz.sv $(R)/ns2_c45.sv $(R)/ns2_c169.sv $(R)/ns2_c355.sv $(R)/ns2_sprite_a.sv \
 	$(R)/ns2_c65.sv $(R)/ns2_c68.sv $(R)/ns2_m740.sv $(R)/ns2_hd63705.v $(R)/ns2_hd63705_ctrl.v $(R)/ns2_hd63705_alu.v $(R)/ns2_hd63705_regs.v \
-	$(R)/ns2_sound.sv $(R)/ns2_c140.sv $(R)/ns2_rom_cache.sv $(R)/ns2_wram_cache.sv $(R)/ns2_mem.sv $(R)/ns2_bank_arb.sv $(R)/ns2_tile_filter.sv $(R)/ns2_sdram.sv \
+	$(R)/ns2_sound.sv $(R)/ns2_ym_fifo.sv $(R)/ns2_c140.sv $(R)/ns2_rom_cache.sv $(R)/ns2_wram_cache.sv $(R)/ns2_mem.sv $(R)/ns2_bank_arb.sv $(R)/ns2_tile_filter.sv $(R)/ns2_sdram.sv \
 	$(wildcard $(T)/jtframe_sdram64/*.v) ../../models/sdram_model_burst.sv \
 	$(T)/fx68k/fx68k.sv $(T)/fx68k/fx68kAlu.sv $(T)/fx68k/uaddrPla.sv $(T)/mc6809/mc6809is.v $(wildcard $(T)/jt51/hdl/*.v)
 $(OBJ)/Vtop: tb.cpp $(SRCS) Makefile

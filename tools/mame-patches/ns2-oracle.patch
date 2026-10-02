@@ -26,10 +26,36 @@ index 4c28f675d26..ede78cf85af 100644
  		for (int i = 0; i < samples; i++)
  		{
 diff --git a/src/mame/namco/namcos2.cpp b/src/mame/namco/namcos2.cpp
-index 8c6da7a0425..ef3e75ab52a 100644
+index 8c6da7a0425..a6ed88ec5b2 100644
 --- a/src/mame/namco/namcos2.cpp
 +++ b/src/mame/namco/namcos2.cpp
-@@ -713,7 +713,12 @@ void namcos2_base_state::master_common_am(address_map &map)
+@@ -554,6 +554,9 @@ C102 - Controls CPU access to ROZ Memory Area.
+ #include "sound/ymopm.h"
+ #include "speaker.h"
+ 
++#include <cstdlib>
++#include <cstring>
++
+ #include "finallap.lh"
+ 
+ /* Define clocks based on actual OSC on the PCB */
+@@ -563,6 +566,15 @@ static constexpr XTAL M68K_CPU_CLOCK     = (MAIN_OSC_CLOCK / 4);        /* 12.28
+ static constexpr XTAL M68B09_CPU_CLOCK   = (MAIN_OSC_CLOCK / 24);       /* 2.048MHz clock for 68B09 sound CPU */
+ static constexpr XTAL C65_CPU_CLOCK      = (MAIN_OSC_CLOCK / 24);       /* 2.048MHz clock for 63705 (or 63B05) I/O CPU */
+ static constexpr XTAL C68_CPU_CLOCK      = (MAIN_OSC_CLOCK / 6);        /* 8.192MHz clock for 37450 I/O CPU */
++// LOCAL DIAGNOSTIC PATCH (Arcade-NamcoSystem2_MiSTer, tools/mame-patches,
++// the audio audit). Not for upstream. NS2_SND_ISO=ym or c140 keeps only that
++// chip in the speaker mix, at its own gain; unset, stock.
++static double ns2_iso(const char *chip, double gain)
++{
++	const char *iso = getenv("NS2_SND_ISO");
++	return (iso && *iso && strcmp(iso, chip) != 0) ? 0.0 : gain;
++}
++
+ static constexpr XTAL YM2151_SOUND_CLOCK = XTAL(3'579'545);             /* 3.579545MHz FM clock */
+ static constexpr XTAL C140_SOUND_CLOCK   = (MAIN_OSC_CLOCK / 384 / 6);  /* 21.333kHz C140 clock (was 8000000/374 or 21.390kHz) */
+ 
+@@ -713,7 +725,12 @@ void namcos2_base_state::master_common_am(address_map &map)
  void namcos2_base_state::slave_common_am(address_map &map)
  {
  	map(0x000000, 0x03ffff).rom();
@@ -41,6 +67,115 @@ index 8c6da7a0425..ef3e75ab52a 100644
 +	else
 +		map(0x100000, 0x13ffff).ram();
  	map(0x1c0000, 0x1fffff).m(m_slave_intc, FUNC(namco_c148_device::map));
+ }
+ 
+@@ -1816,10 +1833,10 @@ void namcos2_state::base_noio(machine_config &config)
+ 	configure_c123tmap_standard(config);
+ 	configure_namcos2_roz_standard(config);
+ 
+-	m_c140->add_route(0, "speaker", 0.75, 0);
+-	m_c140->add_route(1, "speaker", 0.75, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.75), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.75), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ }
+ 
+ 
+@@ -1840,8 +1857,8 @@ void namcos2_state::base2(machine_config &config)
+ 	base(config);
+ 
+ 	m_c140->reset_routes();
+-	m_c140->add_route(0, "speaker", 1.0, 0);
+-	m_c140->add_route(1, "speaker", 1.0, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 1.0), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 1.0), 1);
+ }
+ 
+ void namcos2_state::assaultp(machine_config &config)
+@@ -1856,10 +1873,10 @@ void namcos2_state::base3(machine_config &config)
+ 	base(config);
+ 
+ 	m_c140->reset_routes();
+-	m_c140->add_route(0, "speaker", 0.45, 0);
+-	m_c140->add_route(1, "speaker", 0.45, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.45), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.45), 1);
+ 
+-	YM2151(config.replace(), "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 1.0, 0).add_route(1, "speaker", 1.0, 1); /* 3.579545MHz */
++	YM2151(config.replace(), "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 1.0), 0).add_route(1, "speaker", ns2_iso("ym", 1.0), 1); /* 3.579545MHz */
+ }
+ 
+ 
+@@ -1883,10 +1900,10 @@ void finallap_state::finallap_noio(machine_config &config)
+ 	configure_c123tmap_standard(config);
+ 	configure_c45road_standard(config);
+ 
+-	m_c140->add_route(0, "speaker", 0.75, 0);
+-	m_c140->add_route(1, "speaker", 0.75, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.75), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.75), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ }
+ 
+ void finallap_state::base_fl(machine_config &config)
+@@ -1951,10 +1968,10 @@ void sgunner_state::sgunner(machine_config &config)
+ 	configure_c355spr_standard(config);
+ 	configure_c123tmap_standard(config);
+ 
+-	m_c140->add_route(0, "speaker", 0.75, 0);
+-	m_c140->add_route(1, "speaker", 0.75, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.75), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.75), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ }
+ 
+ void sgunner_state::sgunner2(machine_config &config)
+@@ -1978,10 +1995,10 @@ void sgunner_state::sgunner2(machine_config &config)
+ 	configure_c355spr_standard(config);
+ 	configure_c123tmap_standard(config);
+ 
+-	m_c140->add_route(0, "speaker", 0.75, 0);
+-	m_c140->add_route(1, "speaker", 0.75, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.75), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.75), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ }
+ 
+ void sgunner_state::suzuka8h(machine_config &config)
+@@ -2009,10 +2026,10 @@ void sgunner_state::suzuka8h(machine_config &config)
+ 	configure_c123tmap_standard(config);
+ 	configure_c45road_standard(config);
+ 
+-	m_c140->add_route(0, "speaker", 0.75, 0);
+-	m_c140->add_route(1, "speaker", 0.75, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 0.75), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 0.75), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ }
+ 
+ void sgunner_state::luckywld(machine_config &config)
+@@ -2055,10 +2072,10 @@ void metlhawk_state::metlhawk(machine_config &config)
+ 	configure_c169roz_standard(config);
+ 	m_c169roz->set_tile_callback(FUNC(metlhawk_state::RozCB_metlhawk));
+ 
+-	m_c140->add_route(0, "speaker", 1.0, 0);
+-	m_c140->add_route(1, "speaker", 1.0, 1);
++	m_c140->add_route(0, "speaker", ns2_iso("c140", 1.0), 0);
++	m_c140->add_route(1, "speaker", ns2_iso("c140", 1.0), 1);
+ 
+-	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", 0.80, 0).add_route(1, "speaker", 0.80, 1); /* 3.579545MHz */
++	YM2151(config, "ymsnd", YM2151_SOUND_CLOCK).add_route(0, "speaker", ns2_iso("ym", 0.80), 0).add_route(1, "speaker", ns2_iso("ym", 0.80), 1); /* 3.579545MHz */
+ //  ymsnd.irq_handler().set_inputline("audiocpu", 1);
  }
  
 diff --git a/src/mame/namco/namcos2.h b/src/mame/namco/namcos2.h

@@ -193,6 +193,17 @@ CONTROLS = {
 }
 
 
+# the speaker gains, x128 (config bytes 36-37: the C140, the YM2151), by MAME
+# machine config (namcos2.cpp): base and the rest C140 0.75, YM2151 0.80;
+# base2 (and assaultp) and metlhawk C140 1.0; base3 C140 0.45, YM2151 1.0
+GAINS = {'base2': (1.0, 0.80), 'assaultp': (1.0, 0.80), 'metlhawk': (1.0, 0.80), 'base3': (0.45, 1.0)}
+
+
+def gains(config):
+    c, y = GAINS.get(config, (0.75, 0.80))
+    return bytes([round(c * 128), round(y * 128)])
+
+
 def config_block(name, sets=None, gm=None):
     """The core's configuration of a set, 48 bytes at image 0x00D6000 (the
     MiSTer top latches it from the download; not ROM data):
@@ -211,7 +222,8 @@ def config_block(name, sets=None, gm=None):
            & Wild; guns: [5:4] their channels, [6] reversed, [7] the
            triggers on MCUB; wheel and pedals: [4] Start on MCUB, [5] the
            gears on MCUB (Dirt Fox)
-      34-35 MCUB's and MCUH's idle values (modes other than 0)"""
+      34-35 MCUB's and MCUH's idle values (modes other than 0)
+      36-37 the C140's and the YM2151's speaker gains x128 (GAINS)"""
     import ns2_keys
     sets = sets or parse()
     gm = gm or games()
@@ -233,7 +245,7 @@ def config_block(name, sets=None, gm=None):
         bits |= ((int(ok) << 16) | (v & 0xffff)) << (17 * i)
     import ns2_ports
     return (b'N2' + bytes([b, mode]) + bits.to_bytes(17, 'little') + bytes(ns2_ports.ports(name))
-            + bytes(CONTROLS.get(g['inputs'], (0, 0xff, 0xff))) + bytes(12))
+            + bytes(CONTROLS.get(g['inputs'], (0, 0xff, 0xff))) + gains(g['config']) + bytes(10))
 
 
 def build_region(region, files):

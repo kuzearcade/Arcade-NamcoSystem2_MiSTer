@@ -636,7 +636,7 @@ than the device has. The causes, and the fixes:
 - M3 Finest Hour: 287 of 300 pictures, as before. The audio cache waits
   96,798 clocks instead of 93,932.
 
-## NS2-14 — M4: the NamcoS2 bitstream on the board (open: timing margin, the audio level against MAME)
+## NS2-14 — M4: the NamcoS2 bitstream on the board (open: timing margin; the audio against MAME: NS2-26)
 
 `NamcoS2.sv` is the standard bitstream's top: the standard boards and Final
 Lap / Four Trax (`HAS_C45`), the C65 or the C68. It follows GingaNin's
@@ -1417,3 +1417,147 @@ digital pad): player 2's d-pad took the game's second sight to the right
 edge and the left, the core's yellow crosshair with it. Golly! Ghost!:
 player 1's d-pad moved the sight left, up, then to the bottom right.
 Seeds STD 6, MH 11, SG 14, SZ 10, LW 34, every clock met.
+
+## NS2-26 — The audio against MAME, every set: the C140's compressed samples, the YM2151's writes, the gains, the C140's images (closed, measured)
+
+**Reported:** a high-pitched screech in Rolling Thunder 2, and sound effects
+missing in some games.
+
+**The method** (`tools/ns2_audio_audit.py`, the MAME patch `NS2_SND_ISO` in
+`tools/mame-patches`):
+- MAME 0.289 records each set three ways from a cold boot: the stock mix,
+  the YM2151 alone and the C140 alone, each at its own gain (mix = YM2151 +
+  C140 to 1 LSB). The board's HDMI audio (the capture box, card 1) is
+  recorded through the same schedule: the attract (125 s) and a played game
+  (coin, Start, the fire button and stick for 80 s; `play.lua` in MAME, a
+  uinput script on the MiSTer).
+- The two timelines are aligned in 10 s windows by their band-energy
+  envelopes; the board's band powers are fitted as gy^2 * YM2151 + gc^2 *
+  C140, giving each chip's level against MAME's, and the board's spectrum
+  is compared with the fitted prediction.
+- The chips alone, in simulation, against MAME on identical input:
+  `sim/rtl/ns2_c140` replays the sound CPU's C140 writes (all 28 parents,
+  125 s of play each); `sim/rtl/ns2_ym` replays MAME's YM2151 writes through
+  the core's path (ns2_ym_fifo and jt51) and compares with MAME's YM2151
+  alone. A Python port of MAME's C140 loop matches MAME's samples exactly
+  and locates a divergence to a voice.
+
+**1. The C140's compressed samples (the missing sound effects).** `pcm()`
+in `rtl/ns2_c140.sv` decodes a compressed byte as MAME's table, but its
+mantissa's shift, `s1 + 3`, was 3 bits wide: for exponents 5-7 it shifted by
+0-2 instead of 8-10, so the loud compressed samples lost their mantissa
+(Assault, NS2-8's measured set, never uses those exponents). With MAME's
+writes replayed for 125 s of play, Bubble Trouble's C140 differed from MAME
+in 498,525 samples and ran 1.1 dB quiet (its worst 5 s, -9.8 dB of error);
+Cosmo Gang 287,595 samples. The shift is now 4 bits. All 28 parents then
+match MAME's C140 to 0.00 dB in level; the samples left different are a
+register write on the clock of a sample edge, a voice a sample apart (Four
+Trax's looping voice 7, its frequency's two bytes either side of an edge;
+the board's edges are not MAME's anyway), not a sound.
+
+**2. The YM2151's writes (missing and wrong FM sound).** jt51 applies an
+operator or key-on write over the next 32 of its cycles (up to 64 with its
+half-rate phase), and a write before that cancels or redirects it. The games
+write every 26-28 cycles and never read the busy flag (Rolling Thunder 2:
+22,230 writes and no status read in 20 s), while MAME's YM2151 takes every
+write at once. Replaying MAME's YM2151 writes into jt51: Rolling Thunder 2's
+FM went silent at 14.2 s and stayed so (-11.3 dB against MAME, envelope
+correlation 0.54); Golly! Ghost! lost half its loud frames. `rtl/ns2_ym_fifo.sv`
+queues the 6809's writes (512 deep, a block RAM) and passes them to jt51 64
+YM cycles after the last data write (address after address at once): with
+all the parents' logged writes the queue peaks at 236 (an init burst), a
+write waits 2 ms at most, and every write leaves in order (Finest Hour: all
+20,252 checked). `sim/rtl/ns2_ym` (the FIFO and jt51, at clk_sys, against
+MAME's YM2151 alone):
+
+| set | before: level, envelope corr. | after |
+|---|---|---|
+| Rolling Thunder 2 | -11.3 dB, 0.54 | -0.1 dB, 0.993 |
+| Golly! Ghost! | -1.8 dB, 0.72 | +2.1 dB, 0.986 |
+| Dirt Fox | -5.3 dB, 0.96 | +0.1 dB, 0.972 |
+| Finest Hour | -4.5 dB, 0.99 | -0.2 dB, 0.999 |
+| Steel Gunner 2 | -3.6 dB, 0.97 | -0.3 dB, 0.992 |
+| Mirai Ninja | +0.2 dB, 0.97 | +0.8 dB, 0.993 |
+| Super World Stadium | -0.7 dB, 0.95 | +0.0 dB, 0.984 |
+
+(The testbench's reset must be held for many YM cycles: jt51 resets its slots
+under its clock enable; on the board the download's reset is long.) jt51's
+timbre still differs from MAME's on some instruments (Mirai Ninja's bass:
+its fundamental against MAME's second harmonic, same notes, levels within
+4%): open.
+
+**3. The speaker gains (Rolling Thunder 2's loudness and the quiet sets).**
+MAME's gains differ by machine config, and the core used the base's (C140
+0.75, YM2151 0.80) for all: base3 (Burning Force, Dragon Saber, Rolling
+Thunder 2, Valkyrie) is C140 0.45 and YM2151 1.0, so their C140 was 1.67x
+MAME's (the board: 1.57-1.61 in C140-only frames, +3.6 to +5.8 dB overall,
+Rolling Thunder 2 peaking at 26,362 against MAME's 16,430); base2 and
+assaultp (Assault, Assault Plus, Dirt Fox, Finest Hour, Phelios) and Metal
+Hawk are C140 1.0, so theirs was 0.75x (the board: 0.67-0.72). The gains are
+now config bytes 36-37 (x128, `tools/ns2_romdata.py` GAINS), and every `.mra`
+carries them; the top mixes by them (an image without them takes the
+base's). With the base's sets the board's C140 measures 0.94-0.97 of MAME's
+(the HDMI path).
+
+**4. The C140's images (the high-pitched sound).** The C140's 21.333 kHz
+samples, held, put images above its 10.67 kHz Nyquist; MAME's resampler
+removes them. The board had, against MAME, +6 dB at 11 kHz, +12 at 14 kHz
+and +24 at 18 kHz in every set (Rolling Thunder 2's 1.67x C140 made them
+4.4 dB stronger still). `rtl/ns2_c140_fir.sv` interpolates the C140 4x to
+85.333 kHz through a 128-tap low-pass (`tools/ns2_firgen.py`: flat to 9
+kHz, -42 dB at 11.3 kHz, -66 dB at 12 kHz), bit-exact against its integer
+model over 1.6 M outputs (and its impulse response). On MAME's own C140
+samples it takes the 11-14 kHz band from +5.8 to -30.7 dB and 14-18 kHz from
++15.1 to -52.0 dB against MAME, and leaves 0-9 kHz as it was.
+
+**On the board** (seeds STD 7, MH 11, SG 15, SZ 17, LW 37, every clock met;
+the `.mra`s with their gains): every parent recaptured, attract and play, and
+fitted against MAME as before. Level is the board's total against MAME's mix
+over the matched windows; C140 is its gain in the frames where MAME has the
+C140 alone (the HDMI path's own is about 0.96); before -> after:
+
+| set | attract level | attract C140 | play level | play C140 |
+|---|---|---|---|---|
+| Assault | -2.6 -> -0.1 dB | 0.72 -> 0.96 | -> -0.4 dB | -> 0.96 |
+| Bubble Trouble | (silent) | | -> -0.1 dB | -> 0.97 |
+| Burning Force | +3.7 -> -0.3 dB | 1.61 -> 0.98 | +3.6 -> -0.2 dB | 1.60 -> 0.99 |
+| Cosmo Gang | -2.6 -> +0.2 dB | 0.67 -> 0.95 | -1.5 -> +0.4 dB | 0.81 -> 0.96 |
+| Dirt Fox | -2.7 -> -0.2 dB | 0.72 -> 0.96 | -2.7 -> -0.0 dB | 0.70 -> 0.95 |
+| Dragon Saber | +4.1 -> -0.0 dB | 1.61 -> 0.97 | +4.3 -> +1.0 dB | 1.74 -> 1.13 |
+| Final Lap 2 | (silent) | | +0.8 -> +0.9 dB | 0.96 -> 0.97 |
+| Final Lap 3 | (silent) | | +2.7 -> +3.0 dB | 1.27 -> 1.32 |
+| Final Lap | (silent) | | -6.3 -> -5.8 dB | 0.45 -> 0.47 |
+| Finest Hour | (silent) | | -2.9 -> -0.4 dB | 0.69 -> 0.92 |
+| Four Trax | (silent) | | -1.5 -> -0.5 dB | 0.82 -> 0.94 |
+| Golly! Ghost! | -1.2 -> +0.0 dB | 0.84 -> 0.93 | -0.4 -> +0.2 dB | 0.86 -> 0.92 |
+| Kyuukai Douchuuki | (silent) | | -0.3 -> -0.6 dB | 0.90 -> 0.87 |
+| Lucky & Wild | (silent) | | -0.9 -> -0.5 dB | 0.90 -> 0.94 |
+| Marvel Land | -0.4 -> -0.3 dB | 0.94 -> 0.97 | -0.3 -> -0.4 dB | 0.88 -> 0.91 |
+| Metal Hawk | -3.4 -> -0.4 dB | 0.67 -> 0.93 | -2.7 -> -0.2 dB | 0.72 -> 0.97 |
+| Mirai Ninja | +0.2 -> -0.1 dB | 0.96 -> 0.97 | -0.5 -> -0.3 dB | 0.51 -> 0.56 |
+| Ordyne | (silent) | | -1.9 -> -0.3 dB | 0.86 -> 0.96 |
+| Phelios | -2.5 -> -0.2 dB | 0.72 -> 0.97 | -2.8 -> -0.3 dB | 0.70 -> 0.95 |
+| Rolling Thunder 2 | +3.9 -> -0.3 dB | 1.57 -> 0.96 | +4.0 -> -0.0 dB | 1.73 -> 1.05 |
+| Steel Gunner | -0.2 -> -0.1 dB | 0.96 -> 0.97 | -0.5 -> -0.4 dB | 0.95 -> 0.97 |
+| Steel Gunner 2 | -0.4 -> -0.3 dB | 0.96 -> 0.96 | -0.2 -> -0.3 dB | 0.94 -> 0.94 |
+| Suzuka 8 Hours 2 | (silent) | | -0.1 -> -0.1 dB | 0.97 -> 0.98 |
+| Suzuka 8 Hours | (silent) | | -0.0 -> -0.0 dB | 0.99 -> 0.99 |
+| Super World Stadium | -0.3 -> -0.3 dB | 0.96 -> 0.97 | -0.2 -> -0.1 dB | 0.95 -> 0.97 |
+| Super World Stadium '92 | -0.3 -> -0.3 dB | 0.97 -> 0.97 | -0.3 -> -0.3 dB | 0.93 -> 0.92 |
+| Super World Stadium '93 | -0.3 -> -0.2 dB | 0.97 -> 0.98 | -0.4 -> -0.3 dB | 0.92 -> 0.92 |
+| Valkyrie no Densetsu | +4.3 -> +0.0 dB | 1.59 -> 1.00 | +5.8 -> +2.4 dB | 1.64 -> 1.10 |
+
+("Silent": MAME's attract has no sound for that set, the board's neither.)
+The play rows are rougher than the attract: the games diverge (fewer windows
+match; Valkyrie 2 of 16), and the driving games take MAME's pedal held full
+against the core's pedal ramped by a pulsed button, so Final Lap's and Final
+Lap 3's engines run differently (their C140 in simulation equals MAME's).
+In the frequency bands, the C140's images are gone: Assault 11/14/18 kHz
++6/+12/+25 dB -> -5/-13/-8 dB against MAME, Metal Hawk +6/+13/+25 ->
+-4/-12/-10. What remains above 6 kHz, +2 to +7 dB in all, is the 9 kHz band
+(+4 to +8 dB: the C140's filter is flat to 9 kHz where MAME's resampler
+already falls) and, where the YM2151 plays (Burning Force: +4/+5/+9 dB at
+11/14/18 kHz), jt51's 55.9 kHz output held into MiSTer's 48 kHz: open.
+
+Cost: the C140's filter 2 DSPs and its history; the YM2151's FIFO 1 M10K
+(LW: 41,489 ALMs (99%), 546 of 553 M10K).

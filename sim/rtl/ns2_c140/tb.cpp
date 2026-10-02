@@ -3,6 +3,7 @@
 // MP_CPU=audiocpu MP_WONLY=1 MP_TIME=1), replayed at the same clocks; its
 // mixer sums compared with MAME's (NS2_C140_DUMP, tools/mame-patches).
 //   ./obj_dir/Vns2_c140 SET TRACE_DIR [samples]
+// RTL_DUMP=file writes the RTL's sums (s16 left, s16 right) per sample.
 // TRACE_DIR: audiocpu_bus.txt and c140.raw from the same MAME run.
 #include "Vns2_c140.h"
 #include "verilated.h"
@@ -48,6 +49,7 @@ int main(int argc, char **argv) {
 
 	Vns2_c140 *t = new Vns2_c140;
 	uint64_t cyc = 0; size_t wi = 0, si = 0; int shown = 0, bad = 0;
+	FILE *dump = getenv("RTL_DUMP") ? fopen(getenv("RTL_DUMP"), "wb") : nullptr;
 	bool pend = false; uint32_t pa = 0;
 	auto tick = [&]() { t->clk = 1; t->eval(); t->clk = 0; t->eval(); };
 	t->reset = 1; for (int i = 0; i < 8; i++) tick(); t->reset = 0;
@@ -64,6 +66,7 @@ int main(int argc, char **argv) {
 		tick(); cyc++;
 		if (t->sample) {
 			int16_t rl = t->raw_l, rr = t->raw_r, ml = raw[2 * si], mr = raw[2 * si + 1];
+			if (dump) { int16_t lr[2] = {rl, rr}; fwrite(lr, 2, 2, dump); }
 			if (rl != ml || rr != mr) {
 				if (shown++ < 12) printf("sample %zu (%.4f s): rtl %d %d, mame %d %d\n", si, si / 21333.0, rl, rr, ml, mr);
 				bad++;
@@ -71,6 +74,7 @@ int main(int argc, char **argv) {
 			si++;
 		}
 	}
+	if (dump) fclose(dump);
 	printf("%zu samples, %d differ%s\n", si, bad, bad ? "" : ": ALL MATCH");
 	delete t;
 	return bad ? 1 : 0;

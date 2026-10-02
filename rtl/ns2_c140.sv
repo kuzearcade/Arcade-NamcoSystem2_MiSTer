@@ -124,7 +124,9 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 			s1 = i[2:0];
 			j3 = {{3{i[7]}}, i[7:3]};           // j >> 3 (arithmetic)
 			a3 = i[7] ? -j3 : j3;
-			v  = ((17'h80 << s1) & 17'hff00) + ({12'd0, a3[4:0]} << (s1 != 0 ? s1 + 3'd3 : 3'd4));
+			// the shift is 4 bits: s1 + 3 reaches 10 (NS2-26: in 3 bits, exponents
+			// 5-7 shifted by 0-2, and loud compressed samples lost their mantissa)
+			v  = ((17'h80 << s1) & 17'hff00) + ({12'd0, a3[4:0]} << (s1 != 0 ? {1'b0, s1} + 4'd3 : 4'd4));
 			pcm = i[7] ? -v[15:0] : v[15:0];
 		end
 	endfunction

@@ -150,8 +150,9 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 - **Pictures against MAME:** the remaining line differences in Suzuka 8
   Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),
   and Final Lap's ranking row 6.
-- **Audio:** the output level against MAME's (NS2-14); the C140 and the
-  C68 in M2 (NS2-8).
+- **Audio:** jt51's timbre on some FM instruments against MAME's YM2151,
+  and its 55.9 kHz output's aliasing at 48 kHz (NS2-26: the levels and the
+  C140 match MAME); the C68 in M2 (NS2-8).
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
   on hardware; test play with real controls.
 - **Other boards:** confirm NS2-19's fix (refresh through the download, the

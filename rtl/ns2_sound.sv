@@ -112,9 +112,14 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	// the chips' strobes: one clock, on the falling E that ends the cycle
 	wire wr_e = fallE && !rnw;
 	wire [7:0] ym_q, c140_q;
+	// the YM2151's writes through a FIFO (ns2_ym_fifo, NS2-26)
+	wire       ym_wr;
+	wire [8:0] ym_wq;
+	ns2_ym_fifo ym_fifo (.clk(clk), .reset(reset), .ycen(ycen), .we(wr_e && sel_ym), .a0(a[0]), .din(cpu_do),
+		.wr(ym_wr), .wq(ym_wq));
 	jt51 u_ym (
 		.rst(reset), .clk(clk), .cen(ycen), .cen_p1(ycen_p1),
-		.cs_n(!(wr_e && sel_ym)), .wr_n(1'b0), .a0(a[0]), .din(cpu_do), .dout(ym_q),
+		.cs_n(!ym_wr), .wr_n(1'b0), .a0(ym_wq[8]), .din(ym_wq[7:0]), .dout(ym_q),
 		.ct1(), .ct2(), .irq_n(), .sample(ym_sample), .left(), .right(), .xleft(ym_left), .xright(ym_right));
 	ns2_c140 #(.MAME_RATE(C140_MAME_RATE)) u_c140 (.clk(clk), .reset(reset), .cs(wr_e && sel_c140), .we(1'b1),
 		.addr(a[8:0]), .din(cpu_do), .dout(c140_q), .int1(int1),
