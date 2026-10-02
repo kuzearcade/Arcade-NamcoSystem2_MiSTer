@@ -100,8 +100,9 @@ show in MiSTer's mapping menu.
   flipped for the ROT180 sets. The OSD's "Gun crosshair" shows a white
   cross for player 1 and a yellow one for player 2, once player 2 has aimed.
 - **Assault** (and Assault Plus): two 4-way sticks a player, the tank's
-  two tracks. The left and right analog sticks are the two sticks; the
-  d-pad pushes both the same way (forward, back, sideways). Button 1
+  two tracks. The left and right analog sticks are the two sticks, each
+  its own track; with neither pushed, the d-pad pushes both the same way
+  (forward, back, sideways). Button 1
   fires; Turn Left (B3) and Turn Right (B4) push the sticks opposite ways;
   Sticks Apart (B2) and Sticks Together (B5) push them out and in.
 - **Metal Hawk:** the left stick (or d-pad) flies, and the right stick's Y,

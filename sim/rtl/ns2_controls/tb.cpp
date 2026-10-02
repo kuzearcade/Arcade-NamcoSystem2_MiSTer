@@ -160,6 +160,14 @@ int main(int argc, char **argv) {
 	t->rstick1 = 0; t->stick2 = stick(-128, 0); t->rstick2 = stick(0, 127); clk(); clk();
 	expect("as P2 L left", t->mcub, 0xfe); expect("as P2 R down", t->mcuh, 0xfe);
 	t->stick2 = t->rstick2 = 0;
+	// MiSTer presses the d-pad from the left analog stick: the right stick stays put
+	t->stick1 = stick(0, -128); t->p1 = 0x08; clk(); clk();
+	expect("as left analog up (d-pad emulated): L up", t->mcub, 0xdf); expect("as ...: R neutral", t->mcuh, 0xff);
+	t->stick1 = 0; t->rstick1 = stick(0, 127); t->p1 = 0; clk(); clk();
+	expect("as right analog down alone: L neutral", t->mcub, 0xff); expect("as ...: R down", t->mcuh, 0xfd);
+	t->stick1 = stick(0, -128); t->rstick1 = stick(0, 127); t->p1 = 0x08; clk(); clk();
+	expect("as both analog (turn right): L up", t->mcub, 0xdf); expect("as ...: R down", t->mcuh, 0xfd);
+	t->stick1 = t->rstick1 = 0;
 	t->p1 = 0x08; clk(); clk(); expect("as d-pad up: both up (L)", t->mcub, 0xdf); expect("as d-pad up: both up (R)", t->mcuh, 0xf7);
 	t->p1 = 0x0a; clk(); clk(); expect("as d-pad 4-way: up before left", t->mcub, 0xdf);
 	t->p1 = 0x01; clk(); clk(); expect("as d-pad right: L right", t->mcuh, 0x7f); expect("as d-pad right: R right", t->dials & 0xff, 0x0d);

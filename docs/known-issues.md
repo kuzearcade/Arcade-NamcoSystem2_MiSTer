@@ -1338,7 +1338,13 @@ bits, and nothing on its left and right.
 
 Control mode 0x04 (`tools/ns2_romdata.py` CONTROLS, `rtl/ns2_controls.sv`):
 - The left and right analog sticks are the two sticks (4-way: the larger
-  axis past 12). The d-pad drives both alike: forward, back, sideways.
+  axis past 12). The d-pad drives both alike: forward, back, sideways, but
+  only while neither analog stick is pushed. (At first a stick not pushed
+  followed the d-pad, and MiSTer presses the d-pad from the left analog
+  stick: the left stick alone drove both tracks, the tank forward instead of
+  turning. A virtual two-stick pad on the board (uinput, the firmware's own
+  mapping) showed it, and shows the fix: the left stick alone turns the
+  tank.)
 - Turn Left (B3) pushes the left stick down and the right up; Turn Right
   (B4) the reverse; Sticks Apart (B2) and Sticks Together (B5) push them
   out and in. The buttons win over the sticks.

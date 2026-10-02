@@ -164,9 +164,12 @@ module ns2_controls (
 	// Two 4-way sticks a player, a tank's two tracks (MAME's assault ports):
 	// the left on MCUB (up, down, left) and MCUH 7/6 (right), the right on
 	// MCUH (up, down) and MCUDI0 (right, left). The analog sticks drive them
-	// one each; the d-pad drives both alike (forward, back, sideways); B3
-	// and B4 turn (left track back and right forward, and the reverse); B2
-	// and B5 push the sticks apart and together. {U, D, L, R} each.
+	// one each, and while either is pushed the d-pad is left out: MiSTer
+	// also presses the d-pad from the left analog stick, which would push
+	// the right stick with it. With neither pushed the d-pad drives both
+	// alike (forward, back, sideways); B3 and B4 turn (left track back and
+	// right forward, and the reverse); B2 and B5 push the sticks apart and
+	// together. {U, D, L, R} each.
 	function [3:0] dir4(input signed [7:0] x, input signed [7:0] y);
 		reg [7:0] ax, ay;
 		begin
@@ -184,7 +187,7 @@ module ns2_controls (
 		reg [3:0] al, ar, pd;
 		begin
 			al = dir4(ls[7:0], ls[15:8]); ar = dir4(rs[7:0], rs[15:8]); pd = pad4(p[3:0]);
-			twin = {al != 0 ? al : pd, ar != 0 ? ar : pd};
+			twin = (al != 0 || ar != 0) ? {al, ar} : {pd, pd};
 			if (p[6]) twin = {4'b0100, 4'b1000};        // B3: turn left
 			if (p[7]) twin = {4'b1000, 4'b0100};        // B4: turn right
 			if (p[5]) twin = {4'b0010, 4'b0001};        // B2: apart
