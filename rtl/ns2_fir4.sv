@@ -1,14 +1,16 @@
-// The C140's anti-imaging interpolator (NS2-26): its 21.333 kHz samples
-// (one per in_stb, every 2304 clocks) out at 4x, 85.333 kHz, through a
-// 128-tap low-pass (tools/ns2_firgen.py, rtl/ns2_c140_fir_coef.vh): flat to
-// 9 kHz, -42 dB at 11.3 kHz. MAME resamples the C140 to its output rate and
-// so removes the images a held sample has above the C140's 10.67 kHz
-// Nyquist; held, they were +6 dB at 11 kHz to +24 dB at 18 kHz against MAME.
+// A sound chip's anti-imaging interpolator (NS2-26, NS2-29): its samples
+// (one per in_stb) out at 4x through a 128-tap low-pass whose passband is
+// MAME's own resampler's response (tools/ns2_firgen.py): a held sample puts
+// images above the chip's Nyquist, which MAME's resampler removes.
+//   CHIP 0: the C140, 21.333 kHz (every 2304 clocks), SPACE 576;
+//            rtl/ns2_c140_fir_coef.vh
+//   CHIP 1: the YM2151 (jt51), 55.93 kHz (every 878-879 clocks), SPACE 219;
+//            rtl/ns2_ym_fir_coef.vh
 //
-// An input sample starts four phases, 576 clocks apart. Phase p's output is
-// sum_k coef(4k + p) * x[n - k], k = 0..31, both channels at once (two
+// An input sample starts four phases, SPACE clocks apart. Phase p's output
+// is sum_k coef(4k + p) * x[n - k], k = 0..31, both channels at once (two
 // multipliers), a tap a clock; the output holds until the next phase.
-module ns2_c140_fir (
+module ns2_fir4 #(parameter CHIP = 0, parameter [11:0] SPACE = 12'd576) (
 	input                    clk,
 	input                    reset,
 	input                    in_stb,
@@ -18,6 +20,7 @@ module ns2_c140_fir (
 	output reg signed [15:0] out_r
 );
 	`include "ns2_c140_fir_coef.vh"
+	`include "ns2_ym_fir_coef.vh"
 
 	reg signed [15:0] hl [0:31];
 	reg signed [15:0] hr [0:31];
@@ -50,13 +53,13 @@ module ns2_c140_fir (
 				t <= 0; ph <= 0; k <= 0;
 			end else begin
 				if (t != 12'hfff) t <= t + 1'd1;
-				if (t == 12'd575 || t == 12'd1151 || t == 12'd1727) begin ph <= ph + 1'd1; k <= 0; end
+				if (t == SPACE - 1'd1 || t == 2 * SPACE - 1'd1 || t == 3 * SPACE - 1'd1) begin ph <= ph + 1'd1; k <= 0; end
 			end
 			// stage 1: a tap's operands
 			v1 <= k < 6'd32;
 			if (k < 6'd32) begin
 				xl <= hl[wp - k[4:0]]; xr <= hr[wp - k[4:0]];
-				c  <= coef({k[4:0], ph});
+				c  <= CHIP == 1 ? coef_ym({k[4:0], ph}) : coef_c140({k[4:0], ph});
 				k  <= k + 1'd1;
 			end
 			fin1 <= k == 6'd31;

@@ -42,6 +42,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	output            c169m_req, output [18:0] c169m_addr, input c169m_ack, input c169m_valid, input [63:0] c169m_data,
 	// audio
 	output signed [15:0] ym_left, ym_right,
+	output            ym_sample,      // jt51's sample (high a YM cycle, 55.93 kHz)
 	output signed [15:0] c140_left, c140_right, c140_raw_l, c140_raw_r,
 	output            c140_sample,
 	// debug
@@ -349,7 +350,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.clk(clk), .reset(reset), .run(sound_run),
 		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
-		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(),
+		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(ym_sample),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),
 		.c140_left(c140_left), .c140_right(c140_right), .c140_raw_l(c140_raw_l), .c140_raw_r(c140_raw_r),
 		.c140_sample(c140_sample),

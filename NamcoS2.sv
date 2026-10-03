@@ -416,6 +416,7 @@ wire [63:0] ft_data, fm_data;
 wire [7:0]  core_r, core_g, core_b;
 wire [8:0]  hcnt, vcnt;
 wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
+wire        ym_sample;
 wire        c140_sample;
 
 wire [2:0]  wram_req, wram_we, wram_ack, wram_valid;
@@ -435,7 +436,7 @@ ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
 	.spr_req(spr_req), .spr_addr(spr_addr), .spr_ack(spr_ack), .spr_valid(spr_valid), .spr_data(spr_data),
 	.c169_req(c169_req), .c169_addr(c169_addr), .c169_ack(c169_ack), .c169_valid(c169_valid), .c169_data(c169_data),
 	.c169m_req(c169m_req), .c169m_addr(c169m_addr), .c169m_ack(c169m_ack), .c169m_valid(c169m_valid), .c169m_data(c169m_data),
-	.ym_left(ym_left), .ym_right(ym_right), .c140_left(c140_left), .c140_right(c140_right), .c140_raw_l(), .c140_raw_r(), .c140_sample(c140_sample),
+	.ym_left(ym_left), .ym_right(ym_right), .ym_sample(ym_sample), .c140_left(c140_left), .c140_right(c140_right), .c140_raw_l(), .c140_raw_r(), .c140_sample(c140_sample),
 	.m_as(), .s_as(), .m_addr(), .s_addr(), .m_rnw(), .s_rnw(), .m_wdata(), .s_wdata(), .m_ds(), .s_ds(),
 	.m_rdata(), .s_rdata(), .m_dtack(), .s_dtack(),
 	.mcu_addr(), .snd_addr(), .mcu_wr(), .snd_wr(), .mcu_dout(), .snd_dout(), .sound_run(), .sub_run(),
@@ -525,14 +526,21 @@ ns2_sdram #(.WEN(WRAM_SD ? 4'b0010 : 4'b0000), .CL(3), .XRC(1)) sdram (.clk(clk_
 // ------------------------------------------------------------------
 // Audio: MAME's routes (namcos2.cpp), both stereo, the set's own gains
 // (config bytes 36-37, x128; NS2-26): the C140 at 0.75 (base2 and Metal
-// Hawk 1.0, base3 0.45), the YM2151 at 0.80 (base3 1.0). The C140 first
-// through its anti-imaging interpolator (ns2_c140_fir: 4x, flat to 9 kHz,
-// -42 dB at 11.3 kHz), as MAME's resampler removes the images a held
-// 21.333 kHz sample has above 10.67 kHz.
+// Hawk 1.0, base3 0.45), the YM2151 at 0.80 (base3 1.0). Each chip first
+// through its anti-imaging interpolator (ns2_fir4: 4x, MAME's resampler's
+// response in the passband, NS2-26 and NS2-29): a held sample has images
+// above the chip's Nyquist (the C140's 10.67 kHz, jt51's 27.97 kHz, which
+// MiSTer's 48 kHz output would fold back), and MAME's resampler removes
+// them.
 // ------------------------------------------------------------------
-wire signed [15:0] c140f_l, c140f_r;
-ns2_c140_fir c140_fir (.clk(clk_sys), .reset(reset), .in_stb(c140_sample), .in_l(c140_left), .in_r(c140_right),
-	.out_l(c140f_l), .out_r(c140f_r));
+wire signed [15:0] c140f_l, c140f_r, ymf_l, ymf_r;
+ns2_fir4 #(.CHIP(0), .SPACE(12'd576)) c140_fir (.clk(clk_sys), .reset(reset), .in_stb(c140_sample),
+	.in_l(c140_left), .in_r(c140_right), .out_l(c140f_l), .out_r(c140f_r));
+// jt51's sample is high for a YM cycle: its rising edge
+reg ym_sample_d;
+always @(posedge clk_sys) ym_sample_d <= ym_sample;
+ns2_fir4 #(.CHIP(1), .SPACE(12'd219)) ym_fir (.clk(clk_sys), .reset(reset), .in_stb(ym_sample && !ym_sample_d),
+	.in_l(ym_left), .in_r(ym_right), .out_l(ymf_l), .out_r(ymf_r));
 // the gains: a set image without them (bytes 0) takes the base board's
 wire [7:0] g_c140 = cfg[36] != 8'd0 ? cfg[36] : 8'd96;
 wire [7:0] g_ym   = cfg[37] != 8'd0 ? cfg[37] : 8'd102;
@@ -544,7 +552,7 @@ function signed [15:0] sat(input signed [17:0] v);
 	sat = v > 18'sd32767 ? 16'sh7fff : v < -18'sd32768 ? -16'sh8000 : v[15:0];
 endfunction
 always @(posedge clk_sys) begin
-	ym_pl <= ym_left * $signed({1'b0, g_ym});    ym_pr <= ym_right * $signed({1'b0, g_ym});
+	ym_pl <= ymf_l * $signed({1'b0, g_ym});      ym_pr <= ymf_r * $signed({1'b0, g_ym});
 	c_pl  <= c140f_l * $signed({1'b0, g_c140});  c_pr  <= c140f_r * $signed({1'b0, g_c140});
 	mix_l <= 18'(ym_pl >>> 7) + 18'(c_pl >>> 7);
 	mix_r <= 18'(ym_pr >>> 7) + 18'(c_pr >>> 7);

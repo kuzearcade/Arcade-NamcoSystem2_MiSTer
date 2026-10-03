@@ -308,7 +308,7 @@ clocks between two IRQ1s should be one frame: 8,448 E cycles, 33,792
 clocks. Measured over 63 frames of Assault: mean 33,792.6, range 33,780 to
 33,820 (the instruction MAME was in when line 200 came).
 
-## NS2-8 — M2: the whole board against MAME's bus traces (open: the C140, the C68)
+## NS2-8 — M2: the whole board against MAME's bus traces (closed: the C140 in NS2-26, the C68 in NS2-13)
 
 `sim/rtl/ns2_frames` runs the board from power-on and compares each CPU with
 MAME's trace (`sim/oracle/ns2_bustrace.lua`). With `MP_TIME=1` the trace
@@ -1539,7 +1539,7 @@ base's). With the base's sets the board's C140 measures 0.94-0.97 of MAME's
 samples, held, put images above its 10.67 kHz Nyquist; MAME's resampler
 removes them. The board had, against MAME, +6 dB at 11 kHz, +12 at 14 kHz
 and +24 at 18 kHz in every set (Rolling Thunder 2's 1.67x C140 made them
-4.4 dB stronger still). `rtl/ns2_c140_fir.sv` interpolates the C140 4x to
+4.4 dB stronger still). `rtl/ns2_c140_fir.sv` (now `rtl/ns2_fir4.sv`, NS2-29) interpolates the C140 4x to
 85.333 kHz through a 128-tap low-pass (`tools/ns2_firgen.py`: flat to 9
 kHz, -42 dB at 11.3 kHz, -66 dB at 12 kHz), bit-exact against its integer
 model over 1.6 M outputs (and its impulse response). On MAME's own C140
@@ -1709,3 +1709,89 @@ before. `sim/rtl/ns2_controls`: 140 checks, all pass. On the board (the
 standard bitstream, seed 11), Dirt Fox's test mode moves its option value
 the same way with Gear Down (B4) as with the d-pad's up, and with Gear Up
 (B3) as with its down.
+
+## NS2-29 — The audio's last differences against MAME: the YM2151's high frequencies, the C140's 9 kHz, jt51's timbre (closed, measured)
+
+**Open from NS2-26:** above 6 kHz the board was +2 to +7 dB against MAME:
+the 9 kHz band (+4 to +8 dB) and, where the YM2151 plays, 11-18 kHz (+4 to
++9 dB); and jt51's timbre seemed to differ on some instruments (Mirai
+Ninja's bass).
+
+**MAME's response, exactly.** MAME 0.289's default resampler is
+`audio_resampler_lofi` (`emu/resampler.cpp`): a source faster than the
+48 kHz output is first averaged `1 + fs / 48000` samples at a time (the
+YM2151's 55.93 kHz: pairs, to 27.97 kHz), then a 4-point cubic
+interpolates. As a frequency response: the YM2151 -3.3 dB at 9.5 kHz, -15
+dB at 16 kHz, -52 dB at 23 kHz; the C140 (21.333 kHz, no averaging) -2.2
+dB at 7.5 kHz, -4.9 dB at 9.5 kHz. Measured, MAME's YM2151 against its own
+ymfm at 55.93 kHz follows this to 8 kHz; above, MAME is higher than the
+model, by its own aliasing (the averaging folds 14-28 kHz down).
+
+The core held jt51's 55.93 kHz samples into MiSTer's 48 kHz output (no
+filter: everything above 24 kHz folded back), and the C140's interpolator
+(NS2-26) was flat to 9 kHz.
+
+**The fix.** `rtl/ns2_fir4.sv` (the C140's interpolator, generalised: a
+parameter picks the chip's coefficients and its phase spacing) now filters
+both chips, 4x, 128 taps; `tools/ns2_firgen.py` designs both (weighted least
+squares, the passband MAME's lofi response, then a stopband: MAME's own
+images and aliasing are not copied):
+- YM2151 (jt51's sample's edge, every 878-879 clocks; phases 219 clocks
+  apart): MAME's curve within 0.1 dB to 23 kHz, below -100 dB from 27.97
+  kHz.
+- C140: MAME's curve within 0.1 dB to 9.5 kHz, -8.6 dB at 10 kHz, -51 dB
+  at 11.3 kHz, below -84 dB from 12 kHz (before: flat to 9 kHz, -42 dB at
+  11.3 kHz).
+`sim/rtl/ns2_fir` checks the RTL against its integer model with the
+board's strobes (jt51's with random extra gaps): 4,000,000 YM2151 outputs
+(Mirai Ninja's jt51) and 1,600,000 C140 outputs (Assault's C140), 0 differ.
+Cost: 2 DSPs and a history; Lucky & Wild 41,497 of 41,910 ALMs. Seeds STD
+12, MH 13, SG 15, SZ 19, LW 51, every clock met (STD, MH, SZ and LW each
+missed HDMI or clk_sd by 0.02-0.25 ns on their old seeds).
+
+**On the board**, every parent recaptured as NS2-26 (the attract, or a
+played game where MAME's attract is silent), fitted against MAME the same
+way. Level is unchanged in every set (within 0.6 dB of before). The high
+frequencies, before -> after (the audit's HF excess; third-octave bands
+against MAME):
+
+| set | HF excess | 9.0 kHz | 11.3 kHz | 14.3 kHz |
+|---|---|---|---|---|
+| Burning Force (YM2151 10%) | +2.9 -> +1.4 dB | | +3.6 -> +0.4 | +5.2 -> -2.8 |
+| Mirai Ninja (YM2151 33%) | +4.1 -> +0.9 dB | | +3.7 -> -1.0 | +6.8 -> -2.8 |
+| Ordyne, play (YM2151 33%) | +4.2 -> +2.4 dB | +2.2 -> -0.6 | -0.5 -> -5.1 | -1.0 -> -9.3 |
+| Marvel Land | +2.5 -> +0.8 dB | | +3.3 -> -0.8 | +5.2 -> -3.5 |
+| Phelios | +3.0 -> +0.5 dB | | +2.1 -> -2.4 | +4.8 -> -3.8 |
+| Steel Gunner | +3.1 -> +1.2 dB | +5.3 -> +1.3 | -3.4 -> -9.2 | -8.4 -> -15.2 |
+| Metal Hawk | +3.1 -> +1.1 dB | +4.9 -> +1.5 | -3.6 -> -8.2 | -12.1 -> -12.2 |
+| Suzuka 8 Hours, play | +4.0 -> +1.9 dB | +7.0 -> +3.9 | -1.8 -> -6.4 | -7.7 -> -8.9 |
+| Finest Hour, play | +4.8 -> +2.7 dB | +7.1 -> +3.3 | -1.3 -> -6.1 | -4.7 -> -6.8 |
+
+| Lucky & Wild, play | +4.3 -> +1.8 dB | +5.3 -> +1.8 | +1.0 -> -3.3 | +4.3 -> -3.0 |
+
+In all 28 the HF excess falls by 1.5 to 3.2 dB, to -0.4 to +2.7 dB, but
+for Cosmo Gang (+4.2: its fit is 8 dB off before and after, its alignment)
+and Final Lap's play (+4.2: the pedal, below). Where the C140 dominates, the board is now below MAME above 11
+kHz: MAME's cubic leaves part of the C140's images there, which the filter
+removes. (The play captures' levels are as NS2-26's: the driving games'
+pedals.)
+
+**jt51's timbre: no defect.** `tools/ym_ref` renders a write log through
+MAME's own YM2151 (ymfm, from MAME's tree; `fifo_time.py` re-times a log as
+`ns2_ym_fifo` passes it):
+- Eight sets' logs (125 s each) through jt51 (`sim/rtl/ns2_ym`) against
+  ymfm, second by second: level -0.03 to -0.65 dB, spectral shape within
+  0.1-1.3 dB (median), 5 of 351 active seconds past 3 dB.
+- Mirai Ninja, each channel alone (`chsplit.py`): every second matches.
+  The seconds that differ in the mix are transients where the game
+  rewrites a voice mid-note (jt51 applies a write over 32 of its cycles,
+  ymfm at once: channel 4 at 40.48 s, 50 ms) or the FIFO's timing across
+  channels. NS2-26's "bass an octave off" was a whole-window comparison
+  against MAME's recording, not the same writes.
+- Against Nuked-OPM (a transistor-level YM2151, used as a reference only):
+  one note for every algorithm and feedback (64 patches), the first 10
+  harmonics. jt51's median worst error 0.4 dB, ymfm's 0.3; within 3 dB on
+  every harmonic jt51 52 of 64, ymfm 47. jt51's misses are weak harmonics
+  the chip notches to -31 to -41 dB (jt51 -23 to -30: algorithm 3 with
+  feedback 0-2) and algorithm 0 at feedback 7; ymfm's are elsewhere
+  (algorithms 1-2).
