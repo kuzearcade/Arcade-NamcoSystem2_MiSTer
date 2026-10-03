@@ -1059,7 +1059,7 @@ ports (73 checks). On the board:
 at some zooms on the board. The release before this change shows them too,
 so this change did not cause them.
 
-## NS2-19 — Black screens and crashes on other boards: no refresh in the download, and the SDRAM clock's phase (closed in analysis; open: confirmation on other boards)
+## NS2-19 — Black screens and crashes on other boards: no refresh in the download, and the SDRAM clock's phase (closed: confirmed with NS2-27's follow-up)
 
 **Reported:** on other users' boards some games boot to a black screen, or
 crash after a couple of minutes. The test board shows neither.
@@ -1598,7 +1598,7 @@ already falls) and, where the YM2151 plays (Burning Force: +4/+5/+9 dB at
 Cost: the C140's filter 2 DSPs and its history; the YM2151's FIFO 1 M10K
 (LW: 41,489 ALMs (99%), 546 of 553 M10K).
 
-## NS2-27 — The SDRAM's timing for the slower chips: CL3, a clock more of tRCD and tRP (closed in analysis; open: confirmation on other boards)
+## NS2-27 — The SDRAM's timing for the slower chips: CL3, a clock more of tRCD and tRP (closed, confirmed on other boards)
 
 **Reported:** NS2-19's black screens and crashes, much rarer since its fixes,
 still on some users' boards.
@@ -1669,6 +1669,10 @@ at either CAS latency.
   Steel Gunner, Metal Hawk (its ROZ demo), Suzuka 8 Hours, Lucky & Wild; with the first CL3 builds
   (before the address change): Phelios, Assault, Rolling Thunder 2, Steel
   Gunner 2.
+
+**Confirmed** (2026-10-03): the boards that still reported NS2-19's black
+screens and crashes run correctly with v2026-10-02.2 and later (NS2-19's
+refresh and clock phase, with this CL3 and the longer tRCD/tRP).
 
 ## NS2-28 — The games' button names, and Dirt Fox's gears on buttons (closed, measured)
 

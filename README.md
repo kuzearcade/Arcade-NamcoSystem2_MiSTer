@@ -168,10 +168,6 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
   and Final Lap's ranking row 6.
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
   on hardware; test play with real controls.
-- **Other boards:** confirm NS2-19's and NS2-27's fixes (refresh through
-  the download, the SDRAM clock at 171 degrees; CL3 and 3-clock tRCD/tRP
-  for the slower chips) on the boards that reported black screens and
-  crashes; the test board never showed them.
 
 The C139 serial link between cabinets is not emulated (nor is it in MAME):
 each cabinet plays alone.
