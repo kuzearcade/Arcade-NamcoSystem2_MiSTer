@@ -215,7 +215,7 @@ def mra_text(name, sets, gm):
     for bits, nm, ids in dips:
         L.append(f'    <dip bits="{bits}" name="{x(nm)}" ids="{x(",".join(ids))}"/>')
     L += ['  </switches>', '',
-          f'  <buttons names="{BUTTONS.get(g["inputs"], BUTTONS[None])}" default="A,B,X,Start,R,L,Y,Select"/>', '',
+          f'  <buttons names="{buttons(name, g)}" default="A,B,X,Start,R,L,Y,Select"/>', '',
           f'  <rom index="0" zip="{zips}" md5="none">']
     for p in parts:
         if p[0] == 'comment':
@@ -293,7 +293,7 @@ BUTTONS = {
     'finallap': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
     'finalap3': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
     'fourtrax': 'Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-',
-    'dirtfox': 'Accelerator,Brake,-,Start,Coin,Service,-,-',
+    'dirtfox': 'Accelerator,Brake,Gear Up,Start,Coin,Service,Gear Down,-',
     'suzuka': 'Accelerator,Brake,-,Start,Coin,Service,-,-',
     'gollygho': 'Trigger,-,-,Start,Coin,Service,-,-',
     'bubbletr': 'Trigger,-,-,Start,Coin,Service,-,-',
@@ -302,6 +302,24 @@ BUTTONS = {
     'metlhawk': 'Button 1,Button 2,-,Start,Coin,Service,Lever Up,Lever Down',
     'assault': 'Fire,Sticks Apart,Turn Left,Start,Coin,Service,Turn Right,Sticks Together,Right Up,Right Down,Right Left,Right Right',
 }
+# The sets on MAME's common ports by the game's own buttons, a family (the
+# parent and its clones) each. MAME gives them all three; which each game
+# reads was checked in MAME: a press in play, against the same run without
+# it (the others do nothing). A '-' hides a button from MiSTer's mapping.
+FAMILY_BUTTONS = {
+    'cosmogng': 'Fire,-,-,Start,Coin,Service,-,-',
+    'dsaber': 'Fire,Bomb,-,Start,Coin,Service,-,-',
+    'marvland': 'Jump,-,-,Start,Coin,Service,-,-',
+    'mirninja': 'Throw,Jump,-,Start,Coin,Service,-,-',
+    'ordyne': 'Shoot,Bomb,-,Start,Coin,Service,-,-',
+    'phelios': 'Fire,-,-,Start,Coin,Service,-,-',
+    'rthun2': 'Shoot,Jump,-,Start,Coin,Service,-,-',
+    'valkyrie': 'Attack,Jump,-,Start,Coin,Service,-,-',
+}
+
+
+def buttons(name, g):
+    return FAMILY_BUTTONS.get(g['parent'] or name) or BUTTONS.get(g['inputs'], BUTTONS[None])
 
 
 def main():

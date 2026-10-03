@@ -81,14 +81,22 @@ The analog inputs follow MAME's ports and ranges (`rtl/ns2_controls.sv`);
 each set's mode is in its `.mra` (config byte 33), and the button names
 show in MiSTer's mapping menu.
 
+The games on MAME's common ports have their own button names, and the
+buttons a game never reads are hidden: Cosmo Gang (Fire), Dragon Saber
+(Fire, Bomb), Marvel Land (Jump), Mirai Ninja (Throw, Jump), Ordyne
+(Shoot, Bomb), Phelios (Fire), Rolling Thunder 2 (Shoot, Jump), Valkyrie
+no Densetsu (Attack, Jump). Each was checked in MAME, a press in play
+against the same run without it.
+
 - **Wheel and pedals** (Final Lap 1-3, Four Trax, Dirt Fox, Suzuka 8
   Hours 1 and 2, Lucky & Wild): steer with the left stick, or the d-pad
   (the wheel returns to centre on release). Accelerate with Button 1 or
   the right stick up; brake with Button 2 or the right stick down (Lucky
   & Wild: Button 2 and Button 3). Button 3 shifts gear (a toggle, as the
   cabinet's lever) in Final Lap and Four Trax; Dirt Fox shifts up with
-  down and down with up. Final Lap and Dirt Fox have no Start button: a
-  credit starts the game.
+  Gear Up (Button 3) or the d-pad's down, and down with Gear Down (Button
+  4) or the d-pad's up, as MAME's ports. Final Lap and Dirt Fox have no
+  Start button: a credit starts the game.
 - **Light guns** (Golly! Ghost!, Bubble Trouble, Steel Gunner 1 and 2,
   Lucky & Wild): a MiSTer light gun, the left stick or the d-pad aims
   (player 2: the second pad's), whichever moved last; the d-pad moves the

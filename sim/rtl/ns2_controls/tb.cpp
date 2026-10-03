@@ -145,6 +145,9 @@ int main(int argc, char **argv) {
 	t->p1 = 0x08; clk(); clk(); expect("df gear down (up)", t->mcub, 0x80);
 	t->p1 = 0x04; clk(); clk(); expect("df gear up (down)", t->mcub, 0x20);
 	t->p1 = 0; t->start1 = 1; clk(); clk(); expect("df no Start", t->mcub, 0xa0);
+	t->start1 = 0; t->p1 = 0x80; clk(); clk(); expect("df B4 gear down", t->mcub, 0x80);
+	t->p1 = 0x40; clk(); clk(); expect("df B3 gear up", t->mcub, 0x20);
+	t->p1 = 0; clk(); clk(); expect("df gears released", t->mcub, 0xa0);
 
 	// Assault: two 4-way sticks a player (MAME's assault ports). MCUB: P1 L
 	// up 5, down 3, left 1 (P2 4, 2, 0); MCUH: P1 L right 7, B1 5, R up 3,

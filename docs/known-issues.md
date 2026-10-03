@@ -1669,3 +1669,43 @@ at either CAS latency.
   Steel Gunner, Metal Hawk (its ROZ demo), Suzuka 8 Hours, Lucky & Wild; with the first CL3 builds
   (before the address change): Phelios, Assault, Rolling Thunder 2, Steel
   Gunner 2.
+
+## NS2-28 — The games' button names, and Dirt Fox's gears on buttons (closed, measured)
+
+**Reported (GitHub #5):** the sets on MAME's common ports showed "Button 1-3"
+whatever the game uses, and Dirt Fox's gears were only on the d-pad's up
+and down.
+
+**Which buttons each game reads.** MAME's `base` ports give every one of
+these sets three buttons; which the game reads is not in the driver. Each
+was measured in MAME (0.289, `-nothrottle`, deterministic): coins and Start,
+Button 1 tapped through the menus in every run, then one button held for 12
+frames in play, its screens against the same run without the press (two
+control runs identical). The others did nothing (0 pixels differ over the
+next 90 frames):
+
+| family | Button 1 | Button 2 | Button 3 |
+|---|---|---|---|
+| Cosmo Gang | Fire | - | - |
+| Dragon Saber | Fire (the air shot) | Bomb | - |
+| Marvel Land | Jump | - | - |
+| Mirai Ninja | Throw | Jump | - |
+| Ordyne | Shoot | Bomb | - |
+| Phelios | Fire | - | - |
+| Rolling Thunder 2 | Shoot | Jump | - |
+| Valkyrie no Densetsu | Attack | Jump | - |
+
+(A first pass by screen hashes over a whole run flagged more: a press also
+skips a game's intro or rank select, or moves its random numbers. Cosmo
+Gang's Button 2, held through a stage, scored nothing where Button 1 scored
+4,670.) `tools/ns2_mra.py` names them per family (`FAMILY_BUTTONS`, the
+parent and its clones), with "-" hiding the unread buttons from MiSTer's
+mapping menu; the Valkyrie translation's `.mra` the same by hand.
+
+**Dirt Fox:** MAME's ports put Gear Shift Down on the joystick's up (MCUB
+5) and Gear Shift Up on its down (MCUB 7). Gear Up (Button 3) and Gear Down
+(Button 4) now drive them too (`ns2_controls`, mode bit 5), the d-pad as
+before. `sim/rtl/ns2_controls`: 140 checks, all pass. On the board (the
+standard bitstream, seed 11), Dirt Fox's test mode moves its option value
+the same way with Gear Down (B4) as with the d-pad's up, and with Gear Up
+(B3) as with its down.

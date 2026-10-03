@@ -15,7 +15,8 @@
 //         Bubble Trouble); otherwise MCUH 5 and 4, the bombs MCUH 3 and 2
 //   the wheel and pedals:
 //   [4]   Start on MCUB 7 / 6 (Four Trax, Suzuka)
-//   [5]   the gears on MCUB: 5 down (the d-pad's up), 7 up (down) (Dirt Fox)
+//   [5]   the gears on MCUB: 5 down (the d-pad's up, or B4), 7 up (the
+//         d-pad's down, or B3) (Dirt Fox)
 // Modes other than 0 set only their inputs' bits of MCUB and MCUH; the other
 // bits hold the set's idle values (config bytes 34-35: MAME's DIP defaults,
 // and 0 where no field is defined), as MAME reads them.
@@ -244,7 +245,7 @@ module ns2_controls (
 			if (mode[2]) mcuh_c[5] = !gear;
 		end
 		if (kind == 2'd1 && mode[4]) mcub_c[7:6] = ~{start1, start2};
-		if (kind == 2'd1 && mode[5]) begin mcub_c[5] = !p1[3]; mcub_c[7] = !p1[2]; end
+		if (kind == 2'd1 && mode[5]) begin mcub_c[5] = !(p1[3] || p1[7]); mcub_c[7] = !(p1[2] || p1[6]); end
 		if (guns) begin
 			case (mode[5:4])
 				2'd0: begin analog_c[8 * 0 +: 8] = v1x; analog_c[8 * 1 +: 8] = v1y; analog_c[8 * 2 +: 8] = v2x; analog_c[8 * 3 +: 8] = v2y; end
