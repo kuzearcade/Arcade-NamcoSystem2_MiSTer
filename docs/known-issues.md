@@ -1807,11 +1807,19 @@ every CPU through the lockstep's hold (NS2-14), and with them the sound
 chips: the YM2151's clock enable, the C140's sample tick and timer
 (`ns2_c140`'s `hold`) and the 6809's 120 Hz timer. The video keeps scanning
 the frozen RAM. On the board (Steel Gunner): two captures 3 s apart are the
-same with Pause on, and the game runs on when it is off.
+same with Pause on, and the game runs on when it is off. Phelios in play
+(STD s15, Pause when OSD is open, HDMI audio recorded): the stage music at
+2,000-3,000 RMS, then exactly 0 and the picture still for the 10 s the OSD
+is open, then the music back at its level and the game moving within
+0.5 s of the OSD closing (the ship then lost, with no input, to game over
+and the title: the game ran on).
 
 **Autofire** (OSD: Button 1, Button 2 or both; 15, 10, 7.5 or 30 Hz): a held
 button is let through half of each period, counted in the board's frames
-(none in a pause), both players, the keyboard's too.
+(none in a pause), both players, the keyboard's too. On the board, Assault's
+switch test (Player 1 FIRE, Left Ctrl held 3 s, captured at 60 fps): Off,
+lit every frame; Button 1 at 15 Hz, two frames lit and two dark; at 30 Hz,
+one and one; Button 2 only, Button 1 lit every frame.
 
 **The back door.** `ns2_board`'s `hb_*` port: a request stops the CPUs (as
 the hold, the sound running); 8 clocks later (the shared bus's last access
