@@ -44,8 +44,18 @@ module ns2_c65 (
 	// debug: the core's bus
 	output     [15:0] dbg_addr,
 	output            dbg_wr,
-	output     [7:0]  dbg_dout
+	output     [7:0]  dbg_dout,
+	// the savestate (M5), the MCU stopped: ss_ram the RAM (bytes, a clock
+	// after ss_a), ss_reg 0-8 the core's flops (ns2_hd63705), 9 {an_done,
+	// irq_in, adc_p, irq_p, div}, 10 {an_ctrl, an_data}
+	input             ss_on,
+	input      [8:0]  ss_a,
+	input             ss_ram, ss_reg,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output     [15:0] ss_q
 );
+	wire ss_w9 = ss_wr && ss_reg && ss_a[3:0] == 4'd9, ss_w10 = ss_wr && ss_reg && ss_a[3:0] == 4'd10;
 	// 2.048 MHz
 	reg [4:0] div;
 	// a ROM read not ready (a cache over the SDRAM) holds the cycle at its
@@ -53,7 +63,7 @@ module ns2_c65 (
 	// board's lockstep, NS2-14)
 	wire rom_wait;
 	assign rom_hold = div == 5'd23 && rom_wait;
-	always @(posedge clk) div <= reset ? 5'd0 : stop ? div : div == 5'd23 ? 5'd0 : div + 1'd1;
+	always @(posedge clk) div <= ss_w9 ? ss_wdata[4:0] : reset ? 5'd0 : stop ? div : div == 5'd23 ? 5'd0 : div + 1'd1;
 	wire cen = div == 5'd23 && !stop;
 	// the CPU's outputs change on cen (div 23): from five clocks later to the
 	// cycle's end the cache takes them (the SDC's 4-cycle multicycle paths
@@ -67,8 +77,10 @@ module ns2_c65 (
 	reg         irq_p, adc_p;
 	reg         irq_in;               // MAME's IRQ1 input: held until an interrupt is taken
 	wire        rd;
+	wire [15:0] core_ss;
 	ns2_hd63705 u_cpu (.rst(reset), .clk(clk), .cen(cen), .irq(irq_p), .adc(adc_p), .wr(wr), .rd(rd), .tstop(),
-	                   .addr(a), .din(din), .dout(dout));
+	                   .addr(a), .din(din), .dout(dout),
+	                   .ss_sel(ss_a[3:0]), .ss_wr(ss_wr && ss_reg && ss_a[3:0] < 4'd9), .ss_wdata(ss_wdata), .ss_rdata(core_ss));
 	assign dbg_addr = a; assign dbg_wr = wr && cen; assign dbg_dout = dout;
 	assign irom_addr = a[12:0];
 	assign erom_addr = a[14:0];
@@ -91,7 +103,13 @@ module ns2_c65 (
 	assign rom_rd = ((sel_irom && !sel_ram) || sel_erom) && !wr;
 	assign rom_wait = rom_rd && !rom_ready;
 	wire sel_dp   = a[15:11] == 5'b01010;          // 5000-57ff
-	always @(posedge clk) ram_q <= ram[a[8:0]];
+	wire [8:0] ram_a = ss_on ? ss_a : a[8:0];
+	always @(posedge clk) begin
+		ram_q <= ram[ram_a];
+		if (ss_on ? ss_wr && ss_ram : cen && wr && sel_ram && !reset) ram[ram_a] <= ss_on ? ss_wdata[7:0] : dout;
+	end
+	assign ss_q = ss_ram ? {8'h00, ram_q} : ss_a[3:0] < 4'd9 ? core_ss :
+	              ss_a[3:0] == 4'd9 ? {9'd0, an_done, irq_in, adc_p, irq_p, div} : {an_ctrl, an_data};
 	always @(*) begin
 		if (a == 16'h0001) din = mcub;
 		else if (a == 16'h0002) din = mcuc;
@@ -116,12 +134,15 @@ module ns2_c65 (
 	// the core's reads that change state: the fetch strobe of the microcode
 	wire fetch = cen && rd;
 	always @(posedge clk) begin
-		if (por) irq_in <= 1'b0;
+		if (ss_w9) irq_in <= ss_wdata[7];
+		else if (por) irq_in <= 1'b0;
 		else if (irq_line200) irq_in <= 1'b1;
 		else if (!reset && fetch && (a == 16'h1ff8 || a == 16'h1fea)) irq_in <= 1'b0;
 	end
 	always @(posedge clk) begin
-		if (reset) begin
+		if (ss_w9) begin irq_p <= ss_wdata[5]; adc_p <= ss_wdata[6]; an_done <= ss_wdata[9:8]; end
+		else if (ss_w10) begin an_ctrl <= ss_wdata[15:8]; an_data <= ss_wdata[7:0]; end
+		else if (reset) begin
 			irq_p <= 1'b0; adc_p <= 1'b0; an_ctrl <= 0; an_data <= 8'haa; an_done <= 0;
 		end else begin
 			if (irq_line200 && !irq_in) irq_p <= 1'b1;
@@ -129,7 +150,6 @@ module ns2_c65 (
 			if (fetch && a == 16'h1ff8) irq_p <= 1'b0;
 			if (fetch && a == 16'h1fea) adc_p <= 1'b0;
 			if (cen && wr) begin
-				if (sel_ram) ram[a[8:0]] <= dout;
 				if (a == 16'h0010) begin
 					an_ctrl <= dout;
 					if (dout[6]) begin

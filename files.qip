@@ -77,6 +77,10 @@ set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe
 set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64_rfsh.v
 set_global_assignment -name VERILOG_FILE rtl/third_party/jtframe_sdram64/jtframe_sdram64.v
 set_global_assignment -name VERILOG_FILE rtl/third_party/hiscore/hiscore.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/savestate/savestate.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/savestate/savestate_ui.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/savestate/ss_m68k_park.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/savestate/ss_m6809_park.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cheats.sv
 
 set_global_assignment -name SDC_FILE NamcoS2.sdc

@@ -37,7 +37,13 @@ module ns2_c148 (
 	input      [2:0]  ext_in,        // bit 0: the EEPROM is ready
 	output reg [2:0]  ext1,          // bit 0: the sound CPU runs
 	output reg [2:0]  ext2,          // bit 0: the slave and the MCU run
-	output reg [2:0]  bus_ctrl
+	output reg [2:0]  bus_ctrl,
+	// the savestate's port (M5): 0 the levels {vbl, sci, pos, ex, cpu},
+	// 1 {hold, line}, 2 {bus_ctrl, ext2, ext1}; a write replaces them
+	input      [1:0]  ss_sel,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output reg [15:0] ss_rdata
 );
 	reg [2:0] lv_cpu, lv_ex, lv_pos, lv_sci, lv_vbl;
 	reg [7:1] line;                  // asserted
@@ -68,9 +74,20 @@ module ns2_c148 (
 		if (l != 0) begin line[l] = 1'b0; hold[l] = 1'b0; end
 	endtask
 
+	always @(*) case (ss_sel)
+		2'd0: ss_rdata = {1'b0, lv_vbl, lv_sci, lv_pos, lv_ex, lv_cpu};
+		2'd1: ss_rdata = {1'b0, hold, 1'b0, line};
+		default: ss_rdata = {7'd0, bus_ctrl, ext2, ext1};
+	endcase
+
 	always @(posedge clk) begin
 		cpuirq_out <= 1'b0;
-		if (reset) begin
+		if (ss_wr) case (ss_sel)
+			2'd0: {lv_vbl, lv_sci, lv_pos, lv_ex, lv_cpu} <= ss_wdata[14:0];
+			2'd1: begin hold = ss_wdata[14:8]; line = ss_wdata[6:0]; end
+			default: {bus_ctrl, ext2, ext1} <= ss_wdata[8:0];
+		endcase
+		else if (reset) begin
 			lv_cpu <= 0; lv_ex <= 0; lv_pos <= 0; lv_sci <= 0; lv_vbl <= 0;
 			line = 0; hold = 0; bus_ctrl <= 0; ext1 <= 0; ext2 <= 0;
 		end else begin

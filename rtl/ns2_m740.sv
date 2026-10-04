@@ -20,7 +20,15 @@ module ns2_m740 (
 	output reg        wr,
 	output reg        sync,
 	output reg        tap,            // MAME's taps see this access (not read_pc, read_arg or a fetch)
-	input      [7:0]  din
+	input      [7:0]  din,
+	// the savestate (NS2 M5): every flop, a word each (0 {A, X}, 1 {Y, P},
+	// 2 {IR, TMP2}, 3 {DIN, RET}, 4 b_addr, 5 {b_dout, b_wr, b_sync, b_tap,
+	// irq_taken}, 6 PC, 7 SP, 8 TMP, 9 inst_state_base, 10 st); a write
+	// replaces it (cen off). The bus outputs follow b_* every clock
+	input      [3:0]  ss_sel,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output reg [15:0] ss_rdata
 );
 	// MAME's registers (blocking: the statements between two bus cycles run
 	// in C's order within one clock; the bus outputs are registered from b_*)
@@ -2409,6 +2417,20 @@ module ns2_m740 (
 			P = 8'((($signed({24'd0, P})) | (32'sd4)));
 			b_addr = 16'($signed({16'd0, SP})); b_wr = 1'b0; b_sync = 1'b0; b_tap = 1'b1;
 			st = 18;
+		end else if (ss_wr) begin
+			case (ss_sel)
+			4'd0: {A, X} = ss_wdata;
+			4'd1: {Y, P} = ss_wdata;
+			4'd2: {IR, TMP2} = ss_wdata;
+			4'd3: {DIN, RET} = ss_wdata;
+			4'd4: b_addr = ss_wdata;
+			4'd5: {b_dout, b_wr, b_sync, b_tap, irq_taken} = {ss_wdata[15:8], ss_wdata[3:0]};
+			4'd6: PC = ss_wdata;
+			4'd7: SP = ss_wdata;
+			4'd8: TMP = ss_wdata;
+			4'd9: inst_state_base = ss_wdata[8:0];
+			default: st = ss_wdata[9:0];
+			endcase
 		end else if (cen) begin
 			DIN = din;
 			case (st)
@@ -7337,4 +7359,17 @@ module ns2_m740 (
 		// the bus outputs: registered, so the other blocks see this cycle's until the edge
 		addr <= b_addr; dout <= b_dout; wr <= b_wr; sync <= b_sync; tap <= b_tap;
 	end
+	always @(*) case (ss_sel)
+		4'd0: ss_rdata = {A, X};
+		4'd1: ss_rdata = {Y, P};
+		4'd2: ss_rdata = {IR, TMP2};
+		4'd3: ss_rdata = {DIN, RET};
+		4'd4: ss_rdata = b_addr;
+		4'd5: ss_rdata = {b_dout, 4'd0, b_wr, b_sync, b_tap, irq_taken};
+		4'd6: ss_rdata = PC;
+		4'd7: ss_rdata = SP;
+		4'd8: ss_rdata = TMP;
+		4'd9: ss_rdata = {7'd0, inst_state_base};
+		default: ss_rdata = {6'd0, st};
+	endcase
 endmodule

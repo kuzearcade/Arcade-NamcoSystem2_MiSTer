@@ -57,6 +57,8 @@ module core_top (
 	wire [63:0] ft_data, fm_data;
 
 	ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) u_board ( .pause(1'b0), .hb_req(1'b0), .hb_ok(), .hb_addr(24'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(),
+		.ss_freeze(1'b0), .ss_resume(1'b0), .ss_active(1'b0), .ss_load(1'b0), .ss_addr(20'd0), .ss_wr(1'b0), .ss_wdata(16'd0),
+		.ss_rdata(), .ss_frozen(), .ss_parked(), .ss_replay(1'b0), .ss_replay_done(),
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog), .dbg_stall(1'b0), .dbg_holds(),

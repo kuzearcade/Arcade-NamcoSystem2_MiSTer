@@ -73,7 +73,11 @@ module savestate #(
 	output     [28:0] ddr_addr,
 	output     [63:0] ddr_din,
 	input      [63:0] ddr_dout,
-	input             ddr_dout_ready
+	input             ddr_dout_ready,
+	// MODIFIED (Arcade-NamcoSystem2_MiSTer, M5): a request waits or is in
+	// flight on the DDR side (clk_ddr): another client sharing the port
+	// (ns2_flipbuf) starts nothing new meanwhile
+	output            ddr_pending
 );
 	localparam [31:0] SIZE32 = SS_WORDS / 2;
 
@@ -140,7 +144,7 @@ module savestate #(
 						// read the slot's control word first (counter for a save, size check for a load)
 						req_we <= 1'b0; req_addr <= slot_base; req_tog <= ~req_tog;
 						state <= S_HDRWAIT; tmo <= '0;
-					end else if (tmo_hit) begin fail_r <= 2'd1; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					end else if (tmo_hit) begin fail_r <= 2'd1; state <= S_RELEASE; tmo <= '0; end
 				end
 				S_HDRWAIT: begin
 					if (ddr_done) begin
@@ -152,20 +156,20 @@ module savestate #(
 								ss_active <= 1'b1;
 								req_we <= 1'b0; req_addr <= slot_base + 29'd1; req_tog <= ~req_tog;
 								state <= S_LRD;
-							end else begin fail_r <= 2'd2; state <= S_RELEASE; ss_resume <= 1'b1; end
+							end else begin fail_r <= 2'd2; state <= S_RELEASE; end
 						end else begin
 							ss_active <= 1'b1;
 							ss_addr <= 20'd0;
 							state <= S_SRD;
 						end
-					end else if (tmo_hit) begin fail_r <= 2'd3; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					end else if (tmo_hit) begin fail_r <= 2'd3; state <= S_RELEASE; tmo <= '0; end
 				end
 				// ---- save: 4 bus reads, one DDR write ----
 				S_SRD: begin
 					cnt <= cnt + 1'b1;
 					if (VARLAT && cnt == 4'd0) ss_rd <= 1'b1;
 					if (VARLAT && cnt != 4'd0) cnt <= cnt;
-					if (VARLAT && tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					if (VARLAT && tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; tmo <= '0; end
 					else if (VARLAT ? (cnt != 4'd0 && ss_ack) : (cnt == RD_LAT)) begin
 						tmo <= '0;
 						case (k)
@@ -192,18 +196,18 @@ module savestate #(
 							req_we <= 1'b1; req_addr <= slot_base; req_wdata <= {SIZE32, counter + 32'd1}; req_tog <= ~req_tog;
 							state <= S_SHDR; tmo <= '0;
 						end else state <= S_SRD;
-					end else if (tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					end else if (tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; tmo <= '0; end
 				end
 				S_SHDR: begin
-					if (ddr_done) begin ack_tog_d <= ack_sync[1]; ok_r <= 1'b1; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
-					else if (tmo_hit) begin fail_r <= 2'd3; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					if (ddr_done) begin ack_tog_d <= ack_sync[1]; ok_r <= 1'b1; state <= S_RELEASE; tmo <= '0; end
+					else if (tmo_hit) begin fail_r <= 2'd3; state <= S_RELEASE; tmo <= '0; end
 				end
 				// ---- load: one DDR read, 4 bus writes ----
 				S_LRD: begin
 					if (ddr_done) begin
 						ack_tog_d <= ack_sync[1]; pack <= d_rdata; k <= 2'd0; cnt <= 4'd0;
 						state <= S_LWR;
-					end else if (tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					end else if (tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; tmo <= '0; end
 				end
 				S_LWR: begin
 					cnt <= cnt + 1'b1;
@@ -218,7 +222,7 @@ module savestate #(
 					end
 					if (cnt == 4'd1) ss_wr <= 1'b1;
 					if (VARLAT && cnt == 4'd2) cnt <= cnt;         // hold until the core acknowledges
-					if (VARLAT && tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					if (VARLAT && tmo_hit) begin fail_r <= 2'd3; ss_active <= 1'b0; state <= S_RELEASE; tmo <= '0; end
 					else if (VARLAT ? (cnt == 4'd2 && ss_ack) : (cnt == 4'd3)) begin
 						tmo <= '0;
 						cnt <= 4'd0; k <= k + 1'b1;
@@ -234,7 +238,7 @@ module savestate #(
 					end
 				end
 				S_REPLAY: begin
-					if (ss_replay_done | tmo_hit) begin ss_replay <= 1'b0; ok_r <= 1'b1; state <= S_RELEASE; ss_resume <= 1'b1; tmo <= '0; end
+					if (ss_replay_done | tmo_hit) begin ss_replay <= 1'b0; ok_r <= 1'b1; state <= S_RELEASE; tmo <= '0; end
 				end
 				S_RELEASE: begin
 					// Release at a VBlank edge, so the machine resumes at the same
@@ -247,6 +251,11 @@ module savestate #(
 					// needs two frames to refill both stages from the restored RAM --
 					// without the wait the first two frames after a load showed the
 					// pre-load sprites (raphero_hw: 9,880 / 9,134 pixels).
+					// MODIFIED (Arcade-NamcoSystem2_MiSTer, M5): the states that come
+					// here no longer raise ss_resume for their clock: a core that
+					// releases its freeze on ss_resume (ns2_board) let its CPUs go at
+					// the transfer's end, wherever the raster was, and a save and its
+					// load resumed at different points (the gate's 68000 traces).
 					ss_resume <= 1'b0;
 					if (tmo_hit) begin ss_resume <= 1'b1; state <= S_RELWAIT; tmo <= '0; end
 					else if (vblank & ~vb_d) begin
@@ -294,6 +303,7 @@ module savestate #(
 			if (req_we) d_we <= 1'b1; else d_rd <= 1'b1;
 		end
 	end
+	assign ddr_pending = d_we | d_rd | d_wait;
 	assign ddr_we   = d_we & ~rot_we;
 	assign ddr_rd   = d_rd & ~rot_we;
 	assign ddr_addr = d_addr;

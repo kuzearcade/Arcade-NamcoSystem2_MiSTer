@@ -101,7 +101,36 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	output            mcu_tap, mcu_sync, mcu_cen,  // the C68's bus (debug)
 	output     [7:0]  mcu_din,
 	output     [7:0]  mcu_dout, snd_dout,
-	output            sound_run, sub_run
+	output            sound_run, sub_run,
+	// the savestate (M5, rtl/savestate/savestate.sv's core side, docs/savestates.md).
+	// ss_freeze parks the 68000s and the 6809 in their monitors; once both
+	// 68000s wait on RESUME and the 6809 fetches its loop (a fixed point of
+	// every CPU's phases), everything stops (the MCU wherever it is, its
+	// flops are in the image), the line events, the C140 and the 120 Hz
+	// timer too, until ss_resume. A load (ss_load) lets a CPU held in reset
+	// out to park, and the MCU's flops be written, until the transfer is
+	// over. The image, 16-bit words at ss_addr (data ss_rdata within 4
+	// clocks; RD_LAT 5):
+	//   00000 master work RAM    08000 slave work RAM   10000 C123 RAM
+	//   18000 C116 (the palette and its registers)      20000 ROZ / road RAM
+	//   30000 C169 RAM           40000 C355 RAM (0xa100) 50000 sprite RAM
+	//   52000 C139 RAM           54000 EEPROM (bytes)   56000 DPRAM (bytes)
+	//   58000 sound RAM (bytes)  5a000 C140 registers   5a200 YM2151 shadow
+	//   5a300 the video's registers (00 C123, 20 gfx_ctrl, 28 ROZ, 30 C169, 40 C355)
+	//   5a380 registers (00 master, 08 slave: ns2_cpu; 10 key; 20 sound; 40 C65; 60 C68)
+	//   5a400 C65 RAM            5a600 C68 RAM          5a800 C140 voices (32 bytes each; 5ac00 words)
+	input             ss_freeze,
+	input             ss_resume,
+	input             ss_active,
+	input             ss_load,
+	input      [19:0] ss_addr,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output reg [15:0] ss_rdata,
+	output            ss_frozen,
+	output            ss_parked,
+	input             ss_replay,
+	output            ss_replay_done
 );
 	wire [17:1] mra, sra;
 	wire [20:1] dra;
@@ -116,7 +145,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	// the CPUs' lockstep (NS2-14): any CPU waiting for its ROM's cache stops
 	// them all, so the caches never change the CPUs' timing against each other
 	wire        hold_main, hold_65, hold_68, hold_snd;
-	wire        cpu_stop = hold_main || hold_65 || hold_68 || hold_snd || pause || hb_req;
+	reg         frozen;             // the savestate's freeze (below)
+	wire        cpu_stop = hold_main || hold_65 || hold_68 || hold_snd || pause || hb_req || frozen;
 	// the back door: its own after 8 clocks of hb_req (the shared bus idle)
 	reg  [3:0]  hb_wait;
 	always @(posedge clk) hb_wait <= !hb_req || reset ? 4'd0 : hb_wait == 4'd8 ? hb_wait : hb_wait + 1'd1;
@@ -202,6 +232,59 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		assign c140_addr = c_addr;
 	end endgenerate
 
+	// ------------------------------------------------------------ the savestate
+	wire        rg_mram  = ss_addr[19:15] == 5'h00, rg_sram = ss_addr[19:15] == 5'h01;
+	wire        rg_tmap  = ss_addr[19:15] == 5'h02, rg_pal  = ss_addr[19:15] == 5'h03;
+	wire        rg_roz   = ss_addr[19:16] == 4'h2,  rg_c169 = ss_addr[19:15] == 5'h06;
+	wire        rg_c355  = ss_addr[19:16] == 4'h4,  rg_spr  = ss_addr[19:13] == 7'h28;
+	wire        rg_sci   = ss_addr[19:13] == 7'h29, rg_eep  = ss_addr[19:13] == 7'h2a;
+	wire        rg_dp    = ss_addr[19:11] == 9'h0ac, rg_aram = ss_addr[19:13] == 7'h2c;
+	wire        rg_c140r = ss_addr[19:9] == 11'h2d0, rg_ym  = ss_addr[19:8] == 12'h5a2;
+	wire        rg_vreg  = ss_addr[19:7] == 13'h0b46, rg_breg = ss_addr[19:7] == 13'h0b47;
+	wire        rg_c65r  = ss_addr[19:9] == 11'h2d2, rg_c68r = ss_addr[19:9] == 11'h2d3;
+	wire        rg_c140v = ss_addr[19:10] == 10'h16a;
+	wire [6:0]  ss_idx   = ss_addr[6:0];
+	wire        rb_cpu   = rg_breg && ss_idx[6:4] == 3'd0;            // 00-0f: the 68000s (08: the slave)
+	wire        rb_key   = rg_breg && ss_idx[6:2] == 5'b00100;        // 10-13
+	wire        rb_snd   = rg_breg && ss_idx[6:5] == 2'b01;           // 20-3f
+	wire        rb_c65   = rg_breg && ss_idx[6:4] == 3'b100;          // 40-4f
+	wire        rb_c68   = rg_breg && ss_idx[6:5] == 2'b11;           // 60-7f
+	wire        rv_tctl  = rg_vreg && ss_idx[6:5] == 2'b00, rv_gfx = rg_vreg && ss_idx == 7'h20;
+	wire        rv_roz   = rg_vreg && ss_idx[6:3] == 4'b0101, rv_c169 = rg_vreg && ss_idx[6:4] == 3'b011;
+	wire        rv_c355  = rg_vreg && ss_idx[6:2] == 5'b10000;
+	wire        ss_vid   = ss_active && (rg_tmap || rg_pal || rg_roz || rg_c169 || rg_c355 || rg_spr || rg_vreg);
+	wire [19:0] ss_vaddr = rg_vreg ? {13'd0, ss_idx} : {4'd0, ss_addr[15:0]};
+	wire [15:0] main_ssq, snd_ssq, c65_ssq, c68_ssq;
+	wire [15:0] v_din_w;
+	wire        m_parked, s_parked, a_parked, m_stalled, s_stalled, s_running, at_head, e_fall, c140_idle;
+
+	// the freeze: both 68000s on RESUME for 32 running clocks (in the wait
+	// loop of the bus cycle, not its first states), and the 6809 fetching
+	// its loop's head (a falling E: the 68000s' phases are then 0, as theirs
+	// and the 6809's reset together), or a falling E while it is in reset
+	reg  [5:0]  m_wait, s_wait;
+	reg  [4:0]  frz_cnt;
+	reg         ld_force;
+	wire        a_running = sound_run || ld_force;
+	always @(posedge clk) begin
+		if (!m_stalled) m_wait <= 0; else if (!cpu_stop && m_wait != 6'd32) m_wait <= m_wait + 1'd1;
+		if (!s_stalled) s_wait <= 0; else if (!cpu_stop && s_wait != 6'd32) s_wait <= s_wait + 1'd1;
+	end
+	wire        frz_go = ss_freeze && !ss_resume && !frozen && m_wait == 6'd32 && (s_wait == 6'd32 || !s_running) &&
+	                     (a_running ? at_head : e_fall);
+	always @(posedge clk) begin
+		if (reset || !ss_freeze || ss_resume) frozen <= 1'b0;
+		else if (frz_go) frozen <= 1'b1;
+		frz_cnt <= !frozen ? 5'd0 : frz_cnt == 5'd31 ? frz_cnt : frz_cnt + 1'd1;
+		// a load: the CPUs held in reset run to park, and the MCU's flops can
+		// be written, until the image is in (its C148s then say who runs)
+		if (reset || !ss_freeze || ss_resume || ss_replay) ld_force <= 1'b0;
+		else if (ss_load && !frozen) ld_force <= 1'b1;
+	end
+	assign ss_frozen = frozen && frz_cnt == 5'd31 && c140_idle;
+	assign ss_parked = m_parked || s_parked || a_parked;
+	wire        ss_release = frozen && ss_resume;
+
 	// line events
 	wire       line_start = ce_pix && hcnt == 9'd383;     // the next clock starts a line
 	reg        ev_vbl, ev_pos, ev_mcu;
@@ -211,7 +294,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		ev_vbl <= 1'b0; ev_pos <= 1'b0; ev_mcu <= 1'b0;
 		if (line_start) vnext <= vcnt == 9'd263 ? 9'd0 : vcnt + 1'd1;
 		// one clock after the counters moved to the new line
-		if (ce_pix && hcnt == 9'd0) begin
+		if (ce_pix && hcnt == 9'd0 && !frozen) begin
 			ev_vbl <= vcnt == 9'd240;
 			ev_mcu <= vcnt == 9'd200;
 			ev_pos <= pos_here;
@@ -228,9 +311,13 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire [7:0]  dpd_m, dpd_s, dpd_u;
 	wire        dpw_m, dpw_s, dpw_u;
 	reg  [7:0]  dpq_m, dpq_s, dpq_u;
+	// (the snapshot's while ss_active)
+	wire [10:0] pa_m = ss_active ? ss_addr[10:0] : dpa_m;
+	wire        pw_m = ss_active ? ss_wr && rg_dp : dpw_m;
+	wire [7:0]  pd_m = ss_active ? ss_wdata[7:0] : dpd_m;
 	always @(posedge clk)
-		if (dpw_m) begin dpram[dpa_m] <= dpd_m; dpq_m <= dpd_m; end
-		else dpq_m <= dpram[dpa_m];
+		if (pw_m) begin dpram[pa_m] <= pd_m; dpq_m <= pd_m; end
+		else dpq_m <= dpram[pa_m];
 	reg         dp_t, dp_td;                // port B's turn: 0 sound, 1 MCU (and last clock's)
 	reg         pw_s, pw_u;                 // a write waiting for its turn
 	reg  [10:0] pa_s, pa_u;
@@ -242,7 +329,9 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		if (b_we) begin dpram[b_a] <= b_d; dpq_b <= b_d; end
 		else dpq_b <= dpram[b_a];
 	always @(posedge clk) begin
-		dp_t <= ~dp_t; dp_td <= dp_t;
+		// (the savestate's release starts port B's turns over: the same turn
+		// after a save and after its load)
+		dp_t <= ss_release ? 1'b0 : ~dp_t; dp_td <= dp_t;
 		if (b_we && dp_t) pw_u <= 1'b0;
 		if (b_we && !dp_t) pw_s <= 1'b0;
 		if (dpw_s) begin pw_s <= 1'b1; pa_s <= dpa_s; pd_s <= dpd_s; end
@@ -319,9 +408,16 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.dp_addr(dpa_m), .dp_dout(dpd_m), .dp_we(dpw_m), .dp_din(dpq_m),
 		.m_as(m_as), .s_as(s_as), .m_addr(m_addr), .s_addr(s_addr), .m_rnw(m_rnw), .s_rnw(s_rnw),
 		.m_wdata(m_wdata), .s_wdata(s_wdata), .m_ds(m_ds), .s_ds(s_ds),
-		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack));
+		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack),
+		.park_req(ss_freeze), .resume(ss_resume), .force_run(ld_force),
+		.m_parked(m_parked), .s_parked(s_parked), .m_stalled(m_stalled), .s_stalled(s_stalled), .s_run(s_running),
+		.ss_on(ss_active), .ss_a(rg_breg ? {8'd0, ss_idx} : ss_addr[14:0]),
+		.ss_mram(rg_mram), .ss_sram(rg_sram), .ss_eep(rg_eep), .ss_sci(rg_sci),
+		.ss_mreg(rb_cpu && !ss_idx[3]), .ss_sreg(rb_cpu && ss_idx[3]), .ss_kreg(rb_key),
+		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(main_ssq));
 
 	assign hb_q = hb_rv ? (hb_a0 ? v_din[7:0] : v_din[15:8]) : hb_mq;
+	assign v_din_w = v_din;
 
 	// the video
 	ns2_video #(.HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
@@ -331,12 +427,20 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),
 		.red(red), .green(green), .blue(blue), .out_x(out_x), .out_y(out_y), .out_valid(out_valid),
 		.posirq_line(pos_here),
-		// the back door owns the CPU's port while hb_ok (the C123's RAM only)
-		.cpu_addr(hb_ok ? {5'd0, hb_addr[15:1]} : v_addr), .cpu_dout(hb_ok ? {hb_din, hb_din} : v_dout),
-		.cpu_rnw(hb_ok ? !(hb_we && hb_vid) : v_rnw), .cpu_uds(hb_ok ? !hb_addr[0] : v_uds), .cpu_lds(hb_ok ? hb_addr[0] : v_lds),
-		.cs_tmap(hb_ok ? hb_vid : cs_tmap), .cs_tctl(cs_tctl && !hb_ok), .cs_pal(cs_pal && !hb_ok), .cs_spr(cs_spr && !hb_ok),
-		.cs_gfx(cs_gfx && !hb_ok), .cs_roz(cs_roz && !hb_ok), .cs_rozctl(cs_rozctl && !hb_ok), .cs_c169ctl(cs_c169ctl && !hb_ok),
-		.cs_c169(cs_c169 && !hb_ok), .cs_c355(cs_c355 && !hb_ok), .cs_c355pos(cs_c355pos && !hb_ok),
+		// the savestate's transfer owns the CPU's port while ss_active (each
+		// region selected throughout, written on ss_wr); the back door while
+		// hb_ok (the C123's RAM only)
+		.cpu_addr(ss_active ? ss_vaddr : hb_ok ? {5'd0, hb_addr[15:1]} : v_addr),
+		.cpu_dout(ss_active ? ss_wdata : hb_ok ? {hb_din, hb_din} : v_dout),
+		.cpu_rnw(ss_active ? !ss_wr : hb_ok ? !(hb_we && hb_vid) : v_rnw),
+		.cpu_uds(ss_active ? 1'b1 : hb_ok ? !hb_addr[0] : v_uds), .cpu_lds(ss_active ? 1'b1 : hb_ok ? hb_addr[0] : v_lds),
+		.cs_tmap(ss_active ? ss_vid && rg_tmap : hb_ok ? hb_vid : cs_tmap),
+		.cs_tctl(ss_active ? ss_vid && rv_tctl : cs_tctl && !hb_ok), .cs_pal(ss_active ? ss_vid && rg_pal : cs_pal && !hb_ok),
+		.cs_spr(ss_active ? ss_vid && rg_spr : cs_spr && !hb_ok), .cs_gfx(ss_active ? ss_vid && rv_gfx : cs_gfx && !hb_ok),
+		.cs_roz(ss_active ? ss_vid && rg_roz : cs_roz && !hb_ok), .cs_rozctl(ss_active ? ss_vid && rv_roz : cs_rozctl && !hb_ok),
+		.cs_c169ctl(ss_active ? ss_vid && rv_c169 : cs_c169ctl && !hb_ok), .cs_c169(ss_active ? ss_vid && rg_c169 : cs_c169 && !hb_ok),
+		.cs_c355(ss_active ? ss_vid && rg_c355 : cs_c355 && !hb_ok), .cs_c355pos(ss_active ? ss_vid && rv_c355 : cs_c355pos && !hb_ok),
+		.ss_on(ss_active),
 		.cpu_din(v_din),
 		.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 		.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
@@ -355,13 +459,17 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire        rd_65, rd_68;
 	assign mcu_rd = mcu_c68 ? rd_68 : rd_65;
 	ns2_c65 u_mcu (
-		.clk(clk), .por(reset), .reset(reset || !sub_run || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65), .rom_hold(hold_65), .stop(cpu_stop),
+		.clk(clk), .por(reset), .reset(reset || !(sub_run || ld_force) || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65), .rom_hold(hold_65), .stop(cpu_stop),
+		.ss_on(ss_active), .ss_a(rg_breg ? {5'd0, ss_idx[3:0]} : ss_addr[8:0]), .ss_ram(rg_c65r), .ss_reg(rb_c65),
+		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(c65_ssq),
 		.irom_addr(ira), .irom_data(irq_q), .erom_addr(era), .erom_data(erq),
 		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
 	ns2_c68 u_c68 (
-		.clk(clk), .reset(reset || !sub_run || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68), .rom_hold(hold_68), .stop(cpu_stop),
+		.clk(clk), .reset(reset || !(sub_run || ld_force) || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68), .rom_hold(hold_68), .stop(cpu_stop),
+		.ss_on(ss_active), .ss_a(rg_breg ? {4'd0, ss_idx[4:0]} : ss_addr[8:0]), .ss_ram(rg_c68r), .ss_reg(rb_c68),
+		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(c68_ssq),
 		.rom_addr(ira68), .rom_data(irq_q),
 		.dp_addr(dpa_68), .dp_dout(dpd_68), .dp_we(dpw_68), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -375,13 +483,30 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
-		.clk(clk), .reset(reset), .run(sound_run),
-		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop), .pause(pause),
+		.clk(clk), .reset(reset), .run(a_running),
+		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop), .pause(pause || frozen),
+		.park_req(ss_freeze), .resume(ss_resume), .parked(a_parked), .at_head(at_head),
+		.ss_on(ss_active), .ss_a(rg_breg ? {8'd0, ss_idx[4:0]} : ss_addr[12:0]),
+		.ss_ram(rg_aram), .ss_c140r(rg_c140r), .ss_c140v(rg_c140v), .ss_ym(rg_ym), .ss_reg(rb_snd),
+		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(snd_ssq), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
+		.c140_idle(c140_idle), .e_fall(e_fall),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(ym_sample),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),
 		.c140_left(c140_left), .c140_right(c140_right), .c140_raw_l(c140_raw_l), .c140_raw_r(c140_raw_r),
 		.c140_sample(c140_sample),
 		.dbg_addr(snd_addr), .dbg_wr(snd_wr), .dbg_dout(snd_dout));
+
+	// the snapshot's read (each source a clock or two after ss_addr)
+	always @(posedge clk) begin
+		if (rg_mram || rg_sram || rg_eep || rg_sci || rb_cpu || rb_key) ss_rdata <= main_ssq;
+		else if (rg_tmap || rg_pal || (rg_spr && HAS_SPRA) || (rg_roz && (HAS_ROZ || HAS_C45)) || (rg_c169 && HAS_C169) ||
+		         (rg_c355 && HAS_C355 && ss_addr[15:0] < 16'ha100) || rg_vreg) ss_rdata <= v_din_w;
+		else if (rg_dp) ss_rdata <= {8'h00, dpq_m};
+		else if (rg_aram || rg_c140r || rg_c140v || rg_ym || rb_snd) ss_rdata <= snd_ssq;
+		else if (rg_c65r || rb_c65) ss_rdata <= c65_ssq;
+		else if (rg_c68r || rb_c68) ss_rdata <= c68_ssq;
+		else ss_rdata <= 16'h0000;
+	end
 
 endmodule

@@ -1913,3 +1913,57 @@ cycles by writes during the frame, and the board shows each as the raster
 meets it (frame 300: row 3's highlight and the dot-matrix title). The full
 Final Lap replay takes about four minutes a frame (the road's model); the
 three samples took it a quarter of the way.
+
+## NS2-32 — Savestates (closed for the standard, Metal Hawk and Steel Gunner bitstreams; open: Suzuka 8 Hours and Lucky & Wild)
+
+Alt+F1-F4 save, F1-F4 load (or the OSD's Savestates page): four slots a
+set, persisted by the firmware (`savestates/Arcade/<set>_<n>.ss`, 743,432
+bytes). The design and the image's map are in docs/savestates.md; in short:
+
+- The engine and the parks are Arcade-GingaNin_MiSTer's. The 68000s and
+  the 6809 park in monitors (a level-7 interrupt, an NMI); the MCU's every
+  flop is in the image (the C65's 11 words, the C68's 25: the M740's
+  through tools/ns2_740gen.py and the generated core alike, the generator's
+  output not being reproducible, its state numbering varies by run).
+- The machine freezes at one point of every CPU's phases (both 68000s
+  waiting on RESUME, the 6809 fetching its loop on a falling E: the sound
+  board's phase is now reset with the 68000s', as theirs always was) and
+  the line events, the C140, the 120 Hz timer and the YM2151's clock stop
+  until the release at a VBLANK, so a load resumes from exactly the state
+  its save left, everything the image does not hold included.
+- The C140's register file is now a block RAM (the 6809 holds its address
+  for the whole E cycle): 4,096 flops and their 512-way mux, about 2,400
+  registers and 1,900 ALMs off every bitstream. Its voices' state goes in
+  and out through its write queue (direct writes doubled it to 9,800 ALMs).
+- The YM2151 is restored from a shadow of its registers, written back
+  through its FIFO on a clock of its own; its notes restart.
+- The engine's own release raised `ss_resume` for a clock at the transfer's
+  end, which let the CPUs go wherever the raster was (the first gate run's
+  68000 traces); it now only raises it at the VBLANK (savestate.sv,
+  marked). The flip buffer and the engine share DDR without interleaving
+  (`ddr_pending`).
+
+The gate (sim/rtl/ns2_ss, GingaNin's): save slot 0 in frame 400, slot 1
+60 frames after it resumes; load slot 0, save slot 2 60 frames after that
+resumes. Slots 1 and 2 equal word for word (742 KB, the YM's shadow
+included), the 60 frames after each resume equal (the picture and both
+68000s', the 6809's and the MCU's accesses), and the 68000s' first 40,000
+accesses at the same clocks. PASS on Phelios, Assault, Rolling Thunder 2
+(the standard board, the key's handshake), Final Lap, Final Lap 3 (the C68),
+Metal Hawk (the C169) and Steel Gunner 2 (the C355, the C68). M2's pictures
+without a savestate are the committed RTL's exactly (Phelios, 602 frames).
+
+On the board (STD seed 115, MH 214, SG 216): Phelios, Steel Gunner 2 and
+Metal Hawk, each saved in play and loaded 12 s later: the frames after the
+load are the frames after the save (a steady offset, the capture's noise
+only), until an input made after the save; the music resumes. A slot loads
+after the core is reloaded (from the SD card). Suzuka 8 Hours and Lucky &
+Wild (SZ 221, LW 256) still boot and run their demos.
+
+Builds: STD 92% ALMs, MH 98%, SG 98%, SZ 88%, LW 89% (the C140's RAM gave
+Lucky & Wild 4,300 ALMs back); every clock met.
+
+Open: Suzuka 8 Hours and Lucky & Wild (their work RAMs in the SDRAM behind
+caches, which the snapshot does not reach yet: the page is hidden and their
+CONF_STR has no SS line); M3's exactness (the ROMs' caches change the
+lockstep's stops, so a load matches its save as the board does).

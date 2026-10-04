@@ -29,6 +29,10 @@ module ns2_flipbuf (
 	output reg        hs_out, vs_out, hb_out, vb_out, vb_hs_out,
 	// DDR (Avalon, 64-bit words)
 	output            owns,
+	// another client (the savestate engine) has a request waiting or in
+	// flight: no transfer starts; idle: none is under way (it may then go)
+	input             ext_busy,
+	output            idle,
 	input             DDRAM_BUSY,
 	output reg  [7:0] DDRAM_BURSTCNT,
 	output reg [28:0] DDRAM_ADDR,
@@ -104,9 +108,9 @@ module ns2_flipbuf (
 	reg  [4:0] r_left;                       // words of the burst to come
 	reg        reading = 1'b0;               // a line part-read
 	wire       write_first = f_n >= 7'd16;
-	wire       fetch_go = st == IDLE && !reading && fetch && (!fetch_drain || f_n == 7'd0) && !write_first;
-	wire       read_go  = st == IDLE && reading && !write_first;
-	wire       write_go = st == IDLE && !fetch_go && !read_go && f_n >= 7'd8;
+	wire       fetch_go = st == IDLE && !ext_busy && !reading && fetch && (!fetch_drain || f_n == 7'd0) && !write_first;
+	wire       read_go  = st == IDLE && !ext_busy && reading && !write_first;
+	wire       write_go = st == IDLE && !ext_busy && !fetch_go && !read_go && f_n >= 7'd8;
 	// ---------------------------------------------------------- the read side
 	// line y shows source line 223 - y, fetched from the start of line y - 1
 	// (line 0 in the blank, once the last line has left the FIFO) into half
@@ -121,6 +125,7 @@ module ns2_flipbuf (
 	end
 
 	assign owns = on || st != IDLE || f_n != 7'd0;
+	assign idle = st == IDLE;
 	assign DDRAM_BE  = 8'hff;
 	assign DDRAM_DIN = {8'd0, f_q[47:24], 8'd0, f_q[23:0]};
 

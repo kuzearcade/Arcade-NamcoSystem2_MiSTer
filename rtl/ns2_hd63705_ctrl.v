@@ -9,6 +9,10 @@
  * Date: 4-12-2023 */
 /* verilator coverage_off */
 module ns2_hd63705_ctrl(
+    input  [3:0] ss_sel,  // the savestate (NS2 M5): 0 {iv, uaddr}, 1 jsr_ret
+    input        ss_wr,
+    input [15:0] ss_wdata,
+    output [15:0] ss_rdata,
     input        rst,
     input        clk,
     input        cen,
@@ -50,6 +54,9 @@ always @(posedge clk, posedge rst) begin
         uaddr   <= IVRD_SEQA;
         jsr_ret <= 0;
         iv      <= 15;
+    end else if(ss_wr) begin
+        if( ss_sel[0] ) jsr_ret <= ss_wdata[11:0];
+        else {iv, uaddr} <= ss_wdata;
     end else if(cen) begin
         if(~halt&~stop) uaddr[3:0] <= nx_ualo;
         if( swi ) iv <= 14;
@@ -73,5 +80,7 @@ always @(posedge clk, posedge rst) begin
         end
     end
 end
+
+assign ss_rdata = ss_sel[0] ? {4'd0, jsr_ret} : {iv, uaddr};
 
 endmodule

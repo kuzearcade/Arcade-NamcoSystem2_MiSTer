@@ -39,7 +39,13 @@ module ns2_hd63705_regs(
     // external bus
     input      [ 7:0] din,
     output reg [15:0] addr, // always valid
-    output reg [ 7:0] dout
+    output reg [ 7:0] dout,
+    // the savestate (NS2 M5): 2 {a, x}, 3 {s, h, i, n, z, c, brok}, 4 pc,
+    // 5 ea, 6 md, 7 op0, 8 op1
+    input      [ 3:0] ss_sel,
+    input             ss_wr,
+    input      [15:0] ss_wdata,
+    output reg [15:0] ss_rdata
 );
 
 `include "63705_param.vh"
@@ -86,6 +92,17 @@ always @( posedge clk, posedge rst ) begin
         ea  <= 0;
         {h,n,z,c} <= 0;
         i    <= 1;
+    end else if( ss_wr ) begin
+        case( ss_sel )
+            4'd2: {a, x} <= ss_wdata;
+            4'd3: {s, h, i, n, z, c} <= ss_wdata[12:1];
+            4'd4: pc  <= ss_wdata;
+            4'd5: ea  <= ss_wdata;
+            4'd6: md  <= ss_wdata;
+            4'd7: op0 <= ss_wdata;
+            4'd8: op1 <= ss_wdata;
+            default:;
+        endcase
     end else if( cen ) begin
         if( fetch  ) begin
             md[ 7:0] <= din;
@@ -125,9 +142,23 @@ always @( posedge clk, posedge rst ) begin
     end
 end
 
+always @* begin
+    case( ss_sel )
+        4'd2: ss_rdata = {a, x};
+        4'd3: ss_rdata = {3'd0, s, h, i, n, z, c, brok};
+        4'd4: ss_rdata = pc;
+        4'd5: ss_rdata = ea;
+        4'd6: ss_rdata = md;
+        4'd7: ss_rdata = op0;
+        default: ss_rdata = op1;
+    endcase
+end
+
 always @(posedge clk, posedge rst) begin
     if( rst ) begin
         brok <= 0;
+    end else if( ss_wr && ss_sel == 4'd3 ) begin
+        brok <= ss_wdata[0];
     end else if(cen) begin
         if( brlatch ) case(md[3:0])
             4'b0000: brok <= 1; // bra

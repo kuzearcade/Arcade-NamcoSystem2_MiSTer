@@ -55,28 +55,36 @@ assign VIDEO_ARY = (!ar) ? (video_rotated ? 12'd4 : 12'd3) : 12'd0;
 `ifdef NS2_MH
 localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_MH";
+localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `elsif NS2_SZ
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SZ";
+localparam CONF_HEAD = {CORE_NAME, ";;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `elsif NS2_LW
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 1;
 localparam CORE_NAME = "NamcoS2_LW";
+localparam CONF_HEAD = {CORE_NAME, ";;"};
 localparam VSIZE_OSD = "0,+1,-1";
 `elsif NS2_SG
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SG";
+localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `else
 localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2";
+localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `endif
 // (VSIZE_OSD: crt_chain's V-Size list, "0,+1..+MAX,-MAX..-1", each its own
 // literal: strings of two lengths under ?: would pad one with NULs)
 localparam CONF_STR = {
-	CORE_NAME, ";;",
+	// savestates (docs/savestates.md): 4 slots of 1 MB at 0x3E000000, an image
+	// of 0x5ac00 words (ns2_board's map); not where the work RAM is in the
+	// SDRAM (SZ, LW: no SS line, the page hidden)
+	CONF_HEAD,
 	"-;",
 	"HBO[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"HBO[3:1],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
@@ -108,6 +116,11 @@ localparam CONF_STR = {
 	"h9P1O[39],P2 Infinite Energy,Off,On;",
 	"hAP1O[40],Maximum Speed,Off,On;",
 	"hCP1O[41],P1 Infinite Weapons,Off,On;",
+	"H1P2,Savestates;",
+	"P2O[43:42],Slot,1,2,3,4;",
+	"P2-;",
+	"P2R[44],Save state (Alt+F1-F4);",
+	"P2R[45],Load state (F1-F4);",
 	"P3,CRT Adjust;",
 	"P3O[101],CRT Adjust,Off,On;",
 	"P3O[100:96],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
@@ -124,12 +137,32 @@ localparam CONF_STR = {
 	"R[0],Reset;",
 	// positionally matched against the <buttons> list the .mra writes
 	"J1,Button 1,Button 2,Button 3,Start,Coin,Service,Button 4,Button 5,Button 6,Button 7,Button 8,Button 9;",
+	// savestate_ui's messages (its info codes 1-15)
+	"I,",
+	"Slot=F1-F4|Save=+Alt,",
+	"Active Slot 1,",
+	"Active Slot 2,",
+	"Active Slot 3,",
+	"Active Slot 4,",
+	"State 1 saved,",
+	"State 2 saved,",
+	"State 3 saved,",
+	"State 4 saved,",
+	"State 1 loaded,",
+	"State 2 loaded,",
+	"State 3 loaded,",
+	"State 4 loaded,",
+	"Savestate failed,",
+	"Slot empty;",
 	"V,v",`BUILD_DATE
 };
 
 wire         forced_scandoubler;
 wire  [8:0]  hcnt, vcnt;          // the board's raster (below)
 wire  [9:0]  ch_avail;            // the cheat slots the .mra has (below)
+wire  [1:0]  ss_slot;             // the savestates (below)
+wire  [7:0]  ss_info;
+wire         ss_info_req, ss_status_update;
 wire         direct_video;
 wire   [1:0] buttons;
 wire [127:0] status;
@@ -160,6 +193,10 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.buttons(buttons),
 	.status(status),
+	.status_in({status[127:44], ss_slot, status[41:0]}),
+	.status_set(ss_status_update),
+	.info_req(ss_info_req),
+	.info(ss_info),
 	// [11] hides Aspect ratio and Scandoubler Fx under direct video;
 	// [0] hides Orientation under direct video
 	// [12], [10:2] the cheat slots the .mra has; [11] and [0] direct video;
@@ -548,9 +585,53 @@ wire [44:0] wram_addr;
 wire [47:0] wram_din;
 wire [5:0]  wram_dsn;
 
+// ------------------------------------------------------------------
+// Savestates (rtl/savestate, docs/savestates.md): Alt+F1-F4 save, F1-F4
+// load, or the OSD's page. The engine parks the CPUs at a VBLANK and moves
+// ns2_board's image (0x5ac00 words) to or from DDR at 0x3E000000, a slot of
+// 1 MB each. While it runs, the OSD's pause and the back door (high scores,
+// cheats) wait: the CPUs have to run to park. Not on the bitstreams with the
+// work RAM in the SDRAM (WRAM_SD: no engine, the OSD's page hidden).
+// ------------------------------------------------------------------
+wire        ss_save, ss_load, ss_busy, ss_done_ok, ss_done_fail, ss_was_load;
+wire  [1:0] ss_fail_code;
+wire        ss_freeze, ss_frozen, ss_parked, ss_resume, ss_active, ss_wr, ss_replay, ss_replay_done;
+wire [19:0] ss_addr;
+wire [15:0] ss_rdata, ss_wdata;
+wire        eng_we, eng_rd, eng_pending;
+wire [28:0] eng_addr;
+wire [63:0] eng_din;
+wire        fl_idle, fl_owns, sr_we;
+savestate_ui savestate_ui (
+	.clk(clk_sys), .ps2_key(ps2_key), .allow_ss(!reset && !WRAM_SD),
+	.status_slot(status[43:42]), .OSD_saveload(status[45:44]),
+	.done_ok(ss_done_ok), .done_fail(ss_done_fail), .fail_code(ss_fail_code), .was_load(ss_was_load),
+	.ss_save(ss_save), .ss_load(ss_load), .ss_info_req(ss_info_req), .ss_info(ss_info),
+	.statusUpdate(ss_status_update), .selected_slot(ss_slot));
+generate if (!WRAM_SD) begin : g_ss
+	savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'h07C00000), .SLOT_STRIDE(29'h00020000), .RD_LAT(5)) savestate (
+		.clk(clk_sys), .reset(reset),
+		.save_req(ss_save), .load_req(ss_load), .slot(ss_slot), .vblank(vcnt >= 9'd224),
+		.allow(!ioctl_download && !ioctl_upload && !hb_req),
+		.ss_freeze(ss_freeze), .ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_resume(ss_resume), .ss_active(ss_active),
+		.ss_addr(ss_addr), .ss_rdata(ss_rdata), .ss_wr(ss_wr), .ss_rd(), .ss_ack(1'b0), .ss_wdata(ss_wdata),
+		.ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
+		.busy(ss_busy), .done_ok(ss_done_ok), .done_fail(ss_done_fail), .fail_code(ss_fail_code), .was_load(ss_was_load),
+		.clk_ddr(CLK_VIDEO), .ddr_busy(DDRAM_BUSY), .rot_we(sr_we || (fl_owns && !fl_idle)),
+		.ddr_we(eng_we), .ddr_rd(eng_rd), .ddr_addr(eng_addr), .ddr_din(eng_din),
+		.ddr_dout(DDRAM_DOUT), .ddr_dout_ready(DDRAM_DOUT_READY), .ddr_pending(eng_pending));
+end else begin : g_no_ss
+	assign {ss_freeze, ss_resume, ss_active, ss_wr, ss_replay, ss_busy, ss_done_ok, ss_done_fail, ss_was_load} = 9'd0;
+	assign {ss_addr, ss_wdata, ss_fail_code} = 0;
+	assign {eng_we, eng_rd, eng_pending, eng_addr, eng_din} = 0;
+end endgenerate
+
 ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
             .WRAM_SD(WRAM_SD)) board (
-	.clk(clk_sys), .reset(reset), .pause(core_pause), .hb_req(hb_req), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
+	.clk(clk_sys), .reset(reset), .pause(core_pause && !ss_busy), .hb_req(hb_req && !ss_busy), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
+	.ss_freeze(ss_freeze), .ss_resume(ss_resume), .ss_active(ss_active), .ss_load(ss_was_load),
+	.ss_addr(ss_addr), .ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_rdata(ss_rdata),
+	.ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
 	.board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(in_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),
@@ -766,7 +847,7 @@ video_retime #(
 // the in-core flip: every frame through DDR, shown turned a frame later
 wire        fl_ce, fl_hs, fl_vs, fl_hb, fl_vb, fl_vb_hs;
 wire [23:0] fl_rgb;
-wire        fl_owns, fl_rd, fl_we;
+wire        fl_rd, fl_we;
 wire  [7:0] fl_burstcnt, fl_be;
 wire [28:0] fl_addr;
 wire [63:0] fl_din;
@@ -774,7 +855,7 @@ ns2_flipbuf flipbuf (
 	.clk(clk_sd), .enable(flip_180 & no_rotate),
 	.ce_in(rt_ce), .rgb_in(rt_rgb), .hs_in(rt_hs), .vs_in(rt_vs), .hb_in(rt_hb), .vb_in(rt_vb), .vb_hs_in(rt_vb_hs),
 	.ce_out(fl_ce), .rgb_out(fl_rgb), .hs_out(fl_hs), .vs_out(fl_vs), .hb_out(fl_hb), .vb_out(fl_vb), .vb_hs_out(fl_vb_hs),
-	.owns(fl_owns), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(fl_burstcnt), .DDRAM_ADDR(fl_addr),
+	.owns(fl_owns), .ext_busy(eng_pending), .idle(fl_idle), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(fl_burstcnt), .DDRAM_ADDR(fl_addr),
 	.DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(fl_rd),
 	.DDRAM_DIN(fl_din), .DDRAM_BE(fl_be), .DDRAM_WE(fl_we)
 );
@@ -827,7 +908,7 @@ wire        video_rotated;
 wire  [7:0] sr_burstcnt, sr_be;
 wire [28:0] sr_addr;
 wire [63:0] sr_din;
-wire        sr_we, sr_rd;
+wire        sr_rd;
 wire        rotate_ccw = (orientation == 2'd2);
 screen_rotate screen_rotate (
 	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL),
@@ -838,14 +919,17 @@ screen_rotate screen_rotate (
 	.DDRAM_CLK(DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(sr_burstcnt), .DDRAM_ADDR(sr_addr),
 	.DDRAM_DIN(sr_din), .DDRAM_BE(sr_be), .DDRAM_WE(sr_we), .DDRAM_RD(sr_rd)
 );
-// the DDR port: the flip buffer's while it has a frame or a transfer,
-// screen_rotate's otherwise (they are never wanted together)
-assign DDRAM_BURSTCNT = fl_owns ? fl_burstcnt : sr_burstcnt;
-assign DDRAM_ADDR     = fl_owns ? fl_addr     : sr_addr;
-assign DDRAM_DIN      = fl_owns ? fl_din      : sr_din;
-assign DDRAM_BE       = fl_owns ? fl_be       : sr_be;
-assign DDRAM_WE       = fl_owns ? fl_we       : sr_we;
-assign DDRAM_RD       = fl_owns ? fl_rd       : sr_rd;
+// the DDR port: the savestate engine's for a word (it goes only while
+// screen_rotate is not writing and the flip buffer is between transfers,
+// which start nothing while it waits), else the flip buffer's while it has a
+// frame or a transfer, screen_rotate's otherwise (never wanted together)
+wire eng_go = eng_we || eng_rd;
+assign DDRAM_BURSTCNT = eng_go ? 8'd1    : fl_owns ? fl_burstcnt : sr_burstcnt;
+assign DDRAM_ADDR     = eng_go ? eng_addr : fl_owns ? fl_addr    : sr_addr;
+assign DDRAM_DIN      = eng_go ? eng_din : fl_owns ? fl_din      : sr_din;
+assign DDRAM_BE       = eng_go ? 8'hff   : fl_owns ? fl_be       : sr_be;
+assign DDRAM_WE       = eng_go ? eng_we  : fl_owns ? fl_we       : sr_we;
+assign DDRAM_RD       = eng_go ? eng_rd  : fl_owns ? fl_rd       : sr_rd;
 assign FB_FORCE_BLANK = 1'b0;
 
 reg [26:0] act_cnt;

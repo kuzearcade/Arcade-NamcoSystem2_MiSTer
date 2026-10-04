@@ -24,8 +24,16 @@ module ns2_hd63705(
     output            tstop,// timer stop
     output     [15:0] addr, // always valid
     input      [ 7:0] din,
-    output     [ 7:0] dout
+    output     [ 7:0] dout,
+    // the savestate (NS2 M5): every flop, a word each (0-1 the sequencer,
+    // 2-8 the registers); a write replaces it (cen off)
+    input      [ 3:0] ss_sel,
+    input             ss_wr,
+    input      [15:0] ss_wdata,
+    output     [15:0] ss_rdata
 );
+wire [15:0] ss_cq, ss_rq;
+assign ss_rdata = ss_sel < 4'd2 ? ss_cq : ss_rq;
 
 wire [15:0] op0, op1, rslt,md;
 wire [ 2:0] rslt_cc;
@@ -51,6 +59,7 @@ wire       swi;
 assign rd = fetch;
 
 ns2_hd63705_ctrl u_ctrl(
+    .ss_sel(ss_sel), .ss_wr(ss_wr && ss_sel < 4'd2), .ss_wdata(ss_wdata), .ss_rdata(ss_cq),
     .rst        ( rst       ),
     .clk        ( clk       ),
     .cen        ( cen       ),
@@ -95,6 +104,7 @@ ns2_hd63705_alu u_alu(
 );
 
 ns2_hd63705_regs u_regs(
+    .ss_sel(ss_sel), .ss_wr(ss_wr && ss_sel >= 4'd2), .ss_wdata(ss_wdata), .ss_rdata(ss_rq),
     .rst        ( rst       ),
     .clk        ( clk       ),
     .cen        ( cen       ),

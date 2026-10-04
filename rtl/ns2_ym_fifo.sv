@@ -18,7 +18,12 @@ module ns2_ym_fifo (
 	input            a0,
 	input      [7:0] din,
 	output reg       wr,             // to jt51 (cs_n low for a clock)
-	output reg [8:0] wq              // {a0, data}
+	output reg [8:0] wq,             // {a0, data}
+	// the savestate (M5): flush drops what is queued (a load's replay
+	// starts from an empty FIFO); empty: nothing queued, and the last data
+	// write's 64 YM cycles are over
+	input            flush,
+	output           empty
 );
 	(* ramstyle = "M10K" *) reg [8:0] yq [0:511];
 	reg  [8:0] yq_w = 9'd0, yq_w1 = 9'd0, yq_w2 = 9'd0, yq_r = 9'd0;
@@ -31,7 +36,7 @@ module ns2_ym_fifo (
 	end
 	always @(posedge clk) begin
 		wr <= 1'b0; hold <= 1'b0;
-		if (reset) begin yq_w <= 0; yq_w1 <= 0; yq_w2 <= 0; yq_r <= 0; ygap <= 7'd127; end
+		if (reset || flush) begin yq_w <= 0; yq_w1 <= 0; yq_w2 <= 0; yq_r <= 0; ygap <= 7'd127; end
 		else begin
 			if (we) yq_w <= yq_w + 1'd1;
 			yq_w1 <= yq_w; yq_w2 <= yq_w1;
@@ -42,4 +47,5 @@ module ns2_ym_fifo (
 			end
 		end
 	end
+	assign empty = yq_r == yq_w2 && yq_w2 == yq_w && ygap >= 7'd64 && !hold;
 endmodule

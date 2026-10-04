@@ -12,7 +12,7 @@ SDTAG ?=
 OBJ := $(if $(VARIANT),obj_$(VARIANT),obj_dir)$(SDTAG)
 R := ../../../rtl
 T := $(R)/third_party
-SRCS := top.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \
+SRCS := top.sv $(R)/savestate/ss_m68k_park.sv $(R)/savestate/ss_m6809_park.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \
 	$(R)/ns2_video.sv $(R)/ns2_c123.sv $(R)/ns2_roz.sv $(R)/ns2_c45.sv $(R)/ns2_c169.sv $(R)/ns2_c355.sv $(R)/ns2_sprite_a.sv \
 	$(R)/ns2_c65.sv $(R)/ns2_c68.sv $(R)/ns2_m740.sv $(R)/ns2_hd63705.v $(R)/ns2_hd63705_ctrl.v $(R)/ns2_hd63705_alu.v $(R)/ns2_hd63705_regs.v \
 	$(R)/ns2_sound.sv $(R)/ns2_ym_fifo.sv $(R)/ns2_c140.sv $(R)/ns2_rom_cache.sv $(R)/ns2_wram_cache.sv $(R)/ns2_mem.sv $(R)/ns2_bank_arb.sv $(R)/ns2_tile_filter.sv $(R)/ns2_sdram.sv \

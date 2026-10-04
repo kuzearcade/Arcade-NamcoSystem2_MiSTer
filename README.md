@@ -93,6 +93,12 @@ alternates), and the parents on the other four bitstreams.
   RAM through a back door while the CPUs are held a few hundred clocks; not
   yet on the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is
   in the SDRAM.
+- **Savestates** (Alt+F1-F4 save, F1-F4 load, or the OSD's Savestates
+  page): four slots a game, kept on the SD card. The whole board is saved,
+  every CPU (the 68000s and the 6809 parked at an instruction, the MCU's
+  every register) and every RAM, so a load resumes exactly where the save
+  did (docs/savestates.md); the YM2151's notes restart from its registers.
+  Not yet on the Suzuka 8 Hours and Lucky & Wild bitstreams.
 
 ## Controls
 
@@ -181,7 +187,7 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 
 ## To Do
 
-- **Feature parity (M5):** savestates; high scores and cheats on the
+- **Feature parity (M5):** savestates, high scores and cheats on the
   Suzuka 8 Hours and Lucky & Wild bitstreams (Lucky & Wild is in
   `hiscore.dat`).
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates

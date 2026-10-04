@@ -77,7 +77,23 @@ module ns2_main #(parameter WRAM_SD = 0) (
 	output     [15:0] m_wdata, s_wdata,
 	output     [1:0]  m_ds, s_ds,
 	output     [15:0] m_rdata, s_rdata,
-	output            m_dtack, s_dtack
+	output            m_dtack, s_dtack,
+	// the savestate (M5): both CPUs' parks (ns2_cpu); force_run lets the
+	// slave out of reset to park (a load); s_run, it runs. While ss_on the
+	// snapshot owns: ss_mram / ss_sram the work RAMs (words), ss_eep the
+	// EEPROM (bytes), ss_sci the C139's RAM (words), ss_mreg / ss_sreg each
+	// CPU's registers (ns2_cpu ss_reg), ss_kreg 0-1 the key (ns2_key), 2 the
+	// protection's counter. The RAMs' data a clock after ss_a
+	input             park_req,
+	input             resume,
+	input             force_run,
+	output            m_parked, s_parked, m_stalled, s_stalled, s_run,
+	input             ss_on,
+	input      [14:0] ss_a,
+	input             ss_mram, ss_sram, ss_eep, ss_sci, ss_mreg, ss_sreg, ss_kreg,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output     [15:0] ss_q
 );
 	// 12.288 MHz: PHI1 and PHI2 alternate every two clocks. The phases stop,
 	// for both CPUs, on a clock where a ROM read waits for its cache (a
@@ -103,6 +119,9 @@ module ns2_main #(parameter WRAM_SD = 0) (
 	wire [2:0]  ext1, ext2;
 	assign sound_run = ext1[0];
 	assign sub_run   = ext2[0];
+	assign s_run     = ext2[0] || force_run;
+	wire [15:0] mram_q, sram_q, mreg_q, sreg_q;
+	wire [7:0]  eep_q;
 
 	ns2_cpu #(.MASTER(1), .WRAM_SD(WRAM_SD)) u_master (
 		.clk(clk), .reset(reset), .run(1'b1), .en_phi1(en_phi1), .en_phi2(en_phi2),
@@ -114,9 +133,12 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.hb_on(hb_on), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
 		.wm_req(wm_req[0]), .wm_we(wm_we[0]), .wm_addr(wm_addr[14:0]), .wm_din(wm_din[15:0]), .wm_dsn(wm_dsn[1:0]),
 		.wm_ack(wm_ack[0]), .wm_valid(wm_valid[0]), .wm_data(wm_data),
-		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack));
+		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack),
+		.park_req(park_req), .resume(resume), .parked(m_parked), .stalled(m_stalled),
+		.ss_on(ss_on), .ss_a(ss_a), .ss_ram(ss_mram), .ss_eep(ss_eep), .ss_reg(ss_mreg), .ss_wr(ss_wr), .ss_wdata(ss_wdata),
+		.ss_ram_q(mram_q), .ss_eep_q(eep_q), .ss_reg_q(mreg_q));
 	ns2_cpu #(.MASTER(0), .WRAM_SD(WRAM_SD)) u_slave (
-		.clk(clk), .reset(reset), .run(ext2[0]), .en_phi1(en_phi1), .en_phi2(en_phi2),
+		.clk(clk), .reset(reset), .run(s_run), .en_phi1(en_phi1), .en_phi2(en_phi2),
 		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd), .rom_hold(s_hold),
 		.nv_we(1'b0), .nv_addr(13'd0), .nv_data(8'd0), .nv_q(), .nv_cpu_we(),
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(m_irq), .cpuirq_out(s_irq), .ext1(), .ext2(),
@@ -125,13 +147,17 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.hb_on(1'b0), .hb_addr(16'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(),
 		.wm_req(wm_req[1]), .wm_we(wm_we[1]), .wm_addr(wm_addr[29:15]), .wm_din(wm_din[31:16]), .wm_dsn(wm_dsn[3:2]),
 		.wm_ack(wm_ack[1]), .wm_valid(wm_valid[1]), .wm_data(wm_data),
-		.dbg_as(s_as), .dbg_addr(s_addr), .dbg_rnw(s_rnw), .dbg_wdata(s_wdata), .dbg_ds(s_ds), .dbg_iack(), .dbg_rdata(s_rdata), .dbg_dtack(s_dtack));
+		.dbg_as(s_as), .dbg_addr(s_addr), .dbg_rnw(s_rnw), .dbg_wdata(s_wdata), .dbg_ds(s_ds), .dbg_iack(), .dbg_rdata(s_rdata), .dbg_dtack(s_dtack),
+		.park_req(park_req), .resume(resume), .parked(s_parked), .stalled(s_stalled),
+		.ss_on(ss_on), .ss_a(ss_a), .ss_ram(ss_sram), .ss_eep(1'b0), .ss_reg(ss_sreg), .ss_wr(ss_wr), .ss_wdata(ss_wdata),
+		.ss_ram_q(sram_q), .ss_eep_q(), .ss_reg_q(sreg_q));
 
 	// the key custom
-	wire [15:0] key_q;
+	wire [15:0] key_q, key_ss;
 	reg         key_rd, key_we;
 	reg  [2:0]  key_off;
 	ns2_key u_key (.clk(clk), .reset(reset), .table_in(key_table), .mode(key_mode),
+		.ss_sel(ss_a[0]), .ss_wr(ss_wr && ss_kreg && !ss_a[1]), .ss_wdata(ss_wdata), .ss_rdata(key_ss),
 		.cs(1'b1), .rd(key_rd), .we(key_we), .offset(key_off), .din(v_dout), .dout(key_q));
 
 	// the C139's RAM (the serial link's; games test it)
@@ -209,10 +235,15 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		reg [7:0] sci_h [0:8191], sci_l [0:8191];
 		reg [15:0] rq;
 		wire sci_w = !reset && !busy && (grant_m || grant_s) && decode(ga) == D_SCI && (who ? s_we : m_we);
+		// (the snapshot's while ss_on)
+		wire [12:0] sa = ss_on ? ss_a[12:0] : ga[13:1];
+		wire [15:0] sd = ss_on ? ss_wdata : who ? s_sd : m_sd;
+		wire sw_h = ss_on ? ss_wr && ss_sci : sci_w && (who ? s_uds : m_uds);
+		wire sw_l = ss_on ? ss_wr && ss_sci : sci_w && (who ? s_lds : m_lds);
 		always @(posedge clk) begin
-			if (sci_w && (who ? s_uds : m_uds)) sci_h[ga[13:1]] <= (who ? s_sd : m_sd) >> 8;
-			if (sci_w && (who ? s_lds : m_lds)) sci_l[ga[13:1]] <= (who ? s_sd : m_sd) & 8'hff;
-			rq <= {sci_h[ga[13:1]], sci_l[ga[13:1]]};
+			if (sw_h) sci_h[sa] <= sd[15:8];
+			if (sw_l) sci_l[sa] <= sd[7:0];
+			rq <= {sci_h[sa], sci_l[sa]};
 		end
 		assign sci_rq = rq;
 		assign sci_ready = 1'b1; assign sci_wfull = 1'b0;
@@ -225,6 +256,8 @@ module ns2_main #(parameter WRAM_SD = 0) (
 			.m_req(wm_req[2]), .m_we(wm_we[2]), .m_addr(wm_addr[44:30]), .m_din(wm_din[47:32]), .m_dsn(wm_dsn[5:4]),
 			.m_ack(wm_ack[2]), .m_valid(wm_valid[2]), .m_data(wm_data));
 	end endgenerate
+	assign ss_q = ss_mram ? mram_q : ss_sram ? sram_q : ss_eep ? {8'h00, eep_q} : ss_sci ? (WRAM_SD ? 16'h0000 : sci_rq) :
+	              ss_mreg ? mreg_q : ss_sreg ? sreg_q : ss_a[1] ? {13'd0, prot_cnt} : key_ss;
 	wire sci_rwait = dev == D_SCI && v_rnw && !sci_ready;
 	wire sci_wwait = dev == D_SCI && !v_rnw && sci_wfull;
 	assign sci_hold = busy && step == 2'd2 && (sci_rwait || sci_wwait);
@@ -233,6 +266,7 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		m_done <= 1'b0; s_done <= 1'b0;
 		key_rd <= 1'b0; key_we <= 1'b0; dp_we <= 1'b0;
 		{cs_tmap, cs_tctl, cs_pal, cs_spr, cs_gfx, cs_roz, cs_rozctl, cs_c169, cs_c169ctl, cs_c355, cs_c355pos} <= 11'd0;
+		if (ss_wr && ss_kreg && ss_a[1]) prot_cnt <= ss_wdata[2:0];
 		if (reset) begin busy <= 1'b0; step <= 2'd0; prot_cnt <= 3'd0; end
 		else case (busy ? step : 2'd0)
 			2'd0: if (grant_m || grant_s) begin

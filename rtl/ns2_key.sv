@@ -18,7 +18,12 @@ module ns2_key (
 	input             we,
 	input      [2:0]  offset,
 	input      [15:0] din,
-	output reg [15:0] dout
+	output reg [15:0] dout,
+	// the savestate's port (M5): 0 the LFSR, 1 {armed}
+	input             ss_sel,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output     [15:0] ss_rdata
 );
 	reg [15:0] rng;
 	reg        armed;
@@ -32,8 +37,11 @@ module ns2_key (
 		else                                     dout = next_rng;
 	end
 
+	assign ss_rdata = ss_sel ? {15'd0, armed} : rng;
+
 	always @(posedge clk) begin
-		if (reset) begin rng <= 16'hace1; armed <= 1'b0; end
+		if (ss_wr) begin if (ss_sel) armed <= ss_wdata[0]; else rng <= ss_wdata; end
+		else if (reset) begin rng <= 16'hace1; armed <= 1'b0; end
 		else begin
 			if (cs && rd) begin
 				// a read that returned the random value steps the LFSR

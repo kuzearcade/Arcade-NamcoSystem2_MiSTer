@@ -103,7 +103,11 @@ module ns2_video #(
 	// renderers were still busy: {c355, sprites A, C169, road, ROZ, C123}
 	output reg        overrun,
 	output reg [5:0]  overrun_src,
-	output reg [11:0] line_busy_max   // the most clocks a line kept the renderers busy (of 3072)
+	output reg [11:0] line_busy_max,  // the most clocks a line kept the renderers busy (of 3072)
+	// the savestate's transfer owns the CPU port (M5): the C355's page-0
+	// copy is off (the image has page 0 as it was), and the C116's
+	// registers 6 and 7 read as they are
+	input             ss_on
 );
 	// ------------------------------------------------------------ raster
 	reg [2:0] div;
@@ -221,7 +225,7 @@ module ns2_video #(
 	wire        c355_mt = c355_w[15:12] == 4'h8, c355_ml = c355_w[15:8] == 8'ha0;
 	reg         c355_mp, c355_mph, c355_mpl;   // a copy pending: its lanes
 	always @(posedge clk) begin
-		c355_mp  <= HAS_C355 && c355_in && cw && (c355_mt || c355_ml);
+		c355_mp  <= HAS_C355 && c355_in && cw && (c355_mt || c355_ml) && !ss_on;
 		c355_mph <= c355_in && cw_h;
 		c355_mpl <= c355_in && cw_l;
 	end
@@ -258,7 +262,7 @@ module ns2_video #(
 			pal_sel <= pplane;
 			// registers 6 and 7 read 0xff (namcos2_base_state::c116_r, MAME's
 			// "fix for finallap boot")
-			pal_reg <= po[3:0] > 4'hb ? 8'hff : po[0] ? c116[po[3:1]][7:0] : c116[po[3:1]][15:8];
+			pal_reg <= po[3:0] > 4'hb && !ss_on ? 8'hff : po[0] ? c116[po[3:1]][7:0] : c116[po[3:1]][15:8];
 		end
 		if (cs_tctl && cw) begin
 			if (cpu_uds) tctl[cpu_addr[5:1]][15:8] <= cpu_dout[15:8];

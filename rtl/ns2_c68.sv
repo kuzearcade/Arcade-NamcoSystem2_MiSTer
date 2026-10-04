@@ -50,8 +50,19 @@ module ns2_c68 (
 	output            dbg_tap,        // MAME's taps see this access
 	output            dbg_sync,       // an opcode fetch
 	output            dbg_cen,
-	output     [7:0]  dbg_din         // the cycle's read data
+	output     [7:0]  dbg_din,        // the cycle's read data
+	// the savestate (M5), the MCU stopped: ss_ram the RAM (bytes, a clock
+	// after ss_a), ss_reg 0-10 the core's flops (ns2_m740), 16-17 the ports,
+	// 18-19 their DDRs, 20 {req1, req2}, 21 {ctl1, ctl2}, 22 {adctrl,
+	// adc_cnt}, 23 irq_vector, 24 {ev200, mux, lines_d, div}
+	input             ss_on,
+	input      [8:0]  ss_a,
+	input             ss_ram, ss_reg,
+	input             ss_wr,
+	input      [15:0] ss_wdata,
+	output reg [15:0] ss_q
 );
+	wire ss_rw = ss_wr && ss_reg && ss_a[4];
 	// 2.048 MHz
 	reg [4:0] div;
 	// a ROM read not ready (a cache over the SDRAM) holds the cycle at its
@@ -59,7 +70,7 @@ module ns2_c68 (
 	// board's lockstep, NS2-14)
 	wire rom_wait;
 	assign rom_hold = div == 5'd23 && rom_wait;
-	always @(posedge clk) div <= reset ? 5'd0 : stop ? div : div == 5'd23 ? 5'd0 : div + 1'd1;
+	always @(posedge clk) div <= ss_rw && ss_a[3:0] == 4'd8 ? ss_wdata[4:0] : reset ? 5'd0 : stop ? div : div == 5'd23 ? 5'd0 : div + 1'd1;
 	wire cen = div == 5'd23 && !stop;
 	// the CPU's outputs change on cen (div 23): from five clocks later to the
 	// cycle's end the cache takes them (the SDC's 4-cycle multicycle paths
@@ -72,8 +83,10 @@ module ns2_c68 (
 	reg  [7:0]  din;
 	wire        irq;
 	reg  [15:0] irq_vector;
+	wire [15:0] core_ss;
 	ns2_m740 u_cpu (.clk(clk), .rst(reset), .cen(cen), .irq(irq), .irq_vector(irq_vector),
-	                .addr(a), .dout(dout), .wr(wr), .sync(sync), .tap(tap), .din(din));
+	                .addr(a), .dout(dout), .wr(wr), .sync(sync), .tap(tap), .din(din),
+	                .ss_sel(ss_a[3:0]), .ss_wr(ss_wr && ss_reg && !ss_a[4]), .ss_wdata(ss_wdata), .ss_rdata(core_ss));
 	assign dbg_addr = a; assign dbg_wr = wr && cen; assign dbg_dout = dout;
 	assign dbg_tap = tap; assign dbg_sync = sync; assign dbg_cen = cen; assign dbg_din = din;
 	assign rom_addr = a[14:0];
@@ -111,7 +124,26 @@ module ns2_c68 (
 	wire sel_rom  = a[15];
 	assign rom_rd = sel_rom && !wr;
 	assign rom_wait = rom_rd && !rom_ready;
-	always @(posedge clk) ram_q <= ram[{a[8], a[7:0]}];
+	wire [8:0] ram_a = ss_on ? ss_a : {a[8], a[7:0]};
+	always @(posedge clk) begin
+		ram_q <= ram[ram_a];
+		if (ss_on ? ss_wr && ss_ram : cen && wr && sel_ram && !reset) ram[ram_a] <= ss_on ? ss_wdata[7:0] : dout;
+	end
+	always @(*) begin
+		if (ss_ram) ss_q = {8'h00, ram_q};
+		else if (!ss_a[4]) ss_q = core_ss;
+		else case (ss_a[3:0])
+			4'd0: ss_q = {port[0], port[1]};
+			4'd1: ss_q = {port[2], port[3]};
+			4'd2: ss_q = {ddr[0], ddr[1]};
+			4'd3: ss_q = {ddr[2], ddr[3]};
+			4'd4: ss_q = {req1, req2};
+			4'd5: ss_q = {ctl1, ctl2};
+			4'd6: ss_q = {adctrl, 2'd0, adc_cnt};
+			4'd7: ss_q = irq_vector;
+			default: ss_q = {ev200, mux, lines_d, 3'd0, div};
+		endcase
+	end
 	always @(*) begin
 		if (sel_ram)                     din = ram_q;
 		else if (a[15:3] == 13'h001a && a[2:0] >= 3'd6) din = a[0] ? ddr[0] : rport(2'd0);    // d6, d7
@@ -141,7 +173,18 @@ module ns2_c68 (
 	integer i;
 	always @(posedge clk) begin
 		if (irq_line200) ev200 <= 1'b1;
-		if (reset) begin
+		if (ss_rw) case (ss_a[3:0])
+			4'd0: {port[0], port[1]} <= ss_wdata;
+			4'd1: {port[2], port[3]} <= ss_wdata;
+			4'd2: {ddr[0], ddr[1]} <= ss_wdata;
+			4'd3: {ddr[2], ddr[3]} <= ss_wdata;
+			4'd4: {req1, req2} <= ss_wdata;
+			4'd5: {ctl1, ctl2} <= ss_wdata;
+			4'd6: {adctrl, adc_cnt} <= {ss_wdata[15:8], ss_wdata[5:0]};
+			4'd7: irq_vector <= ss_wdata;
+			default: {ev200, mux, lines_d} <= ss_wdata[15:8];
+		endcase
+		else if (reset) begin
 			// MAME's reset clears the requests: nothing from before the release
 			ev200 <= 1'b0;
 			for (i = 0; i < 4; i = i + 1) begin port[i] <= 8'h00; ddr[i] <= 8'h00; end
@@ -154,7 +197,6 @@ module ns2_c68 (
 			if (adc_cnt == 6'd1) begin adctrl <= adctrl | 8'h08; req2 <= req2 | 8'h20; end
 			if (adc_cnt != 0) adc_cnt <= adc_cnt - 1'd1;
 			if (wr) begin
-				if (sel_ram) ram[{a[8], a[7:0]}] <= dout;
 				case (a)
 					16'h00d6: begin port[0] <= dout; mux <= (dout & ddr[0]) >> 7; end
 					16'h00d7: begin ddr[0] <= dout;  mux <= (port[0] & dout) >> 7; end
@@ -178,7 +220,7 @@ module ns2_c68 (
 		end
 		// m740 set_irq_line: the vector follows the lowest pending line, and
 		// stays when none is left
-		if (!reset) begin
+		if (!reset && !ss_rw) begin
 			lines_d <= lines;
 			if (lines != lines_d && lines != 0)
 				irq_vector <= lines[0] ? 16'hfff8 : lines[1] ? 16'hfff6 : lines[2] ? 16'hfff4 :

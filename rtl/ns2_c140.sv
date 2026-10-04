@@ -50,9 +50,29 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	output reg signed [15:0] right,
 	output reg signed [15:0] raw_l,
 	output reg signed [15:0] raw_r,
-	output reg        sample
+	output reg        sample,
+	// the savestate (M5), the CPU's interface idle. ss_on: a register read
+	// is raw (dout = regs[addr]). ss_rwr writes register addr (a voice
+	// register 0-4 or 6-11 also through the queue, as the CPU's: the
+	// engine's copy). ss_va: voice ss_va[9:5]'s state, byte ss_va[4:0] (0-1
+	// offs, 2-4 pos, 5 key, 6-7 lastdt, 8-9 prevdt, 10 mode, 11 vbank, 12-17
+	// start, end, loop), ss_vq a clock later; ss_vwr writes it through the
+	// queue. The globals at addr[3:0] (0-1 the key status, 2-3 the timer, 4-6
+	// the tick, 7-8 wse), ss_gq, ss_gwr. idle: no write queued, no sample
+	// being made (the state is all in what the image holds)
+	input             ss_on,
+	input      [9:0]  ss_va,
+	input             ss_rwr, ss_vwr, ss_gwr,
+	input      [15:0] ss_wdata,
+	output reg [7:0]  ss_vq,
+	output reg [15:0] ss_gq,
+	output            idle
 );
-	reg [7:0]  regs [0:511];           // the CPU's view
+	// the CPU's view, a block RAM read a clock after addr (the 6809 holds its
+	// address for its whole E cycle; the snapshot for four clocks); the
+	// timer's two registers also in flops
+	(* ramstyle = "M10K" *) reg [7:0] regs [0:511];
+	reg [7:0]  regs_q, r1f8, r1fe;
 	reg [23:0] key_cpu;                // the key status the CPU reads
 	// the timer counts clocks from the write, as MAME's (an exact duration,
 	// not the base-rate ticks' edges): (reload + 1) * 2 * 2304 clocks
@@ -61,9 +81,15 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 
 	wire [4:0] voice = addr[8:4];
 	always @(*) begin
-		if (addr[3:0] == 4'h5 && addr < 9'h180) dout = {1'b0, key_cpu[voice], regs[addr][5:0]};
-		else if (addr == 9'h1f8)             dout = regs[addr] + 1'd1;
-		else                                 dout = regs[addr];
+		if (ss_on)                           dout = regs_q;
+		else if (addr[3:0] == 4'h5 && addr < 9'h180) dout = {1'b0, key_cpu[voice], regs_q[5:0]};
+		else if (addr == 9'h1f8)             dout = regs_q + 1'd1;
+		else                                 dout = regs_q;
+	end
+
+	always @(posedge clk) begin
+		if ((cs && we) || ss_rwr) regs[addr] <= ss_rwr ? ss_wdata[7:0] : din;
+		regs_q <= regs[addr];
 	end
 
 	// ---------------------------------------------------------- the tick
@@ -73,6 +99,9 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	always @(posedge clk) begin
 		tick <= 1'b0;
 		if (reset) begin div <= 0; acc <= 26'd49152000 - 26'd21333; end
+		else if (ss_gwr && addr[3:0] == 4'd4) div <= ss_wdata[11:0];
+		else if (ss_gwr && addr[3:0] == 4'd5) acc[15:0] <= ss_wdata;
+		else if (ss_gwr && addr[3:0] == 4'd6) acc[25:16] <= ss_wdata[9:0];
 		else if (hold) ;
 		else if (MAME_RATE) begin
 			// edge k at the first clock c with c * 21333 >= k * 49152000
@@ -97,11 +126,13 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	reg [15:0] vst [0:23], ved [0:23], vlp [0:23];
 
 	// the queue of the CPU's voice register writes:
-	// {key-on decision, voice[4:0], register[3:0], data[7:0]}
-	(* ramstyle = "logic" *) reg [17:0] q [0:31];
+	// {0, key-on decision, voice[4:0], register[3:0], data[7:0]}, or the
+	// savestate's of a voice's state: {1, byte[4:0], voice[4:0], data[7:0]}
+	(* ramstyle = "logic" *) reg [18:0] q [0:31];
 	reg [4:0]  q_wr, q_rd, q_mark;
 	reg        tick_p;
-	wire [17:0] qe  = q[q_rd];
+	wire [18:0] qe  = q[q_rd];
+	wire [4:0]  qk  = {qe[17], qe[11:8]};
 	wire [4:0]  qv  = qe[16:12];
 	wire [3:0]  qr  = qe[11:8];
 	wire [7:0]  qd  = qe[7:0];
@@ -161,6 +192,40 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	wire signed [28:0] e_rp = m_dt * $signed({1'b0, m_rvol});
 	wire [23:0] e_word = {vbank[ev], 16'd0} + {8'd0, vst[ev]} + {{6{pos[ev][17]}}, pos[ev]};
 	wire        e_kon  = din[7] || (din[6] && key_cpu[voice]);
+	assign idle = es == E_IDLE && !tick_p && q_rd == q_wr;
+	always @(*) begin
+		case (ss_va[4:0])
+			5'd0:  ss_vq = offs[ev][15:8];
+			5'd1:  ss_vq = offs[ev][7:0];
+			5'd2:  ss_vq = {6'd0, pos[ev][17:16]};
+			5'd3:  ss_vq = pos[ev][15:8];
+			5'd4:  ss_vq = pos[ev][7:0];
+			5'd5:  ss_vq = {7'd0, key[ev]};
+			5'd6:  ss_vq = lastdt[ev][15:8];
+			5'd7:  ss_vq = lastdt[ev][7:0];
+			5'd8:  ss_vq = prevdt[ev][15:8];
+			5'd9:  ss_vq = prevdt[ev][7:0];
+			5'd10: ss_vq = mode[ev];
+			5'd11: ss_vq = vbank[ev];
+			5'd12: ss_vq = vst[ev][15:8];
+			5'd13: ss_vq = vst[ev][7:0];
+			5'd14: ss_vq = ved[ev][15:8];
+			5'd15: ss_vq = ved[ev][7:0];
+			5'd16: ss_vq = vlp[ev][15:8];
+			default: ss_vq = vlp[ev][7:0];
+		endcase
+		case (addr[3:0])
+			4'd0: ss_gq = key_cpu[15:0];
+			4'd1: ss_gq = {8'd0, key_cpu[23:16]};
+			4'd2: ss_gq = tcount[15:0];
+			4'd3: ss_gq = {9'd0, running, int1, tcount[20:16]};
+			4'd4: ss_gq = {4'd0, div};
+			4'd5: ss_gq = acc[15:0];
+			4'd6: ss_gq = {6'd0, acc[25:16]};
+			4'd7: ss_gq = wse[15:0];
+			default: ss_gq = {8'd0, wse[23:16]};
+		endcase
+	end
 
 	integer i;
 	always @(posedge clk) begin
@@ -182,17 +247,37 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 				tcount <= tcount - 1'd1;
 			end
 			if (tick) begin wse <= 0; tick_p <= 1'b1; q_mark <= q_wr; end
+			// (the savestate's writes: the register, and the queue as the CPU's,
+			// but no key-on and none of the timer's side effects)
+			if (((cs && we) || ss_rwr) && addr == 9'h1f8) r1f8 <= ss_rwr ? ss_wdata[7:0] : din;
+			if (((cs && we) || ss_rwr) && addr == 9'h1fe) r1fe <= ss_rwr ? ss_wdata[7:0] : din;
+			if (ss_rwr && addr < 9'h180 && addr[3:0] < 4'd12 && addr[3:0] != 4'h5) begin
+				q[q_wr] <= {2'b00, voice, addr[3:0], ss_wdata[7:0]};
+				q_wr <= q_wr + 1'd1;
+			end
+			if (ss_vwr) begin
+				q[q_wr] <= {1'b1, ss_va[4], ss_va[9:5], ss_va[3:0], ss_wdata[7:0]};
+				q_wr <= q_wr + 1'd1;
+			end
+			if (ss_gwr) case (addr[3:0])
+				4'd0: key_cpu[15:0] <= ss_wdata;
+				4'd1: key_cpu[23:16] <= ss_wdata[7:0];
+				4'd2: tcount[15:0] <= ss_wdata;
+				4'd3: {running, int1, tcount[20:16]} <= ss_wdata[6:0];
+				4'd7: wse[15:0] <= ss_wdata;
+				4'd8: wse[23:16] <= ss_wdata[7:0];
+				default: ;
+			endcase
 			if (cs && we) begin
-				regs[addr] <= din;
 				if (addr < 9'h180 && addr[3:0] < 4'd12) begin
 					// the key-on decision is MAME's, at the write
 					if (addr[3:0] == 4'h5) begin key_cpu[voice] <= e_kon; wse[voice] <= 1'b1; end
-					q[q_wr] <= {addr[3:0] == 4'h5 && e_kon, voice, addr[3:0], din};
+					q[q_wr] <= {1'b0, addr[3:0] == 4'h5 && e_kon, voice, addr[3:0], din};
 					q_wr <= q_wr + 1'd1;
 				end
 				if (addr == 9'h1fa) begin
 					int1 <= 1'b0;
-					if (regs[9'h1fe][0]) begin running <= 1'b1; tcount <= ({13'd0, regs[9'h1f8]} + 21'd1) * 21'd4608; end
+					if (r1fe[0]) begin running <= 1'b1; tcount <= ({13'd0, r1f8} + 21'd1) * 21'd4608; end
 				end
 				if (addr == 9'h1fe) begin
 					if (din[0]) begin if (!running) int1 <= 1'b1; end
@@ -206,7 +291,27 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 					if (q_rd != (tick_p ? q_mark : q_wr)) begin
 						// apply a queued write (the writes before a tick first)
 						q_rd <= q_rd + 1'd1;
-						case (qr)
+						if (qe[18]) case (qk)
+							5'd0:  offs[qv][15:8]   <= qd;
+							5'd1:  offs[qv][7:0]    <= qd;
+							5'd2:  pos[qv][17:16]   <= qd[1:0];
+							5'd3:  pos[qv][15:8]    <= qd;
+							5'd4:  pos[qv][7:0]     <= qd;
+							5'd5:  key[qv]          <= qd[0];
+							5'd6:  lastdt[qv][15:8] <= qd;
+							5'd7:  lastdt[qv][7:0]  <= qd;
+							5'd8:  prevdt[qv][15:8] <= qd;
+							5'd9:  prevdt[qv][7:0]  <= qd;
+							5'd10: mode[qv]         <= qd;
+							5'd11: vbank[qv]        <= qd;
+							5'd12: vst[qv][15:8]    <= qd;
+							5'd13: vst[qv][7:0]     <= qd;
+							5'd14: ved[qv][15:8]    <= qd;
+							5'd15: ved[qv][7:0]     <= qd;
+							5'd16: vlp[qv][15:8]    <= qd;
+							default: vlp[qv][7:0]   <= qd;
+						endcase
+						else case (qr)
 							4'd0:  vol_r[qv] <= qd;
 							4'd1:  vol_l[qv] <= qd;
 							4'd2:  frq_h[qv] <= qd;
@@ -289,6 +394,8 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 				end
 				default: es <= E_IDLE;
 			endcase
+			// (the savestate's reads of a voice: its index)
+			if (ss_on) ev <= ss_va[9:5];
 		end
 	end
 endmodule
