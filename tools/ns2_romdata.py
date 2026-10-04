@@ -223,7 +223,9 @@ def config_block(name, sets=None, gm=None):
            triggers on MCUB; wheel and pedals: [4] Start on MCUB, [5] the
            gears on MCUB (Dirt Fox)
       34-35 MCUB's and MCUH's idle values (modes other than 0)
-      36-37 the C140's and the YM2151's speaker gains x128 (GAINS)"""
+      36-37 the C140's and the YM2151's speaker gains x128 (GAINS)
+      38   [0] the OSD's Autofire options shown (0 here: tools/ns2_autofire_mra.py
+           sets it in its autofire_releases/ copies)"""
     import ns2_keys
     sets = sets or parse()
     gm = gm or games()

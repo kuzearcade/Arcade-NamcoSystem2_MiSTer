@@ -76,3 +76,8 @@ sim/rtl/*/65c02.uc
 /valkyrie_mra_patch/
 # The Valkyrie translation loading its ROMs from valkyriee.zip (tools/ns2_patch_mra.py --zip), held back.
 /valkyrie_mra_no_patch/
+
+# .mra files with the OSD Autofire options shown (config byte 38 bit 0), the
+# same layout and names as releases/: written by tools/ns2_autofire_mra.py,
+# never committed
+/autofire_releases/

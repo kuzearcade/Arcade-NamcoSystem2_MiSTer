@@ -2013,6 +2013,10 @@ neither. Now:
   adaptive filter (`MISTER_DISABLE_ADAPTIVE`), which also closed its HDMI
   clock's timing (seeds without it fit, or met timing, but not both).
   Suzuka 8 Hours keeps both (seed 427 met timing).
+  The OSD's Autofire / Gun crosshair rules (NS2-34) took Lucky & Wild 13-19
+  LABs over again: it also leaves out the scandoubler's HQ2x (its blender
+  and difference checks, about 400 ALMs), its Scandoubler Fx list None and
+  the CRT levels.
 - Test: M2's back door test (`HB_TEST`, sim/rtl/ns2_frames, `WRAM=1`: the
   SDRAM's model) reads 16 bytes of the work RAM and 16 of the C123's RAM
   against the arrays, writes each changed and back with a read-back, and
@@ -2023,3 +2027,20 @@ neither. Now:
   with the first name edited to TESTSIGE the attract's ranking shows it
   after a reload. Infinite Time holds the demo's timer at 499 (it counts
   down from 149 without it).
+
+## NS2-34 — The OSD shows only the options a set uses (closed)
+
+- **Autofire** and **Autofire rate** are hidden (CONF_STR `h1`, menumask 1)
+  unless the `.mra` turns them on: its configuration block's byte 38 bit 0
+  (`af_unlock`). The `.mra` files in `releases/` leave it 0;
+  `tools/ns2_autofire_mra.py` writes `autofire_releases/` (git-ignored: the
+  same layout, names and `_alternatives/`, that one bit set). A saved
+  Autofire setting does nothing while the options are hidden. The flag is in
+  the ROM download's configuration, not in `<switches>`, so a saved
+  `config/dips/<name>.dip` cannot hide it again (Arcade-NMK16_MiSTer's
+  caveat, where the flag is a switch bit).
+- **Gun crosshair** shows (`hD`, menumask 13) for the sets whose `.mra`'s
+  control mode has light guns (ns2_controls' `guns`: Golly! Ghost!, Bubble
+  Trouble, Steel Gunner 1 and 2, Lucky & Wild).
+- **Aspect ratio**, **Scandoubler Fx** (`HB`) and **Orientation** (`H0`)
+  were already hidden under direct video.

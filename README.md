@@ -79,8 +79,15 @@ alternates), and the parents on the other four bitstreams.
 
 - **Pause** (OSD: Pause, and Pause when OSD is open): every CPU and both
   sound chips stop; the picture holds.
+- Under direct video the OSD hides Aspect ratio, Scandoubler Fx and
+  Orientation: the scaler paths they set do not exist there.
 - **Autofire** (OSD): Button 1, Button 2 or both, at 15, 10, 7.5 or 30 Hz,
-  both players.
+  both players. The options are hidden unless the `.mra` turns them on:
+  the files in `releases/` do not, and `tools/ns2_autofire_mra.py` writes
+  a copy of `releases/` that does into `autofire_releases/` (the same
+  layout and names, `_alternatives/` included; git-ignored, so generate
+  it locally). The switch is in the set's configuration block (byte 38,
+  bit 0), not its DIP switches, so a saved `.dip` file does not hide it.
 - **High scores** for the 35 sets in MAME's `hiscore.dat` (the plugin's
   table addresses, from `tools/ns2_extras.py`), saved with the EEPROM in the
   set's `.nvm` (OSD: High Scores & Cheats, on by default). The games that
@@ -132,8 +139,9 @@ against the same run without it.
   anything. The mouse aims for player 1, with its left button the
   trigger and its right button Steel Gunner's missile. Button 1 is the
   trigger, and Button 2 the missile. The aim matches the game's own sight,
-  flipped for the ROT180 sets. The OSD's "Gun crosshair" shows a white
-  cross for player 1 and a yellow one for player 2, once player 2 has aimed.
+  flipped for the ROT180 sets. The OSD's "Gun crosshair" (shown only for
+  these sets) draws a white cross for player 1 and a yellow one for player
+  2, once player 2 has aimed.
 - **Assault** (and Assault Plus): two 4-way sticks a player, the tank's
   two tracks. The left and right analog sticks are the two sticks, each
   its own track. The right stick can also be four buttons, Right Up, Down,
@@ -182,7 +190,8 @@ bitstreams keep both 68000 work RAMs and the C139's RAM in SDRAM behind
 small caches, to fit their block RAM (NS2-15), and leave out the C65: every
 set they serve has the C68 (NS2-32). To make room for the high scores and
 cheats and meet timing (NS2-33), Lucky & Wild leaves out the HDMI
-scaler's adaptive filter and ALSA (Linux's audio mixed into the core's).
+scaler's adaptive filter, ALSA (Linux's audio mixed into the core's) and the
+scandoubler's HQ2x (its Scandoubler Fx lists None and the CRT levels).
 
 Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
 `_alternatives/`) to `_Arcade/`, and MAME's zips (the sets, plus

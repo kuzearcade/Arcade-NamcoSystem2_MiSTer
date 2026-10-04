@@ -58,26 +58,31 @@ localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0, W
 localparam CORE_NAME = "NamcoS2_MH";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+localparam SDFX_OSD = "None,HQ2x,CRT 25%,CRT 50%,CRT 75%", HQ2X = 1;
 `elsif NS2_SZ
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 1, HAS_C65 = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SZ";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+localparam SDFX_OSD = "None,HQ2x,CRT 25%,CRT 50%,CRT 75%", HQ2X = 1;
 `elsif NS2_LW
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, WRAM_SD = 1, HAS_C65 = 0, VSIZE_MAX = 1;
 localparam CORE_NAME = "NamcoS2_LW";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,-1";
+localparam SDFX_OSD = "None,CRT 25%,CRT 50%,CRT 75%", HQ2X = 0;
 `elsif NS2_SG
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SG";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+localparam SDFX_OSD = "None,HQ2x,CRT 25%,CRT 50%,CRT 75%", HQ2X = 1;
 `else
 localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
+localparam SDFX_OSD = "None,HQ2x,CRT 25%,CRT 50%,CRT 75%", HQ2X = 1;
 `endif
 // (VSIZE_OSD: crt_chain's V-Size list, "0,+1..+MAX,-MAX..-1", each its own
 // literal: strings of two lengths under ?: would pad one with NULs)
@@ -87,18 +92,22 @@ localparam CONF_STR = {
 	CONF_HEAD,
 	"-;",
 	"HBO[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
-	"HBO[3:1],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	// (Lucky & Wild: no HQ2x, its blender's room, NS2-33; its values 1-3 are CRT 25-75%)
+	"HBO[3:1],Scandoubler Fx,", SDFX_OSD, ";",
 	"H0O[9:8],Orientation,Horz,Vert 90,Vert 270;",
 	// 180 degrees in the core, on every video path (ns2_flipbuf); a ROT180
 	// set (MAME's Bubble Trouble) starts turned, and this turns it back
 	"O[17],Flip screen,Off,On;",
-	"O[18],Gun crosshair,On,Off;",
+	// shown for the light gun sets only (their .mra's control mode: menumask 13)
+	"hDO[18],Gun crosshair,On,Off;",
 	"-;",
 	"O[19],Pause,Off,On;",
 	"O[20],Pause when OSD is open,Off,On;",
 	// held Button 1 / 2 pulses at the rate (half on, half off), both players
-	"O[22:21],Autofire,Off,Button 1,Button 2,Buttons 1+2;",
-	"O[24:23],Autofire rate,15 Hz,10 Hz,7.5 Hz,30 Hz;",
+	// shown only when the .mra unlocks them (its config block's byte 38 bit
+	// 0: tools/ns2_autofire_mra.py's autofire_releases/; menumask 1)
+	"h1O[22:21],Autofire,Off,Button 1,Button 2,Buttons 1+2;",
+	"h1O[24:23],Autofire rate,15 Hz,10 Hz,7.5 Hz,30 Hz;",
 	// High scores (MAME's hiscore.dat, kept in the .nvm after the EEPROM) and
 	// cheats (Pugsy's database): the master's memory through ns2_board's back
 	// door (through the work RAM's cache where it is in the SDRAM);
@@ -160,6 +169,8 @@ localparam CONF_STR = {
 wire         forced_scandoubler;
 wire  [8:0]  hcnt, vcnt;          // the board's raster (below)
 wire  [9:0]  ch_avail;            // the cheat slots the .mra has (below)
+wire         af_unlock;           // the .mra shows the Autofire options (below)
+wire         guns_on;             // the set has light guns (ns2_controls)
 wire  [1:0]  ss_slot;             // the savestates (below)
 wire  [7:0]  ss_info;
 wire         ss_info_req, ss_status_update;
@@ -200,8 +211,8 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	// [11] hides Aspect ratio and Scandoubler Fx under direct video;
 	// [0] hides Orientation under direct video
 	// [12], [10:2] the cheat slots the .mra has; [11] and [0] direct video;
-	// [1] unused
-	.status_menumask({3'd0, ch_avail[9], direct_video, ch_avail[8:0], 1'b0, direct_video}),
+	// [1] the .mra unlocks Autofire; [13] the set has light guns (Gun crosshair)
+	.status_menumask({2'd0, guns_on, ch_avail[9], direct_video, ch_avail[8:0], af_unlock, direct_video}),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
@@ -311,6 +322,7 @@ wire         cfg_sprfl  = cfg[2][5];
 wire         cfg_mh     = cfg[2][6];
 wire         cfg_lw     = cfg[2][7];
 wire [1:0]   cfg_kmode  = cfg[3][1:0];
+assign       af_unlock  = cfg[38][0];          // the OSD's Autofire options (autofire_releases/'s .mra files)
 // MAME's power-on analog and dial values (M5 maps the controls onto them)
 wire [63:0]  cfg_analog = {cfg[28], cfg[27], cfg[26], cfg[25], cfg[24], cfg[23], cfg[22], cfg[21]};
 wire [31:0]  cfg_dials  = {cfg[32], cfg[31], cfg[30], cfg[29]};
@@ -400,7 +412,7 @@ wire p1_svc   = joystick_0[9] | kb_service, p2_svc  = joystick_1[9];
 wire [7:0]  in_mcub, in_mcuc, in_mcuh;
 wire [63:0] in_analog;
 wire [31:0] in_dials;
-wire        guns_on, gun2_on;
+wire        gun2_on;
 wire [8:0]  gun1_x, gun2_x;
 wire [7:0]  gun1_y, gun2_y;
 
@@ -786,7 +798,8 @@ always @(posedge clk_sys) begin
 		else af_cnt <= af_cnt + 1'd1;
 	end
 end
-wire [1:0] af_btn  = status[22:21];                              // [1] Button 2, [0] Button 1
+// (a saved Autofire setting does nothing unless the .mra unlocks the menu)
+wire [1:0] af_btn  = status[22:21] & {2{af_unlock}};             // [1] Button 2, [0] Button 1
 wire [8:0] af_mask = {3'b000, af_btn & {2{!af_on}}, 4'b0000};    // p[5] B2, p[4] B1
 wire [8:0] p1 = p1_raw & ~af_mask;
 wire [8:0] p2 = p2_raw & ~af_mask;
@@ -852,7 +865,9 @@ assign CLK_VIDEO = clk_sd;
 // the scandoubler is off whenever the rotation framebuffer is on (NMK-28):
 // rotating, or turning the picture 180 degrees
 wire       fb_rotating = ~no_rotate;
-wire [2:0] fx = direct_video ? 3'd0 : status[3:1];
+// fx: 0 none, 1 HQ2x, 2-4 CRT 25-75% (without HQ2x the OSD's 1-3 are 2-4)
+wire [2:0] fx_osd = direct_video ? 3'd0 : status[3:1];
+wire [2:0] fx = HQ2X || fx_osd == 3'd0 ? fx_osd : fx_osd + 3'd1;
 wire       scandoubler_en = ((fx != 3'd0) || forced_scandoubler) && ~fb_rotating;
 assign VGA_SL = fx[2:1];
 
@@ -878,7 +893,7 @@ video_mixer #(.LINE_LENGTH(304), .HALF_DEPTH(0), .GAMMA(0)) video_mixer (
 	.ce_pix(vm_ce_pix),
 	.CE_PIXEL(CE_PIXEL),
 	.scandoubler(scandoubler_en),
-	.hq2x(fx == 3'd1),
+	.hq2x(HQ2X && fx == 3'd1),
 	.gamma_bus(vm_gamma_bus),
 	.R(retimed_rgb[23:16]), .G(retimed_rgb[15:8]), .B(retimed_rgb[7:0]),
 	.HSync(vm_hs), .VSync(vm_vs), .HBlank(vm_hb), .VBlank(vm_vb),
