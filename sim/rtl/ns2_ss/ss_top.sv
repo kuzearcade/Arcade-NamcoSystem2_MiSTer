@@ -3,7 +3,7 @@
 // brought out to the testbench (tb.cpp). The board's ports the gate does not
 // use are tied off.
 module ss_top #(parameter BOARD_HAS_SPRA = 1, parameter BOARD_HAS_ROZ = 1, parameter BOARD_HAS_C45 = 1,
-	parameter BOARD_HAS_C169 = 1, parameter BOARD_HAS_C355 = 1) (
+	parameter BOARD_HAS_C169 = 1, parameter BOARD_HAS_C355 = 1, parameter WRAM_SD = 0, parameter BOARD_HAS_C65 = 1) (
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -52,13 +52,13 @@ module ss_top #(parameter BOARD_HAS_SPRA = 1, parameter BOARD_HAS_ROZ = 1, param
 	input      [63:0] ddr_dout,
 	input             ddr_dout_ready
 );
-	wire        ss_freeze, ss_resume, ss_active, ss_wr, ss_rd, ss_frozen, ss_parked, ss_replay, ss_replay_done, ss_load;
+	wire        ss_freeze, ss_resume, ss_active, ss_wr, ss_rd, ss_frozen, ss_parked, ss_replay, ss_replay_done, ss_load, ss_ack;
 	wire [19:0] ss_addr;
 	wire [15:0] ss_rdata, ss_wdata;
 	assign ss_frz = ss_frozen;
 	assign {dbg_freeze, dbg_active, dbg_resume, dbg_replay} = {ss_freeze, ss_active, ss_resume, ss_replay};
 	ns2_board #(.C140_MAME_RATE(1), .ROMS(0), .HAS_SPRA(BOARD_HAS_SPRA), .HAS_ROZ(BOARD_HAS_ROZ), .HAS_C45(BOARD_HAS_C45),
-		.HAS_C169(BOARD_HAS_C169), .HAS_C355(BOARD_HAS_C355)) u_board (
+		.HAS_C169(BOARD_HAS_C169), .HAS_C355(BOARD_HAS_C355), .WRAM_SD(WRAM_SD), .HAS_C65(BOARD_HAS_C65)) u_board (
 		.clk(clk), .reset(reset), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
@@ -90,12 +90,13 @@ module ss_top #(parameter BOARD_HAS_SPRA = 1, parameter BOARD_HAS_ROZ = 1, param
 		.mcu_dout(mcu_dout), .snd_dout(snd_dout), .sound_run(), .sub_run(),
 		.ss_freeze(ss_freeze), .ss_resume(ss_resume), .ss_active(ss_active), .ss_load(ss_load),
 		.ss_addr(ss_addr), .ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_rdata(ss_rdata),
-		.ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done));
-	savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'd0), .SLOT_STRIDE(29'h20000), .RD_LAT(5)) u_ss (
+		.ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
+		.ss_rd(ss_rd), .ss_ack(ss_ack));
+	savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'd0), .SLOT_STRIDE(29'h20000), .RD_LAT(5), .VARLAT(WRAM_SD)) u_ss (
 		.clk(clk), .reset(reset), .save_req(save_req), .load_req(load_req), .slot(slot),
 		.vblank(vcnt >= 9'd224), .allow(!reset),
 		.ss_freeze(ss_freeze), .ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_resume(ss_resume), .ss_active(ss_active),
-		.ss_addr(ss_addr), .ss_rdata(ss_rdata), .ss_wr(ss_wr), .ss_rd(ss_rd), .ss_ack(1'b0), .ss_wdata(ss_wdata),
+		.ss_addr(ss_addr), .ss_rdata(ss_rdata), .ss_wr(ss_wr), .ss_rd(ss_rd), .ss_ack(ss_ack), .ss_wdata(ss_wdata),
 		.ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
 		.busy(ss_busy), .done_ok(ss_done_ok), .done_fail(ss_done_fail), .fail_code(ss_fail_code), .was_load(ss_load),
 		.clk_ddr(clk), .ddr_busy(1'b0), .rot_we(1'b0), .ddr_we(ddr_we), .ddr_rd(ddr_rd), .ddr_addr(ddr_addr),

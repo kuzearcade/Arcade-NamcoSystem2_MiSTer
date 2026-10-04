@@ -7,10 +7,10 @@ a slot when its counter changes. The engine (`savestate.sv`) and the CPU
 parks are GingaNin's with three marked changes (below); everything around
 them is this board's.
 
-The standard, Metal Hawk and Steel Gunner bitstreams have them. Suzuka 8
-Hours and Lucky & Wild do not yet: their work RAMs are in the SDRAM behind
-caches (NS2-15), which the snapshot does not reach, and Lucky & Wild has no
-room (NS2-30). Their OSD hides the page and their CONF_STR has no SS line.
+Every bitstream has them. On Suzuka 8 Hours and Lucky & Wild the 68000s'
+work RAMs and the C139's RAM are in the SDRAM behind small caches (NS2-15):
+the snapshot goes through the caches (below), and those two bitstreams
+leave out the C65, which none of their sets has (`HAS_C65`), to make room.
 
 ## What a state is
 
@@ -101,6 +101,17 @@ gate run found it). The DPRAM's port B alternation starts over at the release.
   key-ons), on a clock of its own (the board's YM clock is held and in the
   image). Its sound restarts from the registers: a few ms of envelope differ.
 
+## The work RAMs in the SDRAM (Suzuka 8 Hours, Lucky & Wild)
+
+The engine shakes hands for every word (`VARLAT`, as Arcade-NMKBP964's):
+`ss_rd` asks, `ss_ack` answers. The work RAMs and the C139's RAM go through
+their caches' CPU side: a read waits for its line (a miss fills it from the
+SDRAM), a write waits for room in the write FIFO. Every other region answers
+in 5 clocks. A cache miss stops every CPU (the lockstep), so what the caches
+hold changes the CPUs' timing against the video: all three are emptied as
+the transfer ends, after a save and after a load alike, and the machine
+resumes with the same, empty, caches.
+
 ## The DDR port
 
 Three users: screen_rotate (writes), the in-core flip (ns2_flipbuf, bursts),
@@ -120,8 +131,6 @@ frame), and (SS_TRACE) the 68000s' first accesses at the same clocks.
 
 ## Not yet
 
-- Suzuka 8 Hours and Lucky & Wild (the work RAMs through their caches;
-  Lucky & Wild's room).
 - M3 (the SDRAM, the ROMs' caches): the caches' contents change the
   lockstep's stops, so a load matches its save as the board does, not clock
   for clock.

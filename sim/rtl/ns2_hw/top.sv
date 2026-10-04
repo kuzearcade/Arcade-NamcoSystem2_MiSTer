@@ -107,7 +107,7 @@ module top #(
 	ns2_board #(.C140_MAME_RATE(1), .ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45),
 		.HAS_C169(HAS_C169), .HAS_C355(HAS_C355), .WRAM_SD(WRAM_SD)) u_board ( .pause(1'b0), .hb_req(1'b0), .hb_ok(), .hb_addr(24'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(),
 		.ss_freeze(1'b0), .ss_resume(1'b0), .ss_active(1'b0), .ss_load(1'b0), .ss_addr(20'd0), .ss_wr(1'b0), .ss_wdata(16'd0),
-		.ss_rdata(), .ss_frozen(), .ss_parked(), .ss_replay(1'b0), .ss_replay_done(),
+		.ss_rdata(), .ss_frozen(), .ss_parked(), .ss_replay(1'b0), .ss_replay_done(), .ss_rd(1'b0), .ss_ack(),
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog), .dbg_stall(1'b0), .dbg_holds(dbg_holds),

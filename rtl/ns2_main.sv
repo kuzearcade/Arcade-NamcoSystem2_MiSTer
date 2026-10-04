@@ -93,7 +93,14 @@ module ns2_main #(parameter WRAM_SD = 0) (
 	input             ss_mram, ss_sram, ss_eep, ss_sci, ss_mreg, ss_sreg, ss_kreg,
 	input             ss_wr,
 	input      [15:0] ss_wdata,
-	output     [15:0] ss_q
+	output     [15:0] ss_q,
+	// WRAM_SD: the work RAMs and the C139's RAM through their caches
+	// (ns2_cpu ss_rd / ss_wgo / ss_flush); the selected one's state
+	input             ss_rd,
+	input             ss_wgo,
+	input             ss_flush,
+	output            ss_wready,
+	output            ss_wfull
 );
 	// 12.288 MHz: PHI1 and PHI2 alternate every two clocks. The phases stop,
 	// for both CPUs, on a clock where a ROM read waits for its cache (a
@@ -121,6 +128,7 @@ module ns2_main #(parameter WRAM_SD = 0) (
 	assign sub_run   = ext2[0];
 	assign s_run     = ext2[0] || force_run;
 	wire [15:0] mram_q, sram_q, mreg_q, sreg_q;
+	wire        m_rdy, s_rdy, m_wf, s_wf, sc_rdy, sc_wf;
 	wire [7:0]  eep_q;
 
 	ns2_cpu #(.MASTER(1), .WRAM_SD(WRAM_SD)) u_master (
@@ -136,7 +144,8 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack),
 		.park_req(park_req), .resume(resume), .parked(m_parked), .stalled(m_stalled),
 		.ss_on(ss_on), .ss_a(ss_a), .ss_ram(ss_mram), .ss_eep(ss_eep), .ss_reg(ss_mreg), .ss_wr(ss_wr), .ss_wdata(ss_wdata),
-		.ss_ram_q(mram_q), .ss_eep_q(eep_q), .ss_reg_q(mreg_q));
+		.ss_ram_q(mram_q), .ss_eep_q(eep_q), .ss_reg_q(mreg_q),
+		.ss_rd(ss_rd), .ss_wgo(ss_wgo), .ss_flush(ss_flush), .ss_ram_ready(m_rdy), .ss_ram_wfull(m_wf));
 	ns2_cpu #(.MASTER(0), .WRAM_SD(WRAM_SD)) u_slave (
 		.clk(clk), .reset(reset), .run(s_run), .en_phi1(en_phi1), .en_phi2(en_phi2),
 		.rom_addr(srom_addr), .rom_data(srom_data), .rom_ready(srom_ready), .rom_rd(srom_rd), .rom_hold(s_hold),
@@ -150,7 +159,8 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.dbg_as(s_as), .dbg_addr(s_addr), .dbg_rnw(s_rnw), .dbg_wdata(s_wdata), .dbg_ds(s_ds), .dbg_iack(), .dbg_rdata(s_rdata), .dbg_dtack(s_dtack),
 		.park_req(park_req), .resume(resume), .parked(s_parked), .stalled(s_stalled),
 		.ss_on(ss_on), .ss_a(ss_a), .ss_ram(ss_sram), .ss_eep(1'b0), .ss_reg(ss_sreg), .ss_wr(ss_wr), .ss_wdata(ss_wdata),
-		.ss_ram_q(sram_q), .ss_eep_q(), .ss_reg_q(sreg_q));
+		.ss_ram_q(sram_q), .ss_eep_q(), .ss_reg_q(sreg_q),
+		.ss_rd(ss_rd), .ss_wgo(ss_wgo), .ss_flush(ss_flush), .ss_ram_ready(s_rdy), .ss_ram_wfull(s_wf));
 
 	// the key custom
 	wire [15:0] key_q, key_ss;
@@ -247,16 +257,21 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		end
 		assign sci_rq = rq;
 		assign sci_ready = 1'b1; assign sci_wfull = 1'b0;
+		assign {sc_rdy, sc_wf} = 2'b10;
 		assign {wm_req[2], wm_we[2], wm_addr[44:30], wm_din[47:32], wm_dsn[5:4]} = 0;
 	end else begin : g_sci_sd
-		ns2_wram_cache #(.LW(5)) u_sc (.clk(clk), .rst(reset), .addr({2'b00, v_addr[13:1]}),
-			.rd(busy && step != 2'd0 && dev == D_SCI && v_rnw),
-			.wr(busy && step == 2'd2 && dev == D_SCI && !v_rnw && !sci_wfull),
-			.wdata(v_dout), .wbe({v_uds, v_lds}), .q(sci_rq), .ready(sci_ready), .wfull(sci_wfull),
+		ns2_wram_cache #(.LW(5)) u_sc (.clk(clk), .rst(reset), .flush(ss_flush),
+			.addr(ss_on ? {2'b00, ss_a[12:0]} : {2'b00, v_addr[13:1]}),
+			.rd(ss_on ? ss_rd && ss_sci : busy && step != 2'd0 && dev == D_SCI && v_rnw),
+			.wr(ss_on ? ss_wgo && ss_sci : busy && step == 2'd2 && dev == D_SCI && !v_rnw && !sci_wfull),
+			.wdata(ss_on ? ss_wdata : v_dout), .wbe(ss_on ? 2'b11 : {v_uds, v_lds}), .q(sci_rq), .ready(sci_ready), .wfull(sci_wfull),
 			.m_req(wm_req[2]), .m_we(wm_we[2]), .m_addr(wm_addr[44:30]), .m_din(wm_din[47:32]), .m_dsn(wm_dsn[5:4]),
 			.m_ack(wm_ack[2]), .m_valid(wm_valid[2]), .m_data(wm_data));
+		assign {sc_rdy, sc_wf} = {sci_ready, sci_wfull};
 	end endgenerate
-	assign ss_q = ss_mram ? mram_q : ss_sram ? sram_q : ss_eep ? {8'h00, eep_q} : ss_sci ? (WRAM_SD ? 16'h0000 : sci_rq) :
+	assign ss_wready = ss_mram ? m_rdy : ss_sram ? s_rdy : ss_sci ? sc_rdy : 1'b1;
+	assign ss_wfull  = ss_mram ? m_wf : ss_sram ? s_wf : ss_sci ? sc_wf : 1'b0;
+	assign ss_q = ss_mram ? mram_q : ss_sram ? sram_q : ss_eep ? {8'h00, eep_q} : ss_sci ? sci_rq :
 	              ss_mreg ? mreg_q : ss_sreg ? sreg_q : ss_a[1] ? {13'd0, prot_cnt} : key_ss;
 	wire sci_rwait = dev == D_SCI && v_rnw && !sci_ready;
 	wire sci_wwait = dev == D_SCI && !v_rnw && sci_wfull;

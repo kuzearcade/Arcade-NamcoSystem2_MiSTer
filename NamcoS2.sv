@@ -52,28 +52,29 @@ assign VIDEO_ARY = (!ar) ? (video_rotated ? 12'd4 : 12'd3) : 12'd0;
 // NS2_SZ (Suzuka 8 Hours) and NS2_LW (Lucky & Wild) keep the 68000s' work
 // RAMs and the C139's RAM in the SDRAM (WRAM_SD) to fit their block RAM;
 // NS2_LW also narrows the CRT V-Size to one step each way (its ring).
+// Every set on NS2_SZ and NS2_LW has the C68: they leave out the C65 (HAS_C65).
 `ifdef NS2_MH
-localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
+localparam HAS_SPRA = 1, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 1, HAS_C355 = 0, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_MH";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `elsif NS2_SZ
-localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 4;
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 1, HAS_C65 = 0, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SZ";
-localparam CONF_HEAD = {CORE_NAME, ";;"};
+localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `elsif NS2_LW
-localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, WRAM_SD = 1, VSIZE_MAX = 1;
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, WRAM_SD = 1, HAS_C65 = 0, VSIZE_MAX = 1;
 localparam CORE_NAME = "NamcoS2_LW";
-localparam CONF_HEAD = {CORE_NAME, ";;"};
+localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,-1";
 `elsif NS2_SG
-localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, VSIZE_MAX = 4;
+localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SG";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 `else
-localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0, WRAM_SD = 0, VSIZE_MAX = 4;
+localparam HAS_SPRA = 1, HAS_ROZ = 1, HAS_C45 = 1, HAS_C169 = 0, HAS_C355 = 0, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
@@ -82,8 +83,7 @@ localparam VSIZE_OSD = "0,+1,+2,+3,+4,-4,-3,-2,-1";
 // literal: strings of two lengths under ?: would pad one with NULs)
 localparam CONF_STR = {
 	// savestates (docs/savestates.md): 4 slots of 1 MB at 0x3E000000, an image
-	// of 0x5ac00 words (ns2_board's map); not where the work RAM is in the
-	// SDRAM (SZ, LW: no SS line, the page hidden)
+	// of 0x5ac00 words (ns2_board's map)
 	CONF_HEAD,
 	"-;",
 	"HBO[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
@@ -116,7 +116,7 @@ localparam CONF_STR = {
 	"h9P1O[39],P2 Infinite Energy,Off,On;",
 	"hAP1O[40],Maximum Speed,Off,On;",
 	"hCP1O[41],P1 Infinite Weapons,Off,On;",
-	"H1P2,Savestates;",
+	"P2,Savestates;",
 	"P2O[43:42],Slot,1,2,3,4;",
 	"P2-;",
 	"P2R[44],Save state (Alt+F1-F4);",
@@ -590,8 +590,9 @@ wire [5:0]  wram_dsn;
 // load, or the OSD's page. The engine parks the CPUs at a VBLANK and moves
 // ns2_board's image (0x5ac00 words) to or from DDR at 0x3E000000, a slot of
 // 1 MB each. While it runs, the OSD's pause and the back door (high scores,
-// cheats) wait: the CPUs have to run to park. Not on the bitstreams with the
-// work RAM in the SDRAM (WRAM_SD: no engine, the OSD's page hidden).
+// cheats) wait: the CPUs have to run to park. Where the work RAM is in the
+// SDRAM (WRAM_SD) the engine shakes hands for each word (VARLAT): those RAMs
+// go through their caches.
 // ------------------------------------------------------------------
 wire        ss_save, ss_load, ss_busy, ss_done_ok, ss_done_fail, ss_was_load;
 wire  [1:0] ss_fail_code;
@@ -603,35 +604,31 @@ wire [28:0] eng_addr;
 wire [63:0] eng_din;
 wire        fl_idle, fl_owns, sr_we;
 savestate_ui savestate_ui (
-	.clk(clk_sys), .ps2_key(ps2_key), .allow_ss(!reset && !WRAM_SD),
+	.clk(clk_sys), .ps2_key(ps2_key), .allow_ss(!reset),
 	.status_slot(status[43:42]), .OSD_saveload(status[45:44]),
 	.done_ok(ss_done_ok), .done_fail(ss_done_fail), .fail_code(ss_fail_code), .was_load(ss_was_load),
 	.ss_save(ss_save), .ss_load(ss_load), .ss_info_req(ss_info_req), .ss_info(ss_info),
 	.statusUpdate(ss_status_update), .selected_slot(ss_slot));
-generate if (!WRAM_SD) begin : g_ss
-	savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'h07C00000), .SLOT_STRIDE(29'h00020000), .RD_LAT(5)) savestate (
+wire        ss_rd, ss_ack;
+savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'h07C00000), .SLOT_STRIDE(29'h00020000), .RD_LAT(5), .VARLAT(WRAM_SD)) savestate (
 		.clk(clk_sys), .reset(reset),
 		.save_req(ss_save), .load_req(ss_load), .slot(ss_slot), .vblank(vcnt >= 9'd224),
 		.allow(!ioctl_download && !ioctl_upload && !hb_req),
 		.ss_freeze(ss_freeze), .ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_resume(ss_resume), .ss_active(ss_active),
-		.ss_addr(ss_addr), .ss_rdata(ss_rdata), .ss_wr(ss_wr), .ss_rd(), .ss_ack(1'b0), .ss_wdata(ss_wdata),
+		.ss_addr(ss_addr), .ss_rdata(ss_rdata), .ss_wr(ss_wr), .ss_rd(ss_rd), .ss_ack(ss_ack), .ss_wdata(ss_wdata),
 		.ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
 		.busy(ss_busy), .done_ok(ss_done_ok), .done_fail(ss_done_fail), .fail_code(ss_fail_code), .was_load(ss_was_load),
 		.clk_ddr(CLK_VIDEO), .ddr_busy(DDRAM_BUSY), .rot_we(sr_we || (fl_owns && !fl_idle)),
 		.ddr_we(eng_we), .ddr_rd(eng_rd), .ddr_addr(eng_addr), .ddr_din(eng_din),
 		.ddr_dout(DDRAM_DOUT), .ddr_dout_ready(DDRAM_DOUT_READY), .ddr_pending(eng_pending));
-end else begin : g_no_ss
-	assign {ss_freeze, ss_resume, ss_active, ss_wr, ss_replay, ss_busy, ss_done_ok, ss_done_fail, ss_was_load} = 9'd0;
-	assign {ss_addr, ss_wdata, ss_fail_code} = 0;
-	assign {eng_we, eng_rd, eng_pending, eng_addr, eng_din} = 0;
-end endgenerate
 
 ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
-            .WRAM_SD(WRAM_SD)) board (
+            .WRAM_SD(WRAM_SD), .HAS_C65(HAS_C65)) board (
 	.clk(clk_sys), .reset(reset), .pause(core_pause && !ss_busy), .hb_req(hb_req && !ss_busy), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
 	.ss_freeze(ss_freeze), .ss_resume(ss_resume), .ss_active(ss_active), .ss_load(ss_was_load),
 	.ss_addr(ss_addr), .ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_rdata(ss_rdata),
 	.ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done),
+	.ss_rd(ss_rd), .ss_ack(ss_ack),
 	.board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(in_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),

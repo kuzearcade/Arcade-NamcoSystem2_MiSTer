@@ -12,6 +12,7 @@
 module ns2_wram_cache #(parameter LW = 8) (
 	input             clk,
 	input             rst,
+	input             flush,          // empty every line (the savestate's, at its transfer's end)
 	input      [14:0] addr,           // the CPU's word in the 64 KB
 	input             rd,             // a read of the work RAM is on the bus
 	input             wr,             // a write: one clock, with its data and strobes
@@ -87,6 +88,7 @@ module ns2_wram_cache #(parameter LW = 8) (
 			clearing <= 1'b1; c_line <= 0;
 		end else begin
 			if (clearing) begin c_line <= c_line + 1'd1; if (&c_line) clearing <= 1'b0; end
+			if (flush) begin clearing <= 1'b1; c_line <= 0; end
 			if (wr && !wfull) begin
 				wq_a[wq_w[1:0]] <= addr; wq_d[wq_w[1:0]] <= wdata; wq_b[wq_w[1:0]] <= wbe;
 				wq_w <= wq_w + 1'd1;

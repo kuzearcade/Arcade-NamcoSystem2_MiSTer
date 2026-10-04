@@ -10,7 +10,8 @@
 //   200 the MCU's IRQ1, 240 both C148s' VBLANK, (reg5 - 32) & 0xff POSIRQ.
 module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	parameter HAS_SPRA = 1, parameter HAS_ROZ = 1, parameter HAS_C45 = 1, parameter HAS_C169 = 1, parameter HAS_C355 = 1,
-	parameter WRAM_SD = 0, parameter C169_MCACHE = HAS_C169 && !HAS_C355) (
+	parameter WRAM_SD = 0, parameter C169_MCACHE = HAS_C169 && !HAS_C355,
+	parameter HAS_C65 = 1) (                // 0: every set the bitstream serves has the C68 (SZ, LW)
 	input             clk,
 	input             reset,
 	input      [2:0]  board,
@@ -130,7 +131,13 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	output            ss_frozen,
 	output            ss_parked,
 	input             ss_replay,
-	output            ss_replay_done
+	output            ss_replay_done,
+	// the engine's handshake (VARLAT, needed with WRAM_SD): ss_rd asks for a
+	// word, ss_wr writes one; ss_ack when it is in ss_rdata or written. The
+	// work RAMs through their caches (WRAM_SD) take as long as a miss or a
+	// full FIFO; every other region 5 clocks
+	input             ss_rd,
+	output reg        ss_ack
 );
 	wire [17:1] mra, sra;
 	wire [20:1] dra;
@@ -255,6 +262,29 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire        ss_vid   = ss_active && (rg_tmap || rg_pal || rg_roz || rg_c169 || rg_c355 || rg_spr || rg_vreg);
 	wire [19:0] ss_vaddr = rg_vreg ? {13'd0, ss_idx} : {4'd0, ss_addr[15:0]};
 	wire [15:0] main_ssq, snd_ssq, c65_ssq, c68_ssq;
+	// the handshake (above), and the caches emptied at the transfer's end
+	// (a save and its load then resume with the same, empty, caches: their
+	// misses stop every CPU)
+	wire        ss_wready, ss_wfull;
+	reg         ss_pend, ss_pw, ss_wgo, ss_act_d;
+	reg  [2:0]  ss_cnt;
+	wire        ss_wram = WRAM_SD && (rg_mram || rg_sram || rg_sci);
+	always @(posedge clk) begin
+		ss_ack <= 1'b0; ss_wgo <= 1'b0; ss_act_d <= ss_active;
+		if (!ss_active) ss_pend <= 1'b0;
+		else if (ss_rd || ss_wr) begin ss_pend <= 1'b1; ss_pw <= ss_wr; ss_cnt <= 3'd0; end
+		else if (ss_pend) begin
+			if (ss_wram && ss_pw) begin
+				if (!ss_wfull && !ss_wgo) begin ss_wgo <= 1'b1; ss_ack <= 1'b1; ss_pend <= 1'b0; end
+			end else if (ss_wram) begin
+				if (ss_wready) begin ss_ack <= 1'b1; ss_pend <= 1'b0; end
+			end else begin
+				ss_cnt <= ss_cnt + 1'd1;
+				if (ss_cnt == 3'd4) begin ss_ack <= 1'b1; ss_pend <= 1'b0; end
+			end
+		end
+	end
+	wire        ss_flush = ss_act_d && !ss_active;
 	wire [15:0] v_din_w;
 	wire        m_parked, s_parked, a_parked, m_stalled, s_stalled, s_running, at_head, e_fall, c140_idle;
 
@@ -414,7 +444,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.ss_on(ss_active), .ss_a(rg_breg ? {8'd0, ss_idx} : ss_addr[14:0]),
 		.ss_mram(rg_mram), .ss_sram(rg_sram), .ss_eep(rg_eep), .ss_sci(rg_sci),
 		.ss_mreg(rb_cpu && !ss_idx[3]), .ss_sreg(rb_cpu && ss_idx[3]), .ss_kreg(rb_key),
-		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(main_ssq));
+		.ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_q(main_ssq),
+		.ss_rd(ss_pend && !ss_pw), .ss_wgo(ss_wgo), .ss_flush(ss_flush), .ss_wready(ss_wready), .ss_wfull(ss_wfull));
 
 	assign hb_q = hb_rv ? (hb_a0 ? v_din[7:0] : v_din[15:8]) : hb_mq;
 	assign v_din_w = v_din;
@@ -458,6 +489,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	wire [7:0]  d_65, d_68;
 	wire        rd_65, rd_68;
 	assign mcu_rd = mcu_c68 ? rd_68 : rd_65;
+	generate if (HAS_C65) begin : g_c65
 	ns2_c65 u_mcu (
 		.clk(clk), .por(reset), .reset(reset || !(sub_run || ld_force) || mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_65), .rom_smp(smp_65), .rom_hold(hold_65), .stop(cpu_stop),
 		.ss_on(ss_active), .ss_a(rg_breg ? {5'd0, ss_idx[3:0]} : ss_addr[8:0]), .ss_ram(rg_c65r), .ss_reg(rb_c65),
@@ -466,6 +498,10 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.dp_addr(dpa_65), .dp_dout(dpd_65), .dp_we(dpw_65), .dp_din(dpq_u),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog),
 		.dbg_addr(a_65), .dbg_wr(w_65), .dbg_dout(d_65));
+	end else begin : g_no_c65
+		assign {rd_65, smp_65, hold_65, dpw_65, w_65} = 5'd0;
+		assign {ira, era, dpa_65, dpd_65, a_65, d_65, c65_ssq} = 0;
+	end endgenerate
 	ns2_c68 u_c68 (
 		.clk(clk), .reset(reset || !(sub_run || ld_force) || !mcu_c68), .irq_line200(ev_mcu), .rom_ready(mcu_ready), .rom_rd(rd_68), .rom_smp(smp_68), .rom_hold(hold_68), .stop(cpu_stop),
 		.ss_on(ss_active), .ss_a(rg_breg ? {4'd0, ss_idx[4:0]} : ss_addr[8:0]), .ss_ram(rg_c68r), .ss_reg(rb_c68),

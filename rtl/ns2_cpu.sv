@@ -90,7 +90,15 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 	input      [15:0] ss_wdata,
 	output     [15:0] ss_ram_q,
 	output     [7:0]  ss_eep_q,
-	output     [15:0] ss_reg_q
+	output     [15:0] ss_reg_q,
+	// WRAM_SD: the snapshot reaches the work RAM through its cache: ss_rd
+	// holds a read until ss_ram_ready (ss_ram_q then valid), ss_wgo writes
+	// a word (only while !ss_ram_wfull), ss_flush empties the cache
+	input             ss_rd,
+	input             ss_wgo,
+	input             ss_flush,
+	output            ss_ram_ready,
+	output            ss_ram_wfull
 );
 	wire        eRWn, ASn, LDSn, UDSn, FC0, FC1, FC2;
 	wire [15:0] oEdb;
@@ -173,6 +181,7 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 		end
 		assign ram_q = q;
 		assign ss_ram_q = q;
+		assign {ss_ram_ready, ss_ram_wfull} = 2'b10;
 		assign hb_q  = hb_a0 ? q[7:0] : q[15:8];
 		assign ram_hold = 1'b0;
 		assign {wm_req, wm_we, wm_addr, wm_din, wm_dsn} = 0;
@@ -182,15 +191,18 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 		wire w_go = wr && sel_ram && !w_done;
 		always @(posedge clk) if (ASn) w_done <= 1'b0; else if (w_go) w_done <= 1'b1;
 		wire ready, wfull;
-		ns2_wram_cache u_wc (.clk(clk), .rst(reset), .addr(a[15:1]), .rd(rd && sel_ram), .wr(w_go),
-			.wdata(oEdb), .wbe({!UDSn, !LDSn}), .q(ram_q), .ready(ready), .wfull(wfull),
+		ns2_wram_cache u_wc (.clk(clk), .rst(reset), .flush(ss_flush), .addr(ss_on ? ss_a : a[15:1]),
+			.rd(ss_on ? ss_rd && ss_ram : rd && sel_ram), .wr(ss_on ? ss_wgo && ss_ram : w_go),
+			.wdata(ss_on ? ss_wdata : oEdb), .wbe(ss_on ? 2'b11 : {!UDSn, !LDSn}), .q(ram_q), .ready(ready), .wfull(wfull),
 			.m_req(wm_req), .m_we(wm_we), .m_addr(wm_addr), .m_din(wm_din), .m_dsn(wm_dsn),
 			.m_ack(wm_ack), .m_valid(wm_valid), .m_data(wm_data));
 		// at DTACK's count, as a ROM read: a read waits for its line, a
 		// write for room in the FIFO (its strobes come later, the FIFO only drains)
 		assign ram_hold = lat == 3'd1 && sel_ram && !iack && (eRWn ? !ready : wfull);
 		assign hb_q = 8'd0;
-		assign ss_ram_q = 16'd0;
+		assign ss_ram_q = ram_q;
+		assign ss_ram_ready = ready;
+		assign ss_ram_wfull = wfull;
 	end endgenerate
 	// the EEPROM: the CPU's port, and the NVRAM's (the download's default,
 	// the .nvm's load and save); a write returns its own data (Intel's

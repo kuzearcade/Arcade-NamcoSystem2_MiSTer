@@ -1914,7 +1914,7 @@ meets it (frame 300: row 3's highlight and the dot-matrix title). The full
 Final Lap replay takes about four minutes a frame (the road's model); the
 three samples took it a quarter of the way.
 
-## NS2-32 — Savestates (closed for the standard, Metal Hawk and Steel Gunner bitstreams; open: Suzuka 8 Hours and Lucky & Wild)
+## NS2-32 — Savestates (closed: every bitstream)
 
 Alt+F1-F4 save, F1-F4 load (or the OSD's Savestates page): four slots a
 set, persisted by the firmware (`savestates/Arcade/<set>_<n>.ss`, 743,432
@@ -1963,7 +1963,25 @@ Wild (SZ 221, LW 256) still boot and run their demos.
 Builds: STD 92% ALMs, MH 98%, SG 98%, SZ 88%, LW 89% (the C140's RAM gave
 Lucky & Wild 4,300 ALMs back); every clock met.
 
-Open: Suzuka 8 Hours and Lucky & Wild (their work RAMs in the SDRAM behind
-caches, which the snapshot does not reach yet: the page is hidden and their
-CONF_STR has no SS line); M3's exactness (the ROMs' caches change the
-lockstep's stops, so a load matches its save as the board does).
+**Suzuka 8 Hours and Lucky & Wild** (their work RAMs and the C139's RAM in
+the SDRAM behind small caches, NS2-15):
+
+- The engine shakes hands for each word on those bitstreams (`VARLAT`); the
+  three RAMs go through their caches' CPU side (a read waits for its line,
+  a write for room in the FIFO), the other regions answer in 5 clocks.
+- A cache miss stops every CPU, so the caches' contents set the CPUs'
+  timing against the video: all three are emptied as the transfer ends
+  (`flush`), after a save and after its load alike.
+- Every set those bitstreams serve has the C68, so they leave out the C65
+  (`HAS_C65`): Lucky & Wild, with the engine, was 26 LABs over without it,
+  and is at 99% with it out.
+- The gate (`make WRAM=1`: the SDRAM's model, no C65): PASS on Suzuka 8
+  Hours, Suzuka 8 Hours 2 and Lucky & Wild. On the board (SZ seed 324, LW
+  358): saved in the demo and loaded 12 s later, the frames after the load
+  are the frames after the save (Lucky & Wild: the timer, the hits, the
+  ranking). The standard (315) and Steel Gunner (316) builds with the
+  handshake's logic, again on the board: Phelios and Steel Gunner 2 as
+  before.
+
+Open: M3's exactness (the ROMs' caches change the lockstep's stops, so a
+load matches its save as the board does).
