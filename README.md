@@ -157,16 +157,16 @@ Keyboard: arrows, Left Ctrl (B1), Left Alt (B2), Space (B3), Left Shift
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
 `PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
-2026-10-03: tag `v2026-10-03.2`), from Quartus 17.0 Lite on the
+2026-10-04: tag `v2026-10-04`), from Quartus 17.0 Lite on the
 DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI / SDRAM pins | Seed |
 |---|---|---|---|---|---|---|---|---|
-| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 37,902 (90%) | 57,373 | 545 / 553 (99%) | 71 | +1.126 / +0.237 / +0.066 / +0.686 ns | 15 |
-| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 38,316 (91%) | 58,101 | 505 / 553 (91%) | 68 | +1.277 / +0.088 / +0.045 / +0.634 ns | 14 |
-| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 38,224 (91%) | 57,891 | 495 / 553 (90%) | 73 | +1.867 / +0.260 / +0.248 / +0.678 ns | 16 |
-| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 37,929 (91%) | 58,146 | 487 / 553 (88%) | 74 | +1.006 / +0.226 / +0.133 / +0.619 ns | 21 |
-| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 41,518 (99%) | 60,389 | 547 / 553 (99%) | 78 | +0.589 / +0.265 / +0.290 / +0.668 ns | 56 |
+| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 38,593 (92%) | 54,926 | 547 / 553 (99%) | 71 | +1.061 / +0.503 / +0.031 / +0.686 ns | 115 |
+| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 41,156 (98%) | 55,629 | 507 / 553 (92%) | 68 | +1.161 / +0.224 / +0.138 / +0.678 ns | 214 |
+| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 41,233 (98%) | 55,382 | 497 / 553 (90%) | 73 | +1.031 / +0.239 / +0.148 / +0.650 ns | 216 |
+| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 36,887 (88%) | 54,444 | 488 / 553 (88%) | 74 | +1.369 / +0.286 / +0.189 / +0.641 ns | 221 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 37,216 (89%) | 56,489 | 548 / 553 (99%) | 78 | +0.714 / +0.258 / +0.171 / +0.681 ns | 256 |
 
 Every clock meets timing, setup and hold, at every corner on all five,
 with the SDRAM interface constrained (NS2-19). clk_sys is 49.152
