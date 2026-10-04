@@ -93,11 +93,13 @@ alternates), and the parents on the other four bitstreams.
   RAM through a back door while the CPUs are held a few hundred clocks; not
   yet on the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is
   in the SDRAM.
-- **Savestates** (Alt+F1-F4 save, F1-F4 load, or the OSD's Savestates
-  page): four slots a game, kept on the SD card. The whole board is saved,
-  every CPU (the 68000s and the 6809 parked at an instruction, the MCU's
-  every register) and every RAM, so a load resumes exactly where the save
-  did (docs/savestates.md); the YM2151's notes restart from its registers.
+- **Savestates** on every bitstream (Alt+F1-F4 save, F1-F4 load, or the
+  OSD's Savestates page): four slots a game, kept on the SD card
+  (`savestates/Arcade/<game>_<n>.ss`). The whole board is saved, every CPU
+  (the 68000s and the 6809 parked at an instruction, the MCU's every
+  register) and every RAM, so a load resumes exactly where the save did
+  (docs/savestates.md); the YM2151's notes restart from its registers. A
+  save takes about 0.1 s, a load about 0.15 s, the picture held meanwhile.
 
 ## Controls
 
@@ -149,7 +151,9 @@ against the same run without it.
   the cabinet's two buttons.
 
 Keyboard: arrows, Left Ctrl (B1), Left Alt (B2), Space (B3), Left Shift
-(B4), Z (B5); 1 and 2 Start, 5 and 6 Coin.
+(B4), Z (B5); 1 and 2 Start, 5 and 6 Coin, 9 Service. Savestates: F1-F4
+load slots 1-4, Left Alt+F1-F4 save them (Left Alt being Button 2 too, a
+save presses it for a moment).
 
 ## Bitstreams
 
@@ -172,7 +176,8 @@ with the SDRAM interface constrained (NS2-19). clk_sys is 49.152
 MHz and clk_sd, the SDRAM's, 98.304 MHz. The 68000s run at 12.288 MHz, the
 6809 and the C65 at 2.048 MHz, the C68 at 8.192 MHz. The SZ and LW
 bitstreams keep both 68000 work RAMs and the C139's RAM in SDRAM behind
-small caches, to fit their block RAM (NS2-15).
+small caches, to fit their block RAM (NS2-15), and leave out the C65: every
+set they serve has the C68 (NS2-32).
 
 Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
 `_alternatives/`) to `_Arcade/`, and MAME's zips (the sets, plus
