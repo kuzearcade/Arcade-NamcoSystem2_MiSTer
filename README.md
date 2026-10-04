@@ -188,10 +188,7 @@ MHz and clk_sd, the SDRAM's, 98.304 MHz. The 68000s run at 12.288 MHz, the
 6809 and the C65 at 2.048 MHz, the C68 at 8.192 MHz. The SZ and LW
 bitstreams keep both 68000 work RAMs and the C139's RAM in SDRAM behind
 small caches, to fit their block RAM (NS2-15), and leave out the C65: every
-set they serve has the C68 (NS2-32). To make room for the high scores and
-cheats and meet timing (NS2-33), Lucky & Wild leaves out the HDMI
-scaler's adaptive filter, ALSA (Linux's audio mixed into the core's) and the
-scandoubler's HQ2x (its Scandoubler Fx lists None and the CRT levels).
+set they serve has the C68 (NS2-32).
 
 Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
 `_alternatives/`) to `_Arcade/`, and MAME's zips (the sets, plus

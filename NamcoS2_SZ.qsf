@@ -58,7 +58,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 set_global_assignment -name AUTO_RAM_TO_LCELL_CONVERSION ON
 set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF
 # the fitter seed (NS2-14: seed 2 met timing on every clock)
-set_global_assignment -name SEED 527
+set_global_assignment -name SEED 620
 
 source sys/sys.tcl
 source sys/sys_analog.tcl

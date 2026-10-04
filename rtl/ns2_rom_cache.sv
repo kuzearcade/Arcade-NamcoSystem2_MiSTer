@@ -33,8 +33,10 @@ module ns2_rom_cache #(
 	input      [63:0]   m_data
 );
 	localparam IW = LINES <= 1 ? 1 : $clog2(LINES);
+	// the tags in flops (every one compared at once); the lines in an MLAB,
+	// read without a register (one write port, the fill; one read, the hit's)
 	reg [AW-3:0] tag  [0:LINES-1];
-	reg [63:0]   line [0:LINES-1];
+	(* ramstyle = "MLAB, no_rw_check" *) reg [63:0] line [0:LINES-1];
 	reg [LINES-1:0] vld;
 	reg [IW-1:0] wr_ptr;
 	reg          busy;                // a fill in flight (requested, not back)
@@ -63,7 +65,9 @@ module ns2_rom_cache #(
 	assign data  = hl[16 * addr[1:0] +: 16];
 	assign ready = hit && (!SAMPLED || (rd_s && addr_s == addr_in));
 
-	// statistics (simulation): reads, misses, the clocks a read waited
+	// statistics (simulation only: sim/rtl/ns2_hw reads them): reads, misses,
+	// the clocks a read waited
+`ifdef VERILATOR
 	reg [31:0] n_reads /*verilator public_flat_rd*/, n_miss /*verilator public_flat_rd*/, n_wait /*verilator public_flat_rd*/;
 	reg        rd_d;
 	reg [AW-1:0] addr_d;
@@ -75,6 +79,7 @@ module ns2_rom_cache #(
 			if (rd && !hit) n_wait <= n_wait + 1'd1;
 		end
 	end
+`endif
 
 	// the victim: the FIFO slot, unless it holds the line being read
 	wire [IW-1:0] victim = (hit && hi == wr_ptr) ? wr_ptr + 1'd1 : wr_ptr;
@@ -93,9 +98,10 @@ module ns2_rom_cache #(
 			end
 			if (busy && m_valid) begin
 				busy <= 1'b0;
-				tag[victim] <= fill; line[victim] <= m_data; vld[victim] <= 1'b1;
+				tag[victim] <= fill; vld[victim] <= 1'b1;
 				wr_ptr <= victim + 1'd1;
 			end
 		end
 	end
+	always @(posedge clk) if (!rst && busy && m_valid) line[victim] <= m_data;
 endmodule

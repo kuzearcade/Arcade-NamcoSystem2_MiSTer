@@ -2017,6 +2017,8 @@ neither. Now:
   LABs over again: it also leaves out the scandoubler's HQ2x (its blender
   and difference checks, about 400 ALMs), its Scandoubler Fx list None and
   the CRT levels.
+  All three are back since NS2-35 (the ROM caches' lines in MLABs: Lucky &
+  Wild at 91% with them).
 - Test: M2's back door test (`HB_TEST`, sim/rtl/ns2_frames, `WRAM=1`: the
   SDRAM's model) reads 16 bytes of the work RAM and 16 of the C123's RAM
   against the arrays, writes each changed and back with a read-back, and
@@ -2044,3 +2046,23 @@ neither. Now:
   Trouble, Steel Gunner 1 and 2, Lucky & Wild).
 - **Aspect ratio**, **Scandoubler Fx** (`HB`) and **Orientation** (`H0`)
   were already hidden under direct video.
+
+## NS2-35 — The ROM caches' lines in MLABs (closed)
+
+The five ROM caches (`ns2_rom_cache`: the master's, the slave's, the data
+ROM's, the sound CPU's, the MCU's) kept their 16 lines of 64 bits in
+flops, read through a 16-way mux of 64 bits: about 750 ALMs each, a sixth
+of Lucky & Wild's logic. Only the tags need flops (every one is compared at
+once); the lines are written by one port (the fill) and read at one index
+(the hit's), so they are now an MLAB read without a register (the read as
+before, combinational; a fill never replaces the line being read). The
+caches' statistics counters (sim/rtl/ns2_hw reads them) are the
+simulation's only (`ifdef VERILATOR`). Lucky & Wild: 41,367 ALMs (99%,
+without HQ2x) to about 38,000 (91%, with it); the other bitstreams gain
+about as much.
+
+Lucky & Wild then has its HQ2x, the HDMI scaler's adaptive filter and ALSA
+again (NS2-33's and NS2-34's removals undone). On the board (LW seed 601,
+before the last two were back): Scandoubler Fx lists HQ2x again, and a
+save and load in play replays the run after the save, the sound with no
+drop-out.

@@ -70,7 +70,7 @@ localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 1, HAS_C169 = 1, HAS_C355 = 1, W
 localparam CORE_NAME = "NamcoS2_LW";
 localparam CONF_HEAD = {CORE_NAME, ";SS3E000000:100000;"};
 localparam VSIZE_OSD = "0,+1,-1";
-localparam SDFX_OSD = "None,CRT 25%,CRT 50%,CRT 75%", HQ2X = 0;
+localparam SDFX_OSD = "None,HQ2x,CRT 25%,CRT 50%,CRT 75%", HQ2X = 1;
 `elsif NS2_SG
 localparam HAS_SPRA = 0, HAS_ROZ = 0, HAS_C45 = 0, HAS_C169 = 0, HAS_C355 = 1, WRAM_SD = 0, HAS_C65 = 1, VSIZE_MAX = 4;
 localparam CORE_NAME = "NamcoS2_SG";
