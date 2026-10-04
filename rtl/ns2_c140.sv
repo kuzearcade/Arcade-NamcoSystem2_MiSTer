@@ -32,6 +32,7 @@
 module ns2_c140 #(parameter MAME_RATE = 0) (
 	input             clk,
 	input             reset,
+	input             hold,           // pause: no tick, the timer stops (the voices hold)
 	input             cs,             // one clock strobe per access
 	input             we,
 	input      [8:0]  addr,
@@ -72,6 +73,7 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 	always @(posedge clk) begin
 		tick <= 1'b0;
 		if (reset) begin div <= 0; acc <= 26'd49152000 - 26'd21333; end
+		else if (hold) ;
 		else if (MAME_RATE) begin
 			// edge k at the first clock c with c * 21333 >= k * 49152000
 			if (acc + 26'd21333 >= 26'd49152000) begin acc <= acc + 26'd21333 - 26'd49152000; tick <= 1'b1; end
@@ -175,7 +177,7 @@ module ns2_c140 #(parameter MAME_RATE = 0) (
 			left <= 0; right <= 0; raw_l <= 0; raw_r <= 0;
 		end else begin
 			// ------------------------------------------------ the CPU
-			if (running) begin
+			if (running && !hold) begin
 				if (tcount == 21'd1) begin int1 <= 1'b1; running <= 1'b0; end
 				tcount <= tcount - 1'd1;
 			end

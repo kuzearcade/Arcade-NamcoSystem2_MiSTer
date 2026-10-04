@@ -176,7 +176,35 @@ int main(int argc, char **argv) {
 	const long pics_to = getenv("PICS_TO") ? atol(getenv("PICS_TO")) : -1;
 	static uint32_t pic[224][288];
 	int pics_n = 0, pics_exact = 0;
+	// HB_TEST=F: in frame F (line 100) the back door stops the CPUs, reads 16
+	// bytes of the work RAM (100000) and of the C123's RAM (409000), checks
+	// the latter against the RAM's arrays, writes every byte back unchanged
+	// and lets go: the pictures after it must be the run's without it
+	const long hb_test = getenv("HB_TEST") ? atol(getenv("HB_TEST")) : -1;
+	bool hb_done = false;
+	auto hb_cycle = [&](uint32_t addr, int we, int din) {
+		t->hb_addr = addr; t->hb_we = we; t->hb_din = din; tick(); t->hb_we = 0;
+		tick();   // hb_q is valid a clock after the address
+		return (int)t->hb_q;
+	};
 	while ((pics ? (pics_to < 0 || (long)((cyc - 64) / 811008) <= pics_to) : (mi < maxn && !bad)) && cyc < 4000000000ULL) {
+		if (hb_test >= 0 && !hb_done && (long)((cyc - 64) / 811008) == hb_test && t->vcnt == 100) {
+			hb_done = true; int fails = 0; long c0 = cyc;
+			t->hb_req = 1; while (!t->hb_ok) tick();
+			for (int region = 0; region < 2; region++)
+				for (int i = 0; i < 16; i++) {
+					uint32_t a = (region ? 0x409000u : 0x100000u) + i;
+					int v = hb_cycle(a, 0, 0);
+					if (region) {
+						int ref = (i & 1) ? r->ns2_board__DOT__u_video__DOT__tmap_l[(0x9000 + i) >> 1] : r->ns2_board__DOT__u_video__DOT__tmap_h[(0x9000 + i) >> 1];
+						if (v != ref) { fails++; printf("hb: %06x read %02x, RAM %02x\n", a, v, ref); }
+					}
+					hb_cycle(a, 1, v);
+					if (hb_cycle(a, 0, 0) != v) { fails++; printf("hb: %06x reads back %02x, wrote %02x\n", a, (int)t->hb_q, v); }
+				}
+			t->hb_req = 0;
+			printf("hb test in frame %ld: %ld clocks stopped, %d failures\n", hb_test, (long)(cyc - c0), fails);
+		}
 		tick();
 		static long npx = 0;
 		if (pics && t->out_valid && t->out_y < 224 && t->out_x < 288) { pic[t->out_y][t->out_x] = t->red << 16 | t->green << 8 | t->blue; npx++; }

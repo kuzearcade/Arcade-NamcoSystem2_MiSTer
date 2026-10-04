@@ -59,56 +59,67 @@ module cheats #(
 	output reg               ram_write,
 	output reg               ram_access,
 	input              [7:0] ram_dout,    // the back door's read data (1 clk after the address)
-	output reg               pause_cpu
+	output reg               pause_cpu,
+	// NS2 (local change): the back door is ready (the CPUs stopped and the
+	// shared bus idle, some clocks after pause_cpu); the walk waits for it
+	input                    paused
 );
 
 	localparam BYTES_PER_SLOT = 2 + ACTS*6;
 	localparam TBL_BYTES      = SLOTS*BYTES_PER_SLOT;
+	localparam TW             = $clog2(TBL_BYTES);
 
-	reg [7:0] tbl [0:TBL_BYTES-1];
-	reg       loaded = 1'b0;
+	// NS2 (local change): the table is a block RAM read a byte at a time (the
+	// engine reads a slot's count, then each action's six bytes, into
+	// registers); held in registers with combinational reads it took 1,600
+	// ALMs at ten slots. A slot is available when its count byte, as it is
+	// downloaded, is non-zero.
+	(* ramstyle = "M10K" *) reg [7:0] tbl [0:(1 << TW) - 1];
+	reg  [TW-1:0]    rd_a;
+	reg  [7:0]       rd_q;
+	reg              loaded = 1'b0;
+	reg  [SLOTS-1:0] avail = {SLOTS{1'b0}};
+	assign available = loaded ? avail : {SLOTS{1'b0}};
 
 	wire tbl_we = ioctl_download & ioctl_wr & (ioctl_index == 16'd5) & (ioctl_addr < TBL_BYTES);
 	always @(posedge clk) begin
+		if (tbl_we) tbl[ioctl_addr[TW-1:0]] <= ioctl_dout;
+		rd_q <= tbl[rd_a];
+	end
+	integer k;
+	always @(posedge clk) begin
+		if (ioctl_download & (ioctl_index == 16'd5) & ~loaded) avail <= {SLOTS{1'b0}};
 		if (tbl_we) begin
-			tbl[ioctl_addr[$clog2(TBL_BYTES)-1:0]] <= ioctl_dout;
 			loaded <= 1'b1;
+			for (k = 0; k < SLOTS; k = k + 1)
+				if (ioctl_addr == k * BYTES_PER_SLOT) avail[k] <= ioctl_dout != 8'd0;
 		end
 	end
-
-	// A slot is available when its count byte is non-zero.
-	genvar g;
-	generate
-		for (g = 0; g < SLOTS; g = g + 1) begin : g_avail
-			assign available[g] = loaded & (tbl[g*BYTES_PER_SLOT] != 8'd0);
-		end
-	endgenerate
 
 	// ------------------------------------------------------------------
 	// Per-frame poke walk. One byte per pass through S_WRITE; a word action
 	// is just two byte writes, high byte first (68000 big-endian).
 	// ------------------------------------------------------------------
-	localparam S_IDLE = 3'd0, S_SLOT = 3'd1, S_ACT = 3'd2,
-	           S_READ = 3'd3, S_HOLD = 3'd4, S_NEXT = 3'd5, S_DONE = 3'd6;
+	localparam [3:0] S_IDLE = 4'd0, S_WAIT = 4'd1, S_SLOT = 4'd2, S_CNT = 4'd3, S_FETCH = 4'd4,
+	                 S_ACT = 4'd5, S_READ = 4'd6, S_HOLD = 4'd7, S_NEXT = 4'd8, S_DONE = 4'd9;
 
-	reg  [2:0] state = S_IDLE;
-	reg  [3:0] slot;
-	reg  [3:0] act;
-	reg        half;        // 0 = first byte, 1 = second byte of a word
-	reg  [2:0] hold;
-	reg        vblank_d;
-
-	wire [$clog2(TBL_BYTES)-1:0] base = slot*BYTES_PER_SLOT;
-	wire [7:0] cnt  = tbl[base];
-	wire [$clog2(TBL_BYTES)-1:0] aoff = base + 2 + act*6;
-	wire [23:0] a_addr = {tbl[aoff], tbl[aoff+1], tbl[aoff+2]};
-	wire        a_word = tbl[aoff+3][0];
-	wire        a_mask = tbl[aoff+3][1] & ~tbl[aoff+3][0];
-	wire  [7:0] a_hi   = tbl[aoff+4];
-	wire  [7:0] a_lo   = tbl[aoff+5];
+	reg  [3:0]  state = S_IDLE;
+	reg  [3:0]  slot;
+	reg  [3:0]  act;
+	reg  [3:0]  cnt;
+	reg  [2:0]  fb;          // the action byte being fetched (0-5), and the read's pipeline
+	reg         fv;
+	reg         half;        // 0 = first byte, 1 = second byte of a word
+	reg  [2:0]  hold;
+	reg         vblank_d;
+	reg  [23:0] a_addr;
+	reg  [7:0]  a_kind, a_hi, a_lo;
+	wire        a_word = a_kind[0];
+	wire        a_mask = a_kind[1] & ~a_kind[0];
+	wire [TW-1:0] base = slot * BYTES_PER_SLOT;
 
 	always @(posedge clk) begin
-		vblank_d <= vblank;
+		vblank_d  <= vblank;
 		ram_write <= 1'b0;
 
 		if (reset) begin
@@ -118,20 +129,46 @@ module cheats #(
 				ram_access <= 1'b0;
 				pause_cpu  <= 1'b0;
 				// rising edge of vblank, and only if something is enabled
-				if (~vblank_d & vblank & loaded & |(enable & available)) begin
-					slot <= 4'd0; pause_cpu <= 1'b1; state <= S_SLOT;
+				if (~vblank_d & vblank & loaded & |(enable & avail)) begin
+					slot <= 4'd0; pause_cpu <= 1'b1; state <= S_WAIT;
 				end
 			end
+			S_WAIT: if (paused) state <= S_SLOT;
 			S_SLOT: begin
 				if (slot >= SLOTS) state <= S_DONE;
-				else if (enable[slot[2:0]] & (cnt != 8'd0)) begin
-					act <= 4'd0; half <= 1'b0; state <= S_ACT;
+				else if (enable[slot] & avail[slot]) begin
+					rd_a <= base; hold <= 3'd2; state <= S_CNT;
 				end else slot <= slot + 4'd1;
 			end
+			S_CNT: begin
+				// the count byte, two clocks after its address
+				if (hold != 3'd0) hold <= hold - 3'd1;
+				else begin
+					cnt <= rd_q[3:0]; act <= 4'd0; half <= 1'b0;
+					rd_a <= base + 2'd2; fb <= 3'd0; fv <= 1'b0; state <= S_FETCH;
+				end
+			end
+			S_FETCH: begin
+				// an action's six bytes, a byte every two clocks
+				if (act >= cnt) begin slot <= slot + 4'd1; state <= S_SLOT; end
+				else if (!fv) fv <= 1'b1;
+				else begin
+					fv <= 1'b0;
+					case (fb)
+						3'd0: a_addr[23:16] <= rd_q;
+						3'd1: a_addr[15:8]  <= rd_q;
+						3'd2: a_addr[7:0]   <= rd_q;
+						3'd3: a_kind        <= rd_q;
+						3'd4: a_hi          <= rd_q;
+						default: a_lo       <= rd_q;
+					endcase
+					rd_a <= rd_a + 1'd1;
+					if (fb == 3'd5) begin fb <= 3'd0; state <= S_ACT; end
+					else fb <= fb + 3'd1;
+				end
+			end
 			S_ACT: begin
-				if (act >= cnt[3:0]) begin
-					slot <= slot + 4'd1; state <= S_SLOT;
-				end else if (a_mask) begin
+				if (a_mask) begin
 					// masked byte: read first (S_READ), then merge and write
 					ram_addr   <= a_addr;
 					ram_access <= 1'b1;
@@ -167,7 +204,7 @@ module cheats #(
 				if (a_word & ~half) begin
 					half <= 1'b1; state <= S_ACT;
 				end else begin
-					half <= 1'b0; act <= act + 4'd1; state <= S_ACT;
+					half <= 1'b0; act <= act + 4'd1; state <= S_FETCH;
 				end
 			end
 			S_DONE: begin

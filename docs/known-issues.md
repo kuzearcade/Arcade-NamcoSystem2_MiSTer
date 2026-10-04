@@ -1799,3 +1799,109 @@ MAME's own YM2151 (ymfm, from MAME's tree; `fifo_time.py` re-times a log as
   the chip notches to -31 to -41 dB (jt51 -23 to -30: algorithm 3 with
   feedback 0-2) and algorithm 0 at feedback 7; ymfm's are elsewhere
   (algorithms 1-2).
+
+## NS2-30 — Pause, autofire, high scores and cheats (closed for the standard, Metal Hawk and Steel Gunner bitstreams; open: Suzuka 8 Hours and Lucky & Wild)
+
+**Pause** (OSD: Pause; Pause when OSD is open): `ns2_board`'s `pause` stops
+every CPU through the lockstep's hold (NS2-14), and with them the sound
+chips: the YM2151's clock enable, the C140's sample tick and timer
+(`ns2_c140`'s `hold`) and the 6809's 120 Hz timer. The video keeps scanning
+the frozen RAM. On the board (Steel Gunner): two captures 3 s apart are the
+same with Pause on, and the game runs on when it is off.
+
+**Autofire** (OSD: Button 1, Button 2 or both; 15, 10, 7.5 or 30 Hz): a held
+button is let through half of each period, counted in the board's frames
+(none in a pause), both players, the keyboard's too.
+
+**The back door.** `ns2_board`'s `hb_*` port: a request stops the CPUs (as
+the hold, the sound running); 8 clocks later (the shared bus's last access
+done) `hb_ok`, and the port owns the master's work RAM (a second use of its
+port, `ns2_cpu`) and the C123's RAM (the video's CPU port) at the master's
+byte addresses: 100000-10ffff and 400000-41ffff, data a clock after the
+address. Not with the work RAM in the SDRAM (Suzuka 8 Hours, Lucky & Wild):
+those bitstreams leave out the hiscore and cheat modules and hide their
+page. `sim/rtl/ns2_frames` `HB_TEST=F`: in Assault's frame 40 the back door
+stopped the CPUs 200 clocks, read and wrote back 32 bytes (the C123's
+against its RAM array), 0 failures, and the 81 pictures after it are the
+run's without it, frame for frame.
+
+**High scores.** MAME's `hiscore.dat` has 35 of the 61 sets: their tables
+are in RAM, not in the EEPROM (D6 assumed the EEPROM held them all). The
+MiSTer hiscore module (`rtl/third_party/hiscore`) restores and saves them:
+- The `.nvm` (index 4) is the EEPROM and then the dump (at 0x2000); an
+  EEPROM-only `.nvm` still loads. `<nvram>` grows by the dump's length.
+- `hps_io` is 16 bits wide and hiscore.v takes bytes: the top's byte stream
+  splits each word written into two byte writes, and an upload reads two
+  bytes on alternate clocks. hiscore.v's upload data is two clocks after its
+  address (`data_addr` registered, then its RAM): taken a clock early, the
+  first save was the table shifted a byte (found against MAME's RAM).
+- hiscore.v follows the upload's address only while it sees the upload:
+  told of it from 0x2000 on, the dump's first byte went out stale (Steel
+  Gunner's 0xcc, Steel Gunner 2's 0xed against MAME's 0x00), and the next
+  load's validation would have discarded the saved table. It now sees the
+  whole `.nvm` upload, its address held at 0 through the EEPROM's part.
+- hiscore.v waits ACCESS_PAUSEPAD clocks after its `pause_cpu` before it
+  reads or writes; the back door is ready 8 clocks after the request
+  (`hb_ok`). At the header's 2, the restore's checks read the RAM before the
+  back door had it: Steel Gunner 2 never restored (an edited "TEST" stayed
+  "GORO"; MAME's plugin restores the same dump). The header's
+  ACCESS_PAUSEPAD is now 16.
+- `tools/ns2_extras.py` writes `<rom index="3">` (16-byte header, START_WAIT
+  10 s, past the boards' RAM tests; a record a hiscore.dat line) for 33 sets
+  (not Lucky & Wild's two).
+- On the board: Steel Gunner's first save is MAME's table, byte for byte;
+  Phelios, with an 8 KB EEPROM `.nvm`, saved 8,282 bytes (scores 50000-7650,
+  the start and end checks as hiscore.dat's), and with its first entry
+  edited to "TEST 99920" the attract's ranking shows it after a reload. (An
+  edit that breaks an entry's first or last byte discards the dump, by
+  NMK16's validation in hiscore.v.) Steel Gunner 2, its first entry edited
+  from "GORO" to "TEST", shows "1 TEST 10000" in "TODAY'S BEST GUYS" with
+  ACCESS_PAUSEPAD 16.
+
+**Cheats** (Pugsy's MAME cheat database, `rtl/cheats.sv` from the author's
+other cores): ten fixed slots, each the set's first cheat named in its list
+(`tools/ns2_extras.py` ALIASES: Infinite Time, Infinite Credits, P1/P2
+Invincibility, P1/P2 Infinite Lives, P1/P2 Infinite Energy, Maximum Speed,
+P1 Infinite Weapons), a cheat taken only if every action is a plain or masked
+write the back door reaches; 49 sets have at least one. A slot the set has
+not is hidden (menumask).
+- Local changes: the walk waits for `paused` (the back door's 8 clocks); the
+  enable bit is indexed by the whole slot number (3 bits before, fine at 7
+  slots); the table is a block RAM read a byte at a time (in registers it
+  took 1,613 ALMs at ten slots and the standard bitstream no longer fitted).
+- `sim/rtl/cheats`: with five sets' tables, every slot on, one frame's
+  writes equal the table's actions, and the pause is released.
+- On the board: Steel Gunner's page shows its six slots only; Infinite
+  Credits gives player 1 nine credits with no coin.
+
+**Cost:** the standard bitstream 38,052 ALMs (91%, 37,251 before); Lucky &
+Wild, with pause and autofire only, 41,534 (99%; seed 51 no longer fitted,
+by a LAB).
+
+## NS2-31 — The last picture differences against MAME: Suzuka 8 Hours, Lucky & Wild, Final Lap (closed, measured)
+
+**Open from M2:** against MAME's pictures, M2 matched Suzuka 8 Hours 661 of
+700, Lucky & Wild 289 and Final Lap 39 (its ranking row cycling at another
+phase); the replay (NS2-10) matched Suzuka 667 and Lucky & Wild 643 of 699.
+
+**Measured again** (the current RTL, M2 from power-on, `PICS_DUMP`, then
+`tools/ns2_replay.py`): the pictures are as before. Against the replay no
+line differs anywhere without a write between its fetch and the end of its
+output; every non-exact frame is such a line. `ns2_replay.py --either` now
+also takes the state with every write up to the end of the line's output
+(the board shows the old value or the new one):
+
+| set | replay, exact frames | lines that equal the later state | lines with no write in their window that differ |
+|---|---|---|---|
+| Suzuka 8 Hours | 667 -> 675 of 699 | 8 | 0 |
+| Lucky & Wild | 643 -> 644 of 699 | 47 | 0 |
+| Final Lap (frames 200-229, 500-529, 640-669) | 90 of 90 | | 0 |
+
+The lines left (Suzuka's in frames 39-66, lines 63-71; Lucky & Wild's in
+95-105, lines 26-32) take a write inside their own fetch: part of the line
+drawn from before it, part after. Final Lap's difference from MAME's
+pictures is MAME's band drawing (NS2-2): its ranking screen's palette
+cycles by writes during the frame, and the board shows each as the raster
+meets it (frame 300: row 3's highlight and the dot-matrix title). The full
+Final Lap replay takes about four minutes a frame (the road's model); the
+three samples took it a quarter of the way.

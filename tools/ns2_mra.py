@@ -37,6 +37,7 @@ from xml.sax.saxutils import escape as _xml_escape
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import ns2_romdata as R
+import ns2_extras as X
 
 ROOT = os.path.join(HERE, '..')
 RELEASES = os.path.join(ROOT, 'releases')
@@ -233,7 +234,10 @@ def mra_text(name, sets, gm):
                 m = ''.join('1' if k == lane else '0' for k in reversed(range(w)))
                 L.append(f'      <part crc="{crc:08x}" name="{x(nm)}" length="{n:#x}" map="{m}"/>')
             L.append('    </interleave>')
-    L += ['  </rom>', '', '  <nvram index="4" size="8192"/>', '</misterromdescription>', '']
+    # high scores and cheats (tools/ns2_extras.py): the bitstreams with the
+    # back door (not those with their work RAM in the SDRAM)
+    extra, nv_size = X.blocks(name, RBF[R.BOARDS.get(g['config'], 0)] not in ('NamcoS2_SZ', 'NamcoS2_LW'))
+    L += ['  </rom>', ''] + extra + [f'  <nvram index="4" size="{nv_size}"/>', '</misterromdescription>', '']
     text = '\n'.join(L)
     ET.fromstring(text)
     return text, has_nv

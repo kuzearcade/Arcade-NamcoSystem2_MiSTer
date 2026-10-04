@@ -45,6 +45,15 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 	output reg [15:0] sh_dout,
 	input             sh_done,       // the access is complete (sh_din valid for a read)
 	input      [15:0] sh_din,
+	// the work RAM's back door (high scores, cheats): while hb_on (the CPUs
+	// stopped) it owns the RAM's port; hb_q is the byte at hb_addr a clock
+	// later (the 68000's big-endian: an even address is the high lane).
+	// WRAM_SD: not served (hb_q 0)
+	input             hb_on,
+	input      [15:0] hb_addr,
+	input             hb_we,
+	input      [7:0]  hb_din,
+	output     [7:0]  hb_q,
 	// WRAM_SD: the work RAM's SDRAM client (ns2_wram_cache)
 	output            wm_req,
 	output            wm_we,
@@ -118,12 +127,20 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 	generate if (WRAM_SD == 0) begin : g_ram
 		reg  [7:0] ram_h [0:32767], ram_l [0:32767];
 		reg  [15:0] q;
+		reg         hb_a0;
+		wire [14:0] ra  = hb_on ? hb_addr[15:1] : a[15:1];
+		wire        w_h = hb_on ? hb_we && !hb_addr[0] : wr && sel_ram && !UDSn;
+		wire        w_l = hb_on ? hb_we &&  hb_addr[0] : wr && sel_ram && !LDSn;
+		wire [7:0]  d_h = hb_on ? hb_din : oEdb[15:8];
+		wire [7:0]  d_l = hb_on ? hb_din : oEdb[7:0];
 		always @(posedge clk) begin
-			if (wr && sel_ram && !UDSn) ram_h[a[15:1]] <= oEdb[15:8];
-			if (wr && sel_ram && !LDSn) ram_l[a[15:1]] <= oEdb[7:0];
-			q <= {ram_h[a[15:1]], ram_l[a[15:1]]};
+			if (w_h) ram_h[ra] <= d_h;
+			if (w_l) ram_l[ra] <= d_l;
+			q <= {ram_h[ra], ram_l[ra]};
+			hb_a0 <= hb_addr[0];
 		end
 		assign ram_q = q;
+		assign hb_q  = hb_a0 ? q[7:0] : q[15:8];
 		assign ram_hold = 1'b0;
 		assign {wm_req, wm_we, wm_addr, wm_din, wm_dsn} = 0;
 	end else begin : g_wram
@@ -139,6 +156,7 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 		// at DTACK's count, as a ROM read: a read waits for its line, a
 		// write for room in the FIFO (its strobes come later, the FIFO only drains)
 		assign ram_hold = lat == 3'd1 && sel_ram && !iack && (eRWn ? !ready : wfull);
+		assign hb_q = 8'd0;
 	end endgenerate
 	// the EEPROM: the CPU's port, and the NVRAM's (the download's default,
 	// the .nvm's load and save); a write returns its own data (Intel's

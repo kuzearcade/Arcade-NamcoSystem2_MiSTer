@@ -83,11 +83,13 @@ def main():
     ap.add_argument('set'); ap.add_argument('trace'); ap.add_argument('rtl')
     ap.add_argument('--from', dest='frm', type=int, default=1); ap.add_argument('--to', type=int, default=10 ** 9)
     ap.add_argument('--fetch', type=int, default=LINE, help='clocks before a line output that its fetch starts')
+    ap.add_argument('--either', action='store_true',
+                    help='a line with a write in its window also passes if it equals the state with every write up to the end of its output')
     a = ap.parse_args()
     r = M.Roms(a.set)
     blocks = M.read_blocks(a.trace)
     wt, wa, wd, wm = read_writes(a.trace)
-    exact = total = 0
+    exact = total = n_either = 0
     for F in range(a.frm, a.to + 1):
         sp = os.path.join(a.trace, f's{F - 1:05d}.bin')
         rp = os.path.join(a.rtl, f'rtl{F:05d}.raw')
@@ -101,7 +103,9 @@ def main():
         live_o = Live(M.State(sp, blocks), blocks)          # the output's (colours)
         t0 = F * FRAME
         i_f = i_o = int(np.searchsorted(wt, t0))
-        cache, bad, window = {}, [], []
+        cache, bad, window, either = {}, [], [], []
+        live_e = Live(M.State(sp, blocks), blocks, frozen) if a.either else None   # every write to the end of the output
+        i_e = i_f
         for y in range(H):
             t_o = t0 + (40 + y) * LINE
             t_f = t_o - a.fetch
@@ -116,14 +120,26 @@ def main():
             line = cache[key][y]
             if (line != rtl[y]).any():
                 # a write between this line's fetch and the end of its output
-                (window if np.searchsorted(wt, t_o + LINE) > np.searchsorted(wt, t_f) else bad).append(y)
+                if np.searchsorted(wt, t_o + LINE) > np.searchsorted(wt, t_f):
+                    if a.either:
+                        while i_e < len(wt) and wt[i_e] < t_o + LINE:
+                            live_e.apply(int(wa[i_e]), int(wd[i_e]), int(wm[i_e])); i_e += 1
+                        while i_o < len(wt) and wt[i_o] < t_o + LINE:
+                            live_o.apply(int(wa[i_o]), int(wd[i_o]), int(wm[i_o])); i_o += 1
+                        late = M.render(r, live_e.state(), pal=live_o.state())[y]
+                        if not (late != rtl[y]).any():
+                            either.append(y); continue
+                    window.append(y)
+                else:
+                    bad.append(y)
         total += 1
         exact += not bad and not window
+        n_either += len(either)
         if bad or window:
             print(f'frame {F}: {len(bad)} lines differ{" (" + str(bad[0]) + "-" + str(bad[-1]) + ")" if bad else ""}'
-                  f', {len(window)} with a write in their window')
+                  f', {len(window)} with a write in their window' + (f' (lines {window[0]}-{window[-1]})' if window else ''))
         sys.stdout.flush()
-    print(f'{exact} / {total} frames exact')
+    print(f'{exact} / {total} frames exact' + (f'; {n_either} lines matched the state after their window\'s writes' if a.either else ''))
 
 
 if __name__ == '__main__':

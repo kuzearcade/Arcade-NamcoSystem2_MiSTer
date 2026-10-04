@@ -13,10 +13,11 @@
 //     table) is a 32-byte block of the image at 0x00D6000
 //     (tools/ns2_romdata.py config_block), latched here as it streams past.
 //     The board stays in reset until it has arrived.
-//   * High scores are the games' own EEPROM (D6): ioctl index 4 loads the
-//     .nvm over the default the image carries, and an upload saves it.
+//   * The .nvm (ioctl index 4) is the games' EEPROM, loaded over the default
+//     the image carries, then hiscore.v's dump (MAME's hiscore.dat, for the
+//     sets that keep their tables in RAM): see "High scores and cheats".
 //   * The raster is 384 x 264 at 6.144 MHz (clk_sys / 8), 288 x 224 visible.
-//   * Not yet (M5): savestates, cheats, autofire, pause.
+//   * Pause, autofire, high scores and cheats (below); not yet (M5): savestates.
 module emu
 (
 	`include "sys/emu_ports.vh"
@@ -84,6 +85,29 @@ localparam CONF_STR = {
 	// set (MAME's Bubble Trouble) starts turned, and this turns it back
 	"O[17],Flip screen,Off,On;",
 	"O[18],Gun crosshair,On,Off;",
+	"-;",
+	"O[19],Pause,Off,On;",
+	"O[20],Pause when OSD is open,Off,On;",
+	// held Button 1 / 2 pulses at the rate (half on, half off), both players
+	"O[22:21],Autofire,Off,Button 1,Button 2,Buttons 1+2;",
+	"O[24:23],Autofire rate,15 Hz,10 Hz,7.5 Hz,30 Hz;",
+	// High scores (MAME's hiscore.dat, kept in the .nvm after the EEPROM) and
+	// cheats (Pugsy's database): the master's memory through ns2_board's back
+	// door. Not on the bitstreams whose work RAM is in the SDRAM (menumask 1);
+	// a cheat slot shows only when the set's .mra has a cheat for it
+	"H1P1,High Scores & Cheats;",
+	"P1O[25],High Scores,On,Off;",
+	"P1-;",
+	"h2P1O[32],Infinite Time,Off,On;",
+	"h3P1O[33],Infinite Credits,Off,On;",
+	"h4P1O[34],P1 Invincibility,Off,On;",
+	"h5P1O[35],P2 Invincibility,Off,On;",
+	"h6P1O[36],P1 Infinite Lives,Off,On;",
+	"h7P1O[37],P2 Infinite Lives,Off,On;",
+	"h8P1O[38],P1 Infinite Energy,Off,On;",
+	"h9P1O[39],P2 Infinite Energy,Off,On;",
+	"hAP1O[40],Maximum Speed,Off,On;",
+	"hCP1O[41],P1 Infinite Weapons,Off,On;",
 	"P3,CRT Adjust;",
 	"P3O[101],CRT Adjust,Off,On;",
 	"P3O[100:96],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
@@ -104,6 +128,8 @@ localparam CONF_STR = {
 };
 
 wire         forced_scandoubler;
+wire  [8:0]  hcnt, vcnt;          // the board's raster (below)
+wire  [9:0]  ch_avail;            // the cheat slots the .mra has (below)
 wire         direct_video;
 wire   [1:0] buttons;
 wire [127:0] status;
@@ -136,7 +162,9 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.status(status),
 	// [11] hides Aspect ratio and Scandoubler Fx under direct video;
 	// [0] hides Orientation under direct video
-	.status_menumask({4'd0, direct_video, 10'd0, direct_video}),
+	// [12], [10:2] the cheat slots the .mra has; [11] and [0] direct video;
+	// [1] no back door (the work RAM in the SDRAM)
+	.status_menumask({3'd0, ch_avail[9], direct_video, ch_avail[8:0], WRAM_SD ? 1'b1 : 1'b0, direct_video}),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
@@ -253,6 +281,9 @@ wire [135:0] cfg_ktable = {cfg[20], cfg[19], cfg[18], cfg[17], cfg[16], cfg[15],
                            cfg[11], cfg[10], cfg[9], cfg[8], cfg[7], cfg[6], cfg[5], cfg[4]};
 
 wire reset = RESET | status[0] | buttons[1] | dl_hold | dl_settling | wait_switches | ~pll_locked | ~cfg_ok;
+// Pause (OSD): every CPU stops (ns2_board's lockstep hold) and the sound
+// chips' clocks with them; the video keeps showing the frozen RAM
+wire core_pause = status[19] | (status[20] & OSD_STATUS);
 
 // ------------------------------------------------------------------
 // The .mra <switches> block, ioctl index 254, 16-bit words. Byte 0 is
@@ -323,8 +354,8 @@ end
 // the analog sticks and the mouse onto AN0-AN7 (ns2_controls, the set's
 // control mode in config byte 33); the others keep MAME's power-on values.
 // ------------------------------------------------------------------
-wire [8:0] p1 = {joystick_0[11:10], joystick_0[6:0]} | kb_p1;
-wire [8:0] p2 = {joystick_1[11:10], joystick_1[6:0]} | {2'b00, kb_p2};
+wire [8:0] p1_raw = {joystick_0[11:10], joystick_0[6:0]} | kb_p1;
+wire [8:0] p2_raw = {joystick_1[11:10], joystick_1[6:0]} | {2'b00, kb_p2};
 wire [3:0] rp1 = joystick_0[15:12], rp2 = joystick_1[15:12];
 wire p1_start = joystick_0[7] | kb_start1, p2_start = joystick_1[7] | kb_start2;
 wire p1_coin  = joystick_0[8] | kb_coin1,  p2_coin  = joystick_1[8] | kb_coin2;
@@ -370,7 +401,7 @@ always @(posedge clk_sys) begin
 	nvs_ph <= ~nvs_ph; nvs_ph_d <= nvs_ph;
 	if (nvs_ph_d) nvs_hi <= nv_q; else nvs_lo <= nv_q;
 end
-assign ioctl_din = {nvs_hi, nvs_lo};
+wire [15:0] ee_din = {nvs_hi, nvs_lo};
 
 wire        nv_we   = mem_nv_we | nvl_we;
 wire [12:0] nv_addr = mem_nv_we ? mem_nv_addr : nvl_we ? nvl_addr : {ioctl_addr[12:1], nvs_ph};
@@ -384,7 +415,101 @@ always @(posedge clk_sys) begin
 	else if (nv_cpu_we && !reset) nv_dirty <= 1'b1;
 	up_req <= (status[30] && !save_d) || (OSD_STATUS && !osd_d && nv_dirty);
 end
-assign ioctl_upload_req = up_req;
+
+// ------------------------------------------------------------------
+// High scores and cheats. hps_io is 16 bits wide; hiscore.v and cheats.sv
+// take a byte at a time, so their transfers go through a byte stream: each
+// word written becomes two byte writes (the even byte first, the word's low
+// half), and an upload reads two bytes on alternate clocks. The .nvm holds
+// the EEPROM (8 KB) and then the hiscore dump: index 4 at 0x2000 and up is
+// the dump's byte 0 and up. Index 3 is hiscore.dat's config, 5 the cheats.
+// ------------------------------------------------------------------
+localparam [24:0] HS_BASE = 25'h2000;
+wire        bs_sel = ioctl_index == 16'd3 || ioctl_index == 16'd5 || (ioctl_index == 16'd4 && ioctl_addr >= HS_BASE);
+wire [24:0] bs_word = ioctl_index == 16'd4 ? ioctl_addr - HS_BASE : ioctl_addr;
+reg  [24:0] bs_addr = 25'd0;
+reg  [7:0]  bs_data = 8'd0, bs_hi = 8'd0;
+reg         bs_wr = 1'b0, bs_second = 1'b0;
+always @(posedge clk_sys) begin
+	bs_wr <= 1'b0; bs_second <= 1'b0;
+	if (ioctl_download && ioctl_wr && bs_sel) begin
+		bs_addr <= bs_word; bs_data <= ioctl_dout[7:0]; bs_hi <= ioctl_dout[15:8]; bs_wr <= 1'b1; bs_second <= 1'b1;
+	end else if (bs_second) begin
+		bs_addr <= bs_addr + 1'd1; bs_data <= bs_hi; bs_wr <= 1'b1;
+	end
+end
+wire        bs_dl = ioctl_download && bs_sel;
+// the upload's byte address (alternating halves) and the two bytes back
+// (hiscore.v's data_to_hps is two clocks after the address: data_addr is
+// registered from it, then its buffer RAM's read; the EEPROM's is one)
+reg         hs_ph = 1'b0, hs_ph_d = 1'b0, hs_ph_d2 = 1'b0;
+reg  [7:0]  hs_lo, hs_hi;
+wire [7:0]  hs_to_hps;
+always @(posedge clk_sys) begin
+	hs_ph <= ~hs_ph; hs_ph_d <= hs_ph; hs_ph_d2 <= hs_ph_d;
+	if (hs_ph_d2) hs_hi <= hs_to_hps; else hs_lo <= hs_to_hps;
+end
+// hiscore.v sees the whole .nvm upload, its address held at 0 through the
+// EEPROM's part: its byte 0 is then read long before the dump's first word
+// (given the upload only from 0x2000, the first word took a stale byte)
+wire        hs_up_nvm = ioctl_upload && ioctl_index == 16'd4;
+wire        hs_up = hs_up_nvm && ioctl_addr >= HS_BASE;
+wire [24:0] hs_io_addr = ioctl_upload ? (hs_up ? bs_word + hs_ph : 25'd0) : bs_addr;
+assign ioctl_din = hs_up ? {hs_hi, hs_lo} : ee_din;
+
+// the back door's users: the hiscore module (wins a collision) and the cheats
+wire        hs_enable = !status[25] && !WRAM_SD;
+wire        hs_pause_raw, hs_upload_req;
+wire [23:0] hi_addr;
+wire [7:0]  hi_din;
+wire        hi_write;
+wire [7:0]  hb_q;
+wire        hb_ok;
+reg  [23:0] hs_save_cnt = 24'd0;
+always @(posedge clk_sys)
+	if (status[30]) hs_save_cnt <= 24'd4915200;              // 100 ms: the Save NVRAM's upload, not the OSD's
+	else if (|hs_save_cnt) hs_save_cnt <= hs_save_cnt - 1'd1;
+// not on the bitstreams with the work RAM in the SDRAM (no back door there)
+generate if (!WRAM_SD) begin : g_hs
+hiscore #(.HS_ADDRESSWIDTH(24), .HS_SCOREWIDTH(10), .CFG_ADDRESSWIDTH(4), .CFG_LENGTHWIDTH(2)) hi (
+		.clk(clk_sys), .reset(reset | ~hs_enable), .paused(hb_ok), .autosave(1'b1),
+		.OSD_STATUS(OSD_STATUS & ~|hs_save_cnt & hs_enable),
+		.ioctl_upload(hs_up_nvm), .ioctl_upload_req(hs_upload_req),
+		.ioctl_download(bs_dl && ioctl_index != 16'd5), .ioctl_wr(bs_wr), .ioctl_addr(hs_io_addr), .ioctl_index(ioctl_index[7:0]),
+		.data_from_hps(bs_data), .data_to_hps(hs_to_hps),
+		.data_from_ram(hb_q), .data_to_ram(hi_din), .ram_address(hi_addr), .ram_write(hi_write),
+		.ram_intent_read(), .ram_intent_write(), .pause_cpu(hs_pause_raw), .configured());
+end else begin : g_no_hs
+	assign {hs_pause_raw, hs_upload_req, hi_write} = 3'b000;
+	assign hi_addr = 24'd0; assign hi_din = 8'd0; assign hs_to_hps = 8'd0;
+end endgenerate
+wire        hs_pause = hs_pause_raw & hs_enable;
+
+wire [23:0] ch_addr;
+wire [7:0]  ch_din;
+wire        ch_write, ch_pause;
+wire [9:0]  ch_avail_raw;
+assign      ch_avail = WRAM_SD ? 10'd0 : ch_avail_raw;
+generate if (!WRAM_SD) begin : g_ch
+cheats #(.SLOTS(10), .ACTS(3)) ch (
+		.clk(clk_sys), .reset(reset | (WRAM_SD != 0)),
+		.ioctl_download(bs_dl), .ioctl_wr(bs_wr), .ioctl_addr(bs_addr), .ioctl_index(ioctl_index), .ioctl_dout(bs_data),
+		.enable(status[41:32]), .available(ch_avail_raw), .vblank(vcnt >= 9'd224),
+		.ram_addr(ch_addr), .ram_din(ch_din), .ram_write(ch_write), .ram_access(), .ram_dout(hb_q),
+		.pause_cpu(ch_pause), .paused(hb_ok && !hs_pause));
+	
+end else begin : g_no_ch
+	assign {ch_write, ch_pause} = 2'b00; assign ch_avail_raw = 10'd0;
+	assign ch_addr = 24'd0; assign ch_din = 8'd0;
+end endgenerate
+wire        hb_req  = hs_pause | ch_pause;
+wire [23:0] hb_addr = hs_pause ? hi_addr  : ch_addr;
+wire [7:0]  hb_din  = hs_pause ? hi_din   : ch_din;
+wire        hb_we   = hs_pause ? hi_write : ch_write;
+
+// the .nvm's upload: the EEPROM's (Save NVRAM, or the OSD with the EEPROM
+// written) or the hiscore module's (its scores changed); either saves both
+assign ioctl_upload_req = up_req | (hs_upload_req & hs_enable);
 
 // ------------------------------------------------------------------
 // The board, its SDRAM side
@@ -414,7 +539,6 @@ wire [18:0] ft_addr;
 wire [15:0] fm_addr;
 wire [63:0] ft_data, fm_data;
 wire [7:0]  core_r, core_g, core_b;
-wire [8:0]  hcnt, vcnt;
 wire signed [15:0] ym_left, ym_right, c140_left, c140_right;
 wire        ym_sample;
 wire        c140_sample;
@@ -426,7 +550,8 @@ wire [5:0]  wram_dsn;
 
 ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
             .WRAM_SD(WRAM_SD)) board (
-	.clk(clk_sys), .reset(reset), .board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
+	.clk(clk_sys), .reset(reset), .pause(core_pause), .hb_req(hb_req), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
+	.board(cfg_board), .mcu_c68(cfg_c68), .tile_fl2(cfg_fl2), .spr_fl(cfg_sprfl),
 	.key_table(cfg_ktable), .key_mode(cfg_kmode),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .dsw(dip_sw[0]), .dials(in_dials), .analog(in_analog), .dbg_stall(1'b0), .dbg_holds(),
 	.red(core_r), .green(core_g), .blue(core_b), .ce_pix(ce_pix), .out_x(), .out_y(), .out_valid(), .hcnt(hcnt), .vcnt(vcnt),
@@ -578,6 +703,24 @@ assign AUDIO_R = aud_r;
 wire       flip_180 = cfg[3][6] ^ status[17];
 wire  [1:0] orientation = status[9:8];
 wire        no_rotate = (orientation == 2'd0) | direct_video;
+
+// Autofire (OSD): a held Button 1 / 2 is let through half of each period
+// (15 Hz: 2 frames on, 2 off; 10 Hz 3/3; 7.5 Hz 4/4; 30 Hz 1/1), counted in
+// the board's frames, and still in a pause
+reg  [2:0] af_cnt = 3'd0;
+reg        af_on = 1'b1, af_vb = 1'b0;
+wire [2:0] af_half = status[24:23] == 2'd0 ? 3'd2 : status[24:23] == 2'd1 ? 3'd3 : status[24:23] == 2'd2 ? 3'd4 : 3'd1;
+always @(posedge clk_sys) begin
+	af_vb <= vcnt == 9'd224;
+	if (vcnt == 9'd224 && !af_vb && !core_pause) begin
+		if (af_cnt + 1'd1 >= af_half) begin af_cnt <= 3'd0; af_on <= !af_on; end
+		else af_cnt <= af_cnt + 1'd1;
+	end
+end
+wire [1:0] af_btn  = status[22:21];                              // [1] Button 2, [0] Button 1
+wire [8:0] af_mask = {3'b000, af_btn & {2{!af_on}}, 4'b0000};    // p[5] B2, p[4] B1
+wire [8:0] p1 = p1_raw & ~af_mask;
+wire [8:0] p2 = p2_raw & ~af_mask;
 
 // the controls (above): the guns aim at the picture as displayed
 ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),

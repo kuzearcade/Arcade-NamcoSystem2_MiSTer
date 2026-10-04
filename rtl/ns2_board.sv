@@ -24,6 +24,19 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	input      [31:0] dials,
 	input      [63:0] analog,
 	input             dbg_stall,      // ROMS = 0: the master's ROM not ready (M2's stall experiment)
+	input             pause,          // the OSD's pause: every CPU stops (as the lockstep's hold), and the sound chips' clocks
+	// the master's memory back door (high scores, cheats): hb_req stops the
+	// CPUs (as the lockstep's hold, the sound running on); 8 clocks later
+	// (the shared bus's last access done) hb_ok, and an access then reads
+	// hb_q a clock after hb_addr, or writes hb_din with hb_we. The master's
+	// byte addresses: 100000-10ffff the work RAM (not with WRAM_SD),
+	// 400000-41ffff the C123's RAM (its mirror)
+	input             hb_req,
+	output            hb_ok,
+	input      [23:0] hb_addr,
+	input             hb_we,
+	input      [7:0]  hb_din,
+	output     [7:0]  hb_q,
 	output     [3:0]  dbg_holds,      // the lockstep's sources: {6809, C68, C65, 68000s}
 	// video out
 	output     [7:0]  red, green, blue,
@@ -103,7 +116,16 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	// the CPUs' lockstep (NS2-14): any CPU waiting for its ROM's cache stops
 	// them all, so the caches never change the CPUs' timing against each other
 	wire        hold_main, hold_65, hold_68, hold_snd;
-	wire        cpu_stop = hold_main || hold_65 || hold_68 || hold_snd;
+	wire        cpu_stop = hold_main || hold_65 || hold_68 || hold_snd || pause || hb_req;
+	// the back door: its own after 8 clocks of hb_req (the shared bus idle)
+	reg  [3:0]  hb_wait;
+	always @(posedge clk) hb_wait <= !hb_req || reset ? 4'd0 : hb_wait == 4'd8 ? hb_wait : hb_wait + 1'd1;
+	assign      hb_ok = hb_wait == 4'd8;
+	wire        hb_wram = hb_ok && hb_addr[23:16] == 8'h10;
+	wire        hb_vid  = hb_ok && hb_addr[23:17] == 7'h20;
+	wire [7:0]  hb_mq;
+	reg         hb_rv, hb_a0;
+	always @(posedge clk) begin hb_rv <= hb_vid; hb_a0 <= hb_addr[0]; end
 	assign dbg_holds = {hold_snd, hold_68, hold_65, hold_main};
 	wire        a_smp, smp_65, smp_68;     // the slow CPUs' ROM address phases (ns2_rom_cache SAMPLED)
 	wire        mcu_smp = mcu_c68 ? smp_68 : smp_65;
@@ -281,6 +303,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	end endgenerate
 
 	ns2_main #(.WRAM_SD(WRAM_SD)) u_main (
+		.hb_on(hb_ok), .hb_addr(hb_addr[15:0]), .hb_we(hb_we && hb_wram), .hb_din(hb_din), .hb_q(hb_mq),
 		.clk(clk), .reset(reset), .board(board), .key_table(key_table), .key_mode(key_mode),
 		.wm_req(wm_req), .wm_we(wm_we), .wm_addr(wm_addr), .wm_din(wm_din), .wm_dsn(wm_dsn),
 		.wm_ack(wm_ack), .wm_valid(wm_valid), .wm_data(wm_data),
@@ -298,6 +321,8 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.m_wdata(m_wdata), .s_wdata(s_wdata), .m_ds(m_ds), .s_ds(s_ds),
 		.m_rdata(m_rdata), .s_rdata(s_rdata), .m_dtack(m_dtack), .s_dtack(s_dtack));
 
+	assign hb_q = hb_rv ? (hb_a0 ? v_din[7:0] : v_din[15:8]) : hb_mq;
+
 	// the video
 	ns2_video #(.HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
 		.C169_MCACHE(C169_MCACHE)) u_video (
@@ -306,9 +331,12 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 		.hcnt(hcnt), .vcnt(vcnt), .ce_pix(ce_pix), .hblank(), .vblank(), .hsync(), .vsync(),
 		.red(red), .green(green), .blue(blue), .out_x(out_x), .out_y(out_y), .out_valid(out_valid),
 		.posirq_line(pos_here),
-		.cpu_addr(v_addr), .cpu_dout(v_dout), .cpu_rnw(v_rnw), .cpu_uds(v_uds), .cpu_lds(v_lds),
-		.cs_tmap(cs_tmap), .cs_tctl(cs_tctl), .cs_pal(cs_pal), .cs_spr(cs_spr), .cs_gfx(cs_gfx),
-		.cs_roz(cs_roz), .cs_rozctl(cs_rozctl), .cs_c169ctl(cs_c169ctl), .cs_c169(cs_c169), .cs_c355(cs_c355), .cs_c355pos(cs_c355pos),
+		// the back door owns the CPU's port while hb_ok (the C123's RAM only)
+		.cpu_addr(hb_ok ? {5'd0, hb_addr[15:1]} : v_addr), .cpu_dout(hb_ok ? {hb_din, hb_din} : v_dout),
+		.cpu_rnw(hb_ok ? !(hb_we && hb_vid) : v_rnw), .cpu_uds(hb_ok ? !hb_addr[0] : v_uds), .cpu_lds(hb_ok ? hb_addr[0] : v_lds),
+		.cs_tmap(hb_ok ? hb_vid : cs_tmap), .cs_tctl(cs_tctl && !hb_ok), .cs_pal(cs_pal && !hb_ok), .cs_spr(cs_spr && !hb_ok),
+		.cs_gfx(cs_gfx && !hb_ok), .cs_roz(cs_roz && !hb_ok), .cs_rozctl(cs_rozctl && !hb_ok), .cs_c169ctl(cs_c169ctl && !hb_ok),
+		.cs_c169(cs_c169 && !hb_ok), .cs_c355(cs_c355 && !hb_ok), .cs_c355pos(cs_c355pos && !hb_ok),
 		.cpu_din(v_din),
 		.tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_valid(tile_valid), .tile_data(tile_data),
 		.tmask_req(tmask_req), .tmask_addr(tmask_addr), .tmask_ack(tmask_ack), .tmask_valid(tmask_valid), .tmask_data(tmask_data),
@@ -348,7 +376,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	// the sound board
 	ns2_sound #(.C140_MAME_RATE(C140_MAME_RATE)) u_sound (
 		.clk(clk), .reset(reset), .run(sound_run),
-		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop),
+		.rom_addr(ara), .rom_data(arq), .rom_ready(a_ready), .rom_rd(a_rd), .rom_smp(a_smp), .rom_hold(hold_snd), .stop(cpu_stop), .pause(pause),
 		.dp_addr(dpa_s), .dp_dout(dpd_s), .dp_we(dpw_s), .dp_din(dpq_s),
 		.ym_left(ym_left), .ym_right(ym_right), .ym_sample(ym_sample),
 		.vrom_req(vr_req), .vrom_addr(vr_addr), .vrom_valid(vr_valid), .vrom_data(vr_q),

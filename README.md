@@ -75,6 +75,25 @@ The `.mra`s are in `releases/`, the alternates in
 Tested on the board: every standard-bitstream set (22 parents and 27
 alternates), and the parents on the other four bitstreams.
 
+## Features
+
+- **Pause** (OSD: Pause, and Pause when OSD is open): every CPU and both
+  sound chips stop; the picture holds.
+- **Autofire** (OSD): Button 1, Button 2 or both, at 15, 10, 7.5 or 30 Hz,
+  both players.
+- **High scores** for the 33 sets in MAME's `hiscore.dat` (the plugin's
+  table addresses, from `tools/ns2_extras.py`), saved with the EEPROM in the
+  set's `.nvm` (OSD: High Scores & Cheats, on by default). The games that
+  keep their own tables in the EEPROM need nothing more.
+- **Cheats** from Pugsy's MAME cheat database: ten fixed slots (Infinite
+  Time, Infinite Credits, P1/P2 Invincibility, P1/P2 Infinite Lives, P1/P2
+  Infinite Energy, Maximum Speed, P1 Infinite Weapons), each shown only for
+  the sets that have it (49 sets have at least one).
+- High scores and cheats reach the master 68000's work RAM and the C123's
+  RAM through a back door while the CPUs are held a few hundred clocks; not
+  yet on the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is
+  in the SDRAM.
+
 ## Controls
 
 The analog inputs follow MAME's ports and ranges (`rtl/ns2_controls.sv`);
@@ -162,10 +181,9 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 
 ## To Do
 
-- **Feature parity (M5):** savestates, pause, cheats, autofire.
-- **Pictures against MAME:** the remaining line differences in Suzuka 8
-  Hours and Lucky & Wild (the replay matches 667 and 643 of 699 frames),
-  and Final Lap's ranking row 6.
+- **Feature parity (M5):** savestates; high scores and cheats on the
+  Suzuka 8 Hours and Lucky & Wild bitstreams (Lucky & Wild is in
+  `hiscore.dat`).
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
   on hardware; test play with real controls.
 

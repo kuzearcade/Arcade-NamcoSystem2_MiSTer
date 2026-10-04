@@ -21,6 +21,7 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	output            rom_rd,
 	output            rom_hold,       // this clock, the cycle waits for the ROM's cache
 	input             stop,           // every CPU stops (any one's rom_hold)
+	input             pause,          // the OSD's pause: the YM2151's clock, the C140 and the 120 Hz timer stop too
 	output            rom_smp,        // rom_rd and the address have settled (ns2_rom_cache SAMPLED)
 	// the DPRAM's sound port
 	output reg [10:0] dp_addr,
@@ -65,7 +66,8 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	reg        ycen, ycen_p1_t, ycen_p1;
 	always @(posedge clk) begin
 		ycen <= 1'b0; ycen_p1 <= 1'b0;
-		if (yacc + 27'd3579545 >= 27'd49152000) begin
+		if (pause) ;
+		else if (yacc + 27'd3579545 >= 27'd49152000) begin
 			yacc <= yacc + 27'd3579545 - 27'd49152000; ycen <= 1'b1;
 			ycen_p1_t <= !ycen_p1_t; ycen_p1 <= ycen_p1_t;
 		end else yacc <= yacc + 27'd3579545;
@@ -81,8 +83,8 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 	always @(posedge clk) begin
 		if (reset) begin tdiv <= 0; irq <= 1'b0; end
 		else begin
-			tdiv <= tdiv == 19'd409599 ? 19'd0 : tdiv + 1'd1;
-			if (tdiv == 19'd409599) irq <= 1'b1;
+			if (!pause) tdiv <= tdiv == 19'd409599 ? 19'd0 : tdiv + 1'd1;
+			if (tdiv == 19'd409599 && !pause) irq <= 1'b1;
 			// the vector fetch (BS, not BA) of FFF8 takes it
 			if (fallE && bs && !ba && a == 16'hfff8) irq <= 1'b0;
 		end
@@ -121,7 +123,7 @@ module ns2_sound #(parameter C140_MAME_RATE = 0) (
 		.rst(reset), .clk(clk), .cen(ycen), .cen_p1(ycen_p1),
 		.cs_n(!ym_wr), .wr_n(1'b0), .a0(ym_wq[8]), .din(ym_wq[7:0]), .dout(ym_q),
 		.ct1(), .ct2(), .irq_n(), .sample(ym_sample), .left(), .right(), .xleft(ym_left), .xright(ym_right));
-	ns2_c140 #(.MAME_RATE(C140_MAME_RATE)) u_c140 (.clk(clk), .reset(reset), .cs(wr_e && sel_c140), .we(1'b1),
+	ns2_c140 #(.MAME_RATE(C140_MAME_RATE)) u_c140 (.clk(clk), .reset(reset), .hold(pause), .cs(wr_e && sel_c140), .we(1'b1),
 		.addr(a[8:0]), .din(cpu_do), .dout(c140_q), .int1(int1),
 		.rom_req(vrom_req), .rom_addr(vrom_addr), .rom_valid(vrom_valid), .rom_data(vrom_data),
 		.left(c140_left), .right(c140_right), .raw_l(c140_raw_l), .raw_r(c140_raw_r), .sample(c140_sample));

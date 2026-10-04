@@ -56,7 +56,7 @@ module core_top (
 	wire [15:0] fm_addr;
 	wire [63:0] ft_data, fm_data;
 
-	ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) u_board (
+	ns2_board #(.ROMS(1), .HAS_C45(1), .HAS_C169(0), .HAS_C355(0)) u_board ( .pause(1'b0), .hb_req(1'b0), .hb_ok(), .hb_addr(24'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(),
 		.clk(clk), .reset(reset || dl), .board(board), .mcu_c68(mcu_c68), .tile_fl2(tile_fl2), .spr_fl(spr_fl),
 		.key_table(key_table), .key_mode(key_mode),
 		.mcub(mcub), .mcuc(mcuc), .mcuh(mcuh), .dsw(dsw), .dials(dials), .analog(analog), .dbg_stall(1'b0), .dbg_holds(),
