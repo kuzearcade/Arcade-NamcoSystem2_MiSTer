@@ -178,14 +178,30 @@ int main(int argc, char **argv) {
 	int pics_n = 0, pics_exact = 0;
 	// HB_TEST=F: in frame F (line 100) the back door stops the CPUs, reads 16
 	// bytes of the work RAM (100000) and of the C123's RAM (409000), checks
-	// the latter against the RAM's arrays, writes every byte back unchanged
-	// and lets go: the pictures after it must be the run's without it
+	// them against the RAMs' arrays, writes each changed and back (reading
+	// it back each time) and lets go: the pictures after it must be the
+	// run's without it. With WRAM=1 the work RAM is the SDRAM's model behind
+	// its cache: the access waits while hb_stall (a clock it does not run),
+	// and the changed byte must reach the model's array
 	const long hb_test = getenv("HB_TEST") ? atol(getenv("HB_TEST")) : -1;
 	bool hb_done = false;
+	auto hb_wait = [&]() { long n = 0; while (t->hb_stall && n++ < 100000) tick(); };
 	auto hb_cycle = [&](uint32_t addr, int we, int din) {
+		hb_wait();
 		t->hb_addr = addr; t->hb_we = we; t->hb_din = din; tick(); t->hb_we = 0;
-		tick();   // hb_q is valid a clock after the address
+		hb_wait();   // hb_q: the byte at the address a running clock later
 		return (int)t->hb_q;
+	};
+	auto ref = [&](uint32_t a) -> int {
+		if (a >= 0x400000) return (a & 1) ? r->ns2_board__DOT__u_video__DOT__tmap_l[(a & 0xffff) >> 1] : r->ns2_board__DOT__u_video__DOT__tmap_h[(a & 0xffff) >> 1];
+#ifdef WRAM_MODEL
+		uint16_t w = r->ns2_board__DOT__g_wram_model__DOT__wram[(a & 0xffff) >> 1];
+#else
+		uint16_t w = (a & 1) ? r->ns2_board__DOT__u_main__DOT__u_master__DOT__g_ram__DOT__ram_l[(a & 0xffff) >> 1]
+		                     : r->ns2_board__DOT__u_main__DOT__u_master__DOT__g_ram__DOT__ram_h[(a & 0xffff) >> 1];
+		return w;
+#endif
+		return (a & 1) ? (w & 0xff) : (w >> 8);
 	};
 	while ((pics ? (pics_to < 0 || (long)((cyc - 64) / 811008) <= pics_to) : (mi < maxn && !bad)) && cyc < 4000000000ULL) {
 		if (hb_test >= 0 && !hb_done && (long)((cyc - 64) / 811008) == hb_test && t->vcnt == 100) {
@@ -195,13 +211,16 @@ int main(int argc, char **argv) {
 				for (int i = 0; i < 16; i++) {
 					uint32_t a = (region ? 0x409000u : 0x100000u) + i;
 					int v = hb_cycle(a, 0, 0);
-					if (region) {
-						int ref = (i & 1) ? r->ns2_board__DOT__u_video__DOT__tmap_l[(0x9000 + i) >> 1] : r->ns2_board__DOT__u_video__DOT__tmap_h[(0x9000 + i) >> 1];
-						if (v != ref) { fails++; printf("hb: %06x read %02x, RAM %02x\n", a, v, ref); }
-					}
+					if (v != ref(a)) { fails++; printf("hb: %06x read %02x, RAM %02x\n", a, v, ref(a)); }
+					int x = v ^ 0x5a;
+					hb_cycle(a, 1, x);
+					if (hb_cycle(a, 0, 0) != x) { fails++; printf("hb: %06x reads back %02x, wrote %02x\n", a, (int)t->hb_q, x); }
+					for (int k = 0; k < 64; k++) tick();     // the write through the FIFO
+					if (ref(a) != x) { fails++; printf("hb: %06x's RAM %02x, wrote %02x\n", a, ref(a), x); }
 					hb_cycle(a, 1, v);
-					if (hb_cycle(a, 0, 0) != v) { fails++; printf("hb: %06x reads back %02x, wrote %02x\n", a, (int)t->hb_q, v); }
+					if (hb_cycle(a, 0, 0) != v) { fails++; printf("hb: %06x reads back %02x, restored %02x\n", a, (int)t->hb_q, v); }
 				}
+			for (int k = 0; k < 64; k++) tick();
 			t->hb_req = 0;
 			printf("hb test in frame %ld: %ld clocks stopped, %d failures\n", hb_test, (long)(cyc - c0), fails);
 		}

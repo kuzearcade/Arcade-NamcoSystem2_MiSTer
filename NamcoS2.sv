@@ -101,9 +101,9 @@ localparam CONF_STR = {
 	"O[24:23],Autofire rate,15 Hz,10 Hz,7.5 Hz,30 Hz;",
 	// High scores (MAME's hiscore.dat, kept in the .nvm after the EEPROM) and
 	// cheats (Pugsy's database): the master's memory through ns2_board's back
-	// door. Not on the bitstreams whose work RAM is in the SDRAM (menumask 1);
+	// door (through the work RAM's cache where it is in the SDRAM);
 	// a cheat slot shows only when the set's .mra has a cheat for it
-	"H1P1,High Scores & Cheats;",
+	"P1,High Scores & Cheats;",
 	"P1O[25],High Scores,On,Off;",
 	"P1-;",
 	"h2P1O[32],Infinite Time,Off,On;",
@@ -200,8 +200,8 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	// [11] hides Aspect ratio and Scandoubler Fx under direct video;
 	// [0] hides Orientation under direct video
 	// [12], [10:2] the cheat slots the .mra has; [11] and [0] direct video;
-	// [1] no back door (the work RAM in the SDRAM)
-	.status_menumask({3'd0, ch_avail[9], direct_video, ch_avail[8:0], WRAM_SD ? 1'b1 : 1'b0, direct_video}),
+	// [1] unused
+	.status_menumask({3'd0, ch_avail[9], direct_video, ch_avail[8:0], 1'b0, direct_video}),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
@@ -495,7 +495,7 @@ wire [24:0] hs_io_addr = ioctl_upload ? (hs_up ? bs_word + hs_ph : 25'd0) : bs_a
 assign ioctl_din = hs_up ? {hs_hi, hs_lo} : ee_din;
 
 // the back door's users: the hiscore module (wins a collision) and the cheats
-wire        hs_enable = !status[25] && !WRAM_SD;
+wire        hs_enable = !status[25];
 wire        hs_pause_raw, hs_upload_req;
 wire [23:0] hi_addr;
 wire [7:0]  hi_din;
@@ -506,39 +506,30 @@ reg  [23:0] hs_save_cnt = 24'd0;
 always @(posedge clk_sys)
 	if (status[30]) hs_save_cnt <= 24'd4915200;              // 100 ms: the Save NVRAM's upload, not the OSD's
 	else if (|hs_save_cnt) hs_save_cnt <= hs_save_cnt - 1'd1;
-// not on the bitstreams with the work RAM in the SDRAM (no back door there)
-generate if (!WRAM_SD) begin : g_hs
-hiscore #(.HS_ADDRESSWIDTH(24), .HS_SCOREWIDTH(10), .CFG_ADDRESSWIDTH(4), .CFG_LENGTHWIDTH(2)) hi (
-		.clk(clk_sys), .reset(reset | ~hs_enable), .paused(hb_ok), .autosave(1'b1),
+// the work RAM in the SDRAM (WRAM_SD): the back door goes through its cache,
+// and hb_stall holds whichever module owns it while the cache is not ready
+wire        hb_stall;
+// (sized for the sets each bitstream serves: on SZ and LW, Lucky & Wild's one
+// entry of 160 bytes)
+hiscore #(.HS_ADDRESSWIDTH(24), .HS_SCOREWIDTH(WRAM_SD ? 8 : 10), .CFG_ADDRESSWIDTH(WRAM_SD ? 1 : 4), .CFG_LENGTHWIDTH(2)) hi (
+		.clk(clk_sys), .reset(reset | ~hs_enable), .paused(hb_ok), .stall(hb_stall && hs_pause), .autosave(1'b1),
 		.OSD_STATUS(OSD_STATUS & ~|hs_save_cnt & hs_enable),
 		.ioctl_upload(hs_up_nvm), .ioctl_upload_req(hs_upload_req),
 		.ioctl_download(bs_dl && ioctl_index != 16'd5), .ioctl_wr(bs_wr), .ioctl_addr(hs_io_addr), .ioctl_index(ioctl_index[7:0]),
 		.data_from_hps(bs_data), .data_to_hps(hs_to_hps),
 		.data_from_ram(hb_q), .data_to_ram(hi_din), .ram_address(hi_addr), .ram_write(hi_write),
 		.ram_intent_read(), .ram_intent_write(), .pause_cpu(hs_pause_raw), .configured());
-end else begin : g_no_hs
-	assign {hs_pause_raw, hs_upload_req, hi_write} = 3'b000;
-	assign hi_addr = 24'd0; assign hi_din = 8'd0; assign hs_to_hps = 8'd0;
-end endgenerate
 wire        hs_pause = hs_pause_raw & hs_enable;
 
 wire [23:0] ch_addr;
 wire [7:0]  ch_din;
 wire        ch_write, ch_pause;
-wire [9:0]  ch_avail_raw;
-assign      ch_avail = WRAM_SD ? 10'd0 : ch_avail_raw;
-generate if (!WRAM_SD) begin : g_ch
 cheats #(.SLOTS(10), .ACTS(3)) ch (
-		.clk(clk_sys), .reset(reset | (WRAM_SD != 0)),
+		.clk(clk_sys), .reset(reset),
 		.ioctl_download(bs_dl), .ioctl_wr(bs_wr), .ioctl_addr(bs_addr), .ioctl_index(ioctl_index), .ioctl_dout(bs_data),
-		.enable(status[41:32]), .available(ch_avail_raw), .vblank(vcnt >= 9'd224),
+		.enable(status[41:32]), .available(ch_avail), .vblank(vcnt >= 9'd224),
 		.ram_addr(ch_addr), .ram_din(ch_din), .ram_write(ch_write), .ram_access(), .ram_dout(hb_q),
-		.pause_cpu(ch_pause), .paused(hb_ok && !hs_pause));
-	
-end else begin : g_no_ch
-	assign {ch_write, ch_pause} = 2'b00; assign ch_avail_raw = 10'd0;
-	assign ch_addr = 24'd0; assign ch_din = 8'd0;
-end endgenerate
+		.pause_cpu(ch_pause), .paused(hb_ok && !hs_pause), .stall(hb_stall && !hs_pause));
 wire        hb_req  = hs_pause | ch_pause;
 wire [23:0] hb_addr = hs_pause ? hi_addr  : ch_addr;
 wire [7:0]  hb_din  = hs_pause ? hi_din   : ch_din;
@@ -624,7 +615,7 @@ savestate #(.SS_WORDS(20'h5ac00), .DDR_BASE(29'h07C00000), .SLOT_STRIDE(29'h0002
 
 ns2_board #(.ROMS(1), .HAS_SPRA(HAS_SPRA), .HAS_ROZ(HAS_ROZ), .HAS_C45(HAS_C45), .HAS_C169(HAS_C169), .HAS_C355(HAS_C355),
             .WRAM_SD(WRAM_SD), .HAS_C65(HAS_C65)) board (
-	.clk(clk_sys), .reset(reset), .pause(core_pause && !ss_busy), .hb_req(hb_req && !ss_busy), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
+	.clk(clk_sys), .reset(reset), .pause(core_pause && !ss_busy), .hb_req(hb_req && !ss_busy), .hb_ok(hb_ok), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q), .hb_stall(hb_stall),
 	.ss_freeze(ss_freeze), .ss_resume(ss_resume), .ss_active(ss_active), .ss_load(ss_was_load),
 	.ss_addr(ss_addr), .ss_wr(ss_wr), .ss_wdata(ss_wdata), .ss_rdata(ss_rdata),
 	.ss_frozen(ss_frozen), .ss_parked(ss_parked), .ss_replay(ss_replay), .ss_replay_done(ss_replay_done),

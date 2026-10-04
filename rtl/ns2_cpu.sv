@@ -48,12 +48,18 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 	// the work RAM's back door (high scores, cheats): while hb_on (the CPUs
 	// stopped) it owns the RAM's port; hb_q is the byte at hb_addr a clock
 	// later (the 68000's big-endian: an even address is the high lane).
-	// WRAM_SD: not served (hb_q 0)
+	// WRAM_SD: through the cache (hb_sel, hb_stall below)
 	input             hb_on,
 	input      [15:0] hb_addr,
 	input             hb_we,
 	input      [7:0]  hb_din,
 	output     [7:0]  hb_q,
+	// WRAM_SD (NS2-33): the back door through the cache. hb_sel: hb_addr is
+	// the work RAM's; hb_stall: not ready this clock (the user holds): the
+	// RAM then looks as the block RAM, a read's byte a clock after its
+	// address (of the clocks the user runs), a write taken with its address
+	input             hb_sel,
+	output            hb_stall,
 	// WRAM_SD: the work RAM's SDRAM client (ns2_wram_cache)
 	output            wm_req,
 	output            wm_we,
@@ -183,6 +189,7 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 		assign ss_ram_q = q;
 		assign {ss_ram_ready, ss_ram_wfull} = 2'b10;
 		assign hb_q  = hb_a0 ? q[7:0] : q[15:8];
+		assign hb_stall = 1'b0;
 		assign ram_hold = 1'b0;
 		assign {wm_req, wm_we, wm_addr, wm_din, wm_dsn} = 0;
 	end else begin : g_wram
@@ -191,15 +198,37 @@ module ns2_cpu #(parameter MASTER = 1, parameter WRAM_SD = 0) (
 		wire w_go = wr && sel_ram && !w_done;
 		always @(posedge clk) if (ASn) w_done <= 1'b0; else if (w_go) w_done <= 1'b1;
 		wire ready, wfull;
-		ns2_wram_cache u_wc (.clk(clk), .rst(reset), .flush(ss_flush), .addr(ss_on ? ss_a : a[15:1]),
-			.rd(ss_on ? ss_rd && ss_ram : rd && sel_ram), .wr(ss_on ? ss_wgo && ss_ram : w_go),
-			.wdata(ss_on ? ss_wdata : oEdb), .wbe(ss_on ? 2'b11 : {!UDSn, !LDSn}), .q(ram_q), .ready(ready), .wfull(wfull),
+		// the back door: the address taken at the last clock its user ran
+		// (hb_cap) is read; a write waits a clock with its address (so a line
+		// present takes it too) and for room in the FIFO
+		reg  [15:0] hb_cap, hb_wa;
+		reg  [7:0]  hb_wd;
+		reg         hb_csel, hb_wp, hb_ws;
+		wire        hb_wgo = hb_wp && hb_ws && !wfull;
+		assign      hb_stall = hb_on && (hb_wp || (hb_csel && !ready));
+		always @(posedge clk) begin
+			if (!hb_on) begin hb_wp <= 1'b0; hb_csel <= 1'b0; end
+			else if (hb_wp) begin
+				hb_ws <= 1'b1;
+				if (hb_wgo) hb_wp <= 1'b0;
+			end else if (!hb_stall) begin
+				hb_cap <= hb_addr; hb_csel <= hb_sel;
+				if (hb_we && hb_sel) begin hb_wp <= 1'b1; hb_ws <= 1'b0; hb_wa <= hb_addr; hb_wd <= hb_din; end
+			end
+		end
+		assign hb_q = hb_cap[0] ? ram_q[7:0] : ram_q[15:8];
+		wire [14:0] c_a  = ss_on ? ss_a : hb_on ? (hb_wp ? hb_wa[15:1] : hb_cap[15:1]) : a[15:1];
+		wire        c_rd = ss_on ? ss_rd && ss_ram : hb_on ? hb_csel && !hb_wp : rd && sel_ram;
+		wire        c_wr = ss_on ? ss_wgo && ss_ram : hb_on ? hb_wgo : w_go;
+		wire [15:0] c_d  = ss_on ? ss_wdata : hb_on ? {hb_wd, hb_wd} : oEdb;
+		wire [1:0]  c_be = ss_on ? 2'b11 : hb_on ? (hb_wa[0] ? 2'b01 : 2'b10) : {!UDSn, !LDSn};
+		ns2_wram_cache u_wc (.clk(clk), .rst(reset), .flush(ss_flush), .addr(c_a),
+			.rd(c_rd), .wr(c_wr), .wdata(c_d), .wbe(c_be), .q(ram_q), .ready(ready), .wfull(wfull),
 			.m_req(wm_req), .m_we(wm_we), .m_addr(wm_addr), .m_din(wm_din), .m_dsn(wm_dsn),
 			.m_ack(wm_ack), .m_valid(wm_valid), .m_data(wm_data));
 		// at DTACK's count, as a ROM read: a read waits for its line, a
 		// write for room in the FIFO (its strobes come later, the FIFO only drains)
 		assign ram_hold = lat == 3'd1 && sel_ram && !iack && (eRWn ? !ready : wfull);
-		assign hb_q = 8'd0;
 		assign ss_ram_q = ram_q;
 		assign ss_ram_ready = ready;
 		assign ss_ram_wfull = wfull;

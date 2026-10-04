@@ -62,7 +62,11 @@ module cheats #(
 	output reg               pause_cpu,
 	// NS2 (local change): the back door is ready (the CPUs stopped and the
 	// shared bus idle, some clocks after pause_cpu); the walk waits for it
-	input                    paused
+	input                    paused,
+	// NS2 (NS2-33): the back door is not ready this clock (its work RAM
+	// behind a cache in the SDRAM: a miss, or a write waiting for room);
+	// the walk holds, and the RAM looks as the block RAM it was
+	input                    stall
 );
 
 	localparam BYTES_PER_SLOT = 2 + ACTS*6;
@@ -120,11 +124,12 @@ module cheats #(
 
 	always @(posedge clk) begin
 		vblank_d  <= vblank;
-		ram_write <= 1'b0;
+		if (!stall) ram_write <= 1'b0;
 
 		if (reset) begin
 			state <= S_IDLE; ram_access <= 1'b0; pause_cpu <= 1'b0;
-		end else case (state)
+		end else if (stall) ;
+		else case (state)
 			S_IDLE: begin
 				ram_access <= 1'b0;
 				pause_cpu  <= 1'b0;

@@ -1800,7 +1800,7 @@ MAME's own YM2151 (ymfm, from MAME's tree; `fifo_time.py` re-times a log as
   feedback 0-2) and algorithm 0 at feedback 7; ymfm's are elsewhere
   (algorithms 1-2).
 
-## NS2-30 — Pause, autofire, high scores and cheats (closed for the standard, Metal Hawk and Steel Gunner bitstreams; open: Suzuka 8 Hours and Lucky & Wild)
+## NS2-30 — Pause, autofire, high scores and cheats (closed; Suzuka 8 Hours and Lucky & Wild: NS2-33)
 
 **Pause** (OSD: Pause; Pause when OSD is open): `ns2_board`'s `pause` stops
 every CPU through the lockstep's hold (NS2-14), and with them the sound
@@ -1985,3 +1985,41 @@ the SDRAM behind small caches, NS2-15):
 
 Open: M3's exactness (the ROMs' caches change the lockstep's stops, so a
 load matches its save as the board does).
+
+## NS2-33 — High scores and cheats on Suzuka 8 Hours and Lucky & Wild (closed)
+
+Their work RAMs are in the SDRAM behind small caches (NS2-15), and the
+back door (NS2-30) reached only the block RAM, so the two bitstreams had
+neither. Now:
+
+- `ns2_cpu`'s back door goes through the work RAM's cache. It reads the
+  address its user presented at the last clock the user ran (`hb_cap`), so
+  a hit's byte is there a clock later, as the block RAM's was; a write
+  waits a clock with its address (so a line present takes it too) and for
+  room in the FIFO. While neither is ready, `hb_stall` holds the user:
+  hiscore.v and cheats.sv have a `stall` input (marked) that holds their
+  game RAM side (hiscore.v: its state machine, timer and the dump's writes;
+  its HPS side runs on). The C123's RAM is the video port's, as before.
+- `tools/ns2_mra.py` gives every set its blocks: Lucky & Wild and its
+  Japanese set their high scores (`hiscore.dat`'s one entry, 160 bytes at
+  100b00: the `.nvm` 8,352 bytes) and all four Suzuka 8 Hours and Lucky &
+  Wild sets Infinite Time (107156). The Suzuka sets have no `hiscore.dat`
+  entry. 35 sets have high scores now, 55 a cheat.
+- hiscore.v is sized for the sets on each bitstream: on SZ and LW two
+  entries of 256 bytes (Lucky & Wild's one of 160).
+- Room: the modules are about 780 ALMs (hiscore 687, the cheats 93).
+  Lucky & Wild was then 50 LABs over; it leaves out ALSA (Linux's audio
+  into the core's output, `MISTER_DISABLE_ALSA`) and the HDMI scaler's
+  adaptive filter (`MISTER_DISABLE_ADAPTIVE`), which also closed its HDMI
+  clock's timing (seeds without it fit, or met timing, but not both).
+  Suzuka 8 Hours keeps both (seed 427 met timing).
+- Test: M2's back door test (`HB_TEST`, sim/rtl/ns2_frames, `WRAM=1`: the
+  SDRAM's model) reads 16 bytes of the work RAM and 16 of the C123's RAM
+  against the arrays, writes each changed and back with a read-back, and
+  checks each change reached the SDRAM's model: 0 failures (Suzuka 8 Hours,
+  and Phelios on the block RAM).
+- On the board (LW seed 464): Lucky & Wild's first save is the ranking's
+  ten records (TATSSIGE first, the start and end bytes hiscore.dat's), and
+  with the first name edited to TESTSIGE the attract's ranking shows it
+  after a reload. Infinite Time holds the demo's timer at 499 (it counts
+  down from 149 without it).

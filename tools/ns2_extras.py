@@ -2,9 +2,8 @@
 """High scores and cheats in the .mra files (NS2-30), for tools/ns2_mra.py.
 
 Both act on the master 68000's memory through ns2_board's back door, which
-reaches its work RAM (100000-10ffff) and the C123's RAM (400000-41ffff), not
-on the bitstreams whose work RAM is in the SDRAM (Suzuka 8 Hours, Lucky &
-Wild: none for their sets).
+reaches its work RAM (100000-10ffff; on Suzuka 8 Hours and Lucky & Wild
+through its cache in the SDRAM, NS2-33) and the C123's RAM (400000-41ffff).
 
 High scores (MAME's plugins/hiscore/hiscore.dat): <rom index="3"> is
 hiscore.v's config, a 16-byte header then a record a hiscore.dat line
@@ -163,8 +162,8 @@ def fmt(rows):
 
 
 def blocks(name, served):
-    """the .mra lines for a set (served: its bitstream has the back door), and
-    the NVRAM's size"""
+    """the .mra lines for a set (served: its bitstream has the back door: every
+    one now), and the NVRAM's size"""
     out, size = [], EEPROM_BYTES
     h = hiscore(name) if served else None
     if h:

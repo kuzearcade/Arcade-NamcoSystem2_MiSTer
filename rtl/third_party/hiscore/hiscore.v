@@ -52,6 +52,7 @@ module hiscore
 (
 	input										clk,
 	input										paused,			// Signal from core confirming CPU is paused
+	input										stall,			// MODIFIED (NS2-33): the game RAM is not ready this clock (hold)
 	input										reset,
 	input										autosave,		// Auto-save enabled (active high)
 
@@ -310,7 +311,7 @@ hiscore_data (
 	.we_a(downloading_dump),
 	.d_a(data_from_hps),
 	.addr_b(data_addr),
-	.we_b(dump_write), 
+	.we_b(dump_write && !stall), 
 	.d_b(hiscore_buffer_out),
 	.q_b(hiscore_data_out)
 );
@@ -386,7 +387,12 @@ begin
 	end
 
 	// If we have a valid configuration then enable the hiscore system
-	if(downloaded_config)
+	// MODIFIED (Arcade-NamcoSystem2_MiSTer, NS2-33): `stall` holds the game
+	// RAM side (the state machine, its timer, the dump's writes) while the
+	// core's back door is not ready (its work RAM behind a cache in the
+	// SDRAM: a miss, or a write waiting for room); the RAM then looks as the
+	// block RAM it was, its data a clock after the address
+	if(downloaded_config && !stall)
 	begin
 	
 		// Check for end of core reset to initialise state machine for restore

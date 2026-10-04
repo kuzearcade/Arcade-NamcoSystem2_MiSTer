@@ -81,18 +81,19 @@ alternates), and the parents on the other four bitstreams.
   sound chips stop; the picture holds.
 - **Autofire** (OSD): Button 1, Button 2 or both, at 15, 10, 7.5 or 30 Hz,
   both players.
-- **High scores** for the 33 sets in MAME's `hiscore.dat` (the plugin's
+- **High scores** for the 35 sets in MAME's `hiscore.dat` (the plugin's
   table addresses, from `tools/ns2_extras.py`), saved with the EEPROM in the
   set's `.nvm` (OSD: High Scores & Cheats, on by default). The games that
   keep their own tables in the EEPROM need nothing more.
 - **Cheats** from Pugsy's MAME cheat database: ten fixed slots (Infinite
   Time, Infinite Credits, P1/P2 Invincibility, P1/P2 Infinite Lives, P1/P2
   Infinite Energy, Maximum Speed, P1 Infinite Weapons), each shown only for
-  the sets that have it (49 sets have at least one).
+  the sets that have it (55 sets have at least one).
 - High scores and cheats reach the master 68000's work RAM and the C123's
-  RAM through a back door while the CPUs are held a few hundred clocks; not
-  yet on the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is
-  in the SDRAM.
+  RAM through a back door while the CPUs are held a few hundred clocks; on
+  the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is in the
+  SDRAM, through its cache (NS2-33). Lucky & Wild has its high scores, and
+  all four Suzuka and Lucky & Wild sets their Infinite Time.
 - **Savestates** on every bitstream (Alt+F1-F4 save, F1-F4 load, or the
   OSD's Savestates page): four slots a game, kept on the SD card
   (`savestates/Arcade/<game>_<n>.ss`). The whole board is saved, every CPU
@@ -159,17 +160,18 @@ save presses it for a moment).
 
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
-`PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
-2026-10-04: tag `v2026-10-04.2`), from Quartus 17.0 Lite on the
-DE10-Nano's 5CSEBA6U23I7:
+`PROJ=<project> ./build.sh <log>`). The bitstreams in `releases/`
+(2026-10-04, with the high scores and cheats on Suzuka 8 Hours and Lucky &
+Wild; not yet tagged: the last release is `v2026-10-04.2`), from Quartus 17.0
+Lite on the DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI / SDRAM pins | Seed |
 |---|---|---|---|---|---|---|---|---|
-| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 38,609 (92%) | 54,795 | 547 / 553 (99%) | 71 | +1.069 / +0.359 / +0.145 / +0.665 ns | 315 |
-| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 41,206 (98%) | 55,559 | 507 / 553 (92%) | 68 | +1.009 / +0.203 / +0.162 / +0.665 ns | 322 |
-| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 41,286 (99%) | 55,368 | 497 / 553 (90%) | 73 | +0.914 / +0.311 / +0.187 / +0.670 ns | 316 |
-| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 37,889 (90%) | 55,494 | 488 / 553 (88%) | 74 | +1.168 / +0.479 / +0.344 / +0.668 ns | 324 |
-| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 41,464 (99%) | 57,762 | 548 / 553 (99%) | 78 | +1.202 / +0.520 / +0.059 / +0.654 ns | 358 |
+| `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 40,999 (98%) | 54,936 | 547 / 553 (99%) | 71 | +1.287 / +0.310 / +0.027 / +0.688 ns | 417 |
+| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 41,315 (99%) | 55,599 | 507 / 553 (92%) | 68 | +1.459 / +0.141 / +0.243 / +0.654 ns | 423 |
+| `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 41,250 (98%) | 55,436 | 497 / 553 (90%) | 73 | +1.389 / +0.255 / +0.191 / +0.688 ns | 417 |
+| `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 41,155 (98%) | 56,508 | 491 / 553 (89%) | 74 | +1.463 / +0.323 / +0.149 / +0.650 ns | 427 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 41,480 (99%) | 57,904 | 550 / 553 (99%) | 74 | +0.943 / +0.196 / +0.260 / +0.668 ns | 464 |
 
 Every clock meets timing, setup and hold, at every corner on all five,
 with the SDRAM interface constrained (NS2-19). clk_sys is 49.152
@@ -177,7 +179,9 @@ MHz and clk_sd, the SDRAM's, 98.304 MHz. The 68000s run at 12.288 MHz, the
 6809 and the C65 at 2.048 MHz, the C68 at 8.192 MHz. The SZ and LW
 bitstreams keep both 68000 work RAMs and the C139's RAM in SDRAM behind
 small caches, to fit their block RAM (NS2-15), and leave out the C65: every
-set they serve has the C68 (NS2-32).
+set they serve has the C68 (NS2-32). To make room for the high scores and
+cheats and meet timing (NS2-33), Lucky & Wild leaves out the HDMI
+scaler's adaptive filter and ALSA (Linux's audio mixed into the core's).
 
 Installing: copy the `.rbf`s to `_Arcade/cores/`, the `.mra`s (and
 `_alternatives/`) to `_Arcade/`, and MAME's zips (the sets, plus
@@ -191,8 +195,6 @@ the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 
 ## To Do
 
-- **Feature parity (M5):** high scores and cheats on the Suzuka 8 Hours
-  and Lucky & Wild bitstreams (Lucky & Wild is in `hiscore.dat`).
 - **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
   on hardware; test play with real controls.
 

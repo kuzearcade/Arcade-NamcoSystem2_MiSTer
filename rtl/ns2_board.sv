@@ -30,7 +30,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	// CPUs (as the lockstep's hold, the sound running on); 8 clocks later
 	// (the shared bus's last access done) hb_ok, and an access then reads
 	// hb_q a clock after hb_addr, or writes hb_din with hb_we. The master's
-	// byte addresses: 100000-10ffff the work RAM (not with WRAM_SD),
+	// byte addresses: 100000-10ffff the work RAM (WRAM_SD: through its cache),
 	// 400000-41ffff the C123's RAM (its mirror)
 	input             hb_req,
 	output            hb_ok,
@@ -38,6 +38,10 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 	input             hb_we,
 	input      [7:0]  hb_din,
 	output     [7:0]  hb_q,
+	// WRAM_SD (NS2-33): the work RAM is reached through its cache: hb_stall,
+	// the access is not ready this clock (its user holds; a read's byte is
+	// then a clock after its address of the clocks the user runs)
+	output            hb_stall,
 	output     [3:0]  dbg_holds,      // the lockstep's sources: {6809, C68, C65, 68000s}
 	// video out
 	output     [7:0]  red, green, blue,
@@ -423,6 +427,7 @@ module ns2_board #(parameter C140_MAME_RATE = 0, parameter ROMS = 0,
 
 	ns2_main #(.WRAM_SD(WRAM_SD)) u_main (
 		.hb_on(hb_ok), .hb_addr(hb_addr[15:0]), .hb_we(hb_we && hb_wram), .hb_din(hb_din), .hb_q(hb_mq),
+		.hb_sel(hb_wram), .hb_stall(hb_stall),
 		.clk(clk), .reset(reset), .board(board), .key_table(key_table), .key_mode(key_mode),
 		.wm_req(wm_req), .wm_we(wm_we), .wm_addr(wm_addr), .wm_din(wm_din), .wm_dsn(wm_dsn),
 		.wm_ack(wm_ack), .wm_valid(wm_valid), .wm_data(wm_data),

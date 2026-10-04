@@ -3,7 +3,7 @@
 # make WRAM=1: the work RAMs behind ns2_wram_cache (the NB bitstream's), in obj_wram/
 WRAM ?=
 OBJ := $(if $(WRAM),obj_wram,obj_dir)
-GFLAGS := $(if $(WRAM),-GWRAM_SD=1,)
+GFLAGS := $(if $(WRAM),-GWRAM_SD=1 -CFLAGS -DWRAM_MODEL,)
 R := ../../../rtl
 T := $(R)/third_party
 SRCS := $(R)/savestate/ss_m68k_park.sv $(R)/savestate/ss_m6809_park.sv $(R)/ns2_board.sv $(R)/ns2_main.sv $(R)/ns2_cpu.sv $(R)/ns2_c148.sv $(R)/ns2_key.sv \

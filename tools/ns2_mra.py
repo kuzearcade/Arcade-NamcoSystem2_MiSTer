@@ -236,7 +236,7 @@ def mra_text(name, sets, gm):
             L.append('    </interleave>')
     # high scores and cheats (tools/ns2_extras.py): the bitstreams with the
     # back door (not those with their work RAM in the SDRAM)
-    extra, nv_size = X.blocks(name, RBF[R.BOARDS.get(g['config'], 0)] not in ('NamcoS2_SZ', 'NamcoS2_LW'))
+    extra, nv_size = X.blocks(name, True)
     L += ['  </rom>', ''] + extra + [f'  <nvram index="4" size="{nv_size}"/>', '</misterromdescription>', '']
     text = '\n'.join(L)
     ET.fromstring(text)

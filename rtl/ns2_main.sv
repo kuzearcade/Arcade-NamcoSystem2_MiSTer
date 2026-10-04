@@ -39,6 +39,8 @@ module ns2_main #(parameter WRAM_SD = 0) (
 	input             hb_we,
 	input      [7:0]  hb_din,
 	output     [7:0]  hb_q,
+	input             hb_sel,         // WRAM_SD: hb_addr is the work RAM's (ns2_cpu)
+	output            hb_stall,
 	output            cpu_hold,       // this clock, a 68000's ROM read waits for its cache
 	// WRAM_SD: the SDRAM clients (ns2_wram_cache): [0] the master's work
 	// RAM, [1] the slave's, [2] the C139's RAM
@@ -138,7 +140,7 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(s_irq), .cpuirq_out(m_irq), .ext1(ext1), .ext2(ext2),
 		.sh_req(m_req), .sh_addr(m_sa), .sh_we(m_we), .sh_uds(m_uds), .sh_lds(m_lds), .sh_dout(m_sd),
 		.sh_done(m_done), .sh_din(sh_q),
-		.hb_on(hb_on), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q),
+		.hb_on(hb_on), .hb_addr(hb_addr), .hb_we(hb_we), .hb_din(hb_din), .hb_q(hb_q), .hb_sel(hb_sel), .hb_stall(hb_stall),
 		.wm_req(wm_req[0]), .wm_we(wm_we[0]), .wm_addr(wm_addr[14:0]), .wm_din(wm_din[15:0]), .wm_dsn(wm_dsn[1:0]),
 		.wm_ack(wm_ack[0]), .wm_valid(wm_valid[0]), .wm_data(wm_data),
 		.dbg_as(m_as), .dbg_addr(m_addr), .dbg_rnw(m_rnw), .dbg_wdata(m_wdata), .dbg_ds(m_ds), .dbg_iack(), .dbg_rdata(m_rdata), .dbg_dtack(m_dtack),
@@ -153,7 +155,7 @@ module ns2_main #(parameter WRAM_SD = 0) (
 		.vblank(vblank), .posirq(posirq), .cpuirq_in(m_irq), .cpuirq_out(s_irq), .ext1(), .ext2(),
 		.sh_req(s_req), .sh_addr(s_sa), .sh_we(s_we), .sh_uds(s_uds), .sh_lds(s_lds), .sh_dout(s_sd),
 		.sh_done(s_done), .sh_din(sh_q),
-		.hb_on(1'b0), .hb_addr(16'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(),
+		.hb_on(1'b0), .hb_addr(16'd0), .hb_we(1'b0), .hb_din(8'd0), .hb_q(), .hb_sel(1'b0), .hb_stall(),
 		.wm_req(wm_req[1]), .wm_we(wm_we[1]), .wm_addr(wm_addr[29:15]), .wm_din(wm_din[31:16]), .wm_dsn(wm_dsn[3:2]),
 		.wm_ack(wm_ack[1]), .wm_valid(wm_valid[1]), .wm_data(wm_data),
 		.dbg_as(s_as), .dbg_addr(s_addr), .dbg_rnw(s_rnw), .dbg_wdata(s_wdata), .dbg_ds(s_ds), .dbg_iack(), .dbg_rdata(s_rdata), .dbg_dtack(s_dtack),
