@@ -160,10 +160,9 @@ save presses it for a moment).
 
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
-`PROJ=<project> ./build.sh <log>`). The bitstreams in `releases/`
-(2026-10-04, with the high scores and cheats on Suzuka 8 Hours and Lucky &
-Wild; not yet tagged: the last release is `v2026-10-04.2`), from Quartus 17.0
-Lite on the DE10-Nano's 5CSEBA6U23I7:
+`PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
+2026-10-04: tag `v2026-10-04.3`), from Quartus 17.0 Lite on the
+DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI / SDRAM pins | Seed |
 |---|---|---|---|---|---|---|---|---|
