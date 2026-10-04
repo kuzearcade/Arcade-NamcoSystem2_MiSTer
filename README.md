@@ -94,7 +94,7 @@ alternates), and the parents on the other four bitstreams.
   the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is in the
   SDRAM, through its cache (NS2-33). Lucky & Wild has its high scores, and
   all four Suzuka and Lucky & Wild sets their Infinite Time.
-- **Savestates** on every bitstream (Alt+F1-F4 save, F1-F4 load, or the
+- **Savestates** on every bitstream (Right Alt+F1-F4 save, F1-F4 load, or the
   OSD's Savestates page): four slots a game, kept on the SD card
   (`savestates/Arcade/<game>_<n>.ss`). The whole board is saved, every CPU
   (the 68000s and the 6809 parked at an instruction, the MCU's every
@@ -153,8 +153,10 @@ against the same run without it.
 
 Keyboard: arrows, Left Ctrl (B1), Left Alt (B2), Space (B3), Left Shift
 (B4), Z (B5); 1 and 2 Start, 5 and 6 Coin, 9 Service. Savestates: F1-F4
-load slots 1-4, Left Alt+F1-F4 save them (Left Alt being Button 2 too, a
-save presses it for a moment).
+load slots 1-4, Right Alt+F1-F4 save them. Left Alt+F1-F4 saves too, but
+Left Alt is also Button 2, so the game sees Button 2 pressed for a moment
+after the save (the brake, in the driving games); Right Alt is not mapped
+to the game.
 
 ## Bitstreams
 
