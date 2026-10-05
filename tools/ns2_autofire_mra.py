@@ -20,6 +20,10 @@ releases/ changes (tools/ns2_mra.py, or a hand edit):
 
 The output directory is emptied first, so a set removed from releases/
 goes from here too.
+
+Only shooting games get an autofire version: the racing, sports, platform
+and action sets and the lightgun games are in EXCLUDED (by <setname>) and
+keep only their releases/ .mra.
 """
 import argparse
 import os
@@ -31,6 +35,29 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'releases')
 DST = os.path.join(ROOT, 'autofire_releases')
 UNLOCK_BYTE, UNLOCK_BIT = 38, 0x01
+
+# Sets with no autofire version. A shooter's fire button is what autofire is
+# for; these have none to speak of, or fire with a lightgun's trigger. The
+# run-and-gun and tank shooters (Assault, Finest Hour, Rolling Thunder 2)
+# keep theirs.
+EXCLUDED = {
+    # racing
+    'finallap', 'finallapc', 'finallapd', 'finallapjb', 'finallapjc',
+    'finalap2', 'finalap2j', 'finalap2jb',
+    'finalap3', 'finalap3a', 'finalap3j', 'finalap3jc', 'finalap3bl',
+    'fourtrax', 'fourtraxa', 'fourtraxj',
+    'suzuka8h', 'suzuka8hj', 'suzuk8h2', 'suzuk8h2j',
+    'dirtfoxj',
+    # baseball
+    'kyukaidk', 'kyukaidko', 'sws', 'sws92', 'sws92g', 'sws93',
+    # platform / action / adventure
+    'marvland', 'marvlandup', 'mirninja', 'mirninjaa', 'valkyrie',
+    # lightgun
+    'gollygho', 'bubbletr', 'bubbletrj', 'sgunner', 'sgunnerj',
+    'sgunner2', 'sgunner2j', 'luckywld', 'luckywldj',
+}
+
+SETNAME = re.compile(r'<setname>([^<]+)</setname>')
 
 # the config block's part: its comment, then one <part> of 0x30 hex bytes
 CFG = re.compile(r'(<!-- config: 0x30 bytes at image 0x00d6000 -->\s*<part>)([0-9A-Fa-f ]+)(</part>)')
@@ -59,7 +86,20 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--check', action='store_true', help='only report what would change')
     a = ap.parse_args()
-    want = {rel: unlocked(open(p, encoding='utf-8').read(), p) for p, rel in mras()}
+    want, seen, skipped = {}, set(), 0
+    for p, rel in mras():
+        text = open(p, encoding='utf-8').read()
+        m = SETNAME.search(text)
+        if not m:
+            sys.exit('%s: no <setname>' % p)
+        seen.add(m.group(1).strip())
+        if m.group(1).strip() in EXCLUDED:
+            skipped += 1
+            continue
+        want[rel] = unlocked(text, p)
+    unknown = EXCLUDED - seen
+    if unknown:
+        sys.exit('EXCLUDED names sets not in releases/: %s' % ' '.join(sorted(unknown)))
     if a.check:
         stale = 0
         for rel, text in sorted(want.items()):
@@ -78,7 +118,7 @@ def main():
         os.makedirs(os.path.dirname(q), exist_ok=True)
         with open(q, 'w', encoding='utf-8') as f:
             f.write(text)
-    print('wrote %d .mra files to %s' % (len(want), os.path.relpath(DST, ROOT)))
+    print('wrote %d .mra files to %s (%d sets excluded)' % (len(want), os.path.relpath(DST, ROOT), skipped))
     return 0
 
 
