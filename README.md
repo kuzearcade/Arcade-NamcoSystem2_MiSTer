@@ -5,11 +5,15 @@ their alternates, on five bitstreams.
 
 **Released.** The bitstreams and `.mra`s are in `releases/` (see
 [Bitstreams](#bitstreams)) and in the [kuzecores](https://github.com/kuzearcade/kuzecores)
-downloader database. Every set boots and runs its attract mode on a DE10-Nano.
-The joystick games use MAME's default ports (one joystick, three buttons,
-Start, Coin, Service). The driving games' wheel and pedals, the light guns
-and Metal Hawk's stick are mapped onto the MCU's analog channels, and
-Assault's twin sticks onto its ports (see [Controls](#controls)).
+downloader database. Every set boots and runs its attract mode on a DE10-Nano,
+and the NB-1 games (Steel Gunner 1 and 2, Suzuka 8 Hours 1 and 2, Lucky &
+Wild), their Japanese alternates included, have been played on one with
+simulated controls: the gun's aim, trigger and bomb, the wheel, the pedals
+and Suzuka 8 Hours 2's course select. The joystick games use MAME's default
+ports (one joystick, three buttons, Start, Coin, Service). The driving
+games' wheel and pedals, the light guns and Metal Hawk's stick are mapped
+onto the MCU's analog channels, and Assault's twin sticks onto its ports
+(see [Controls](#controls)).
 See `docs/PLAN.md` for the plan and its gates, and `docs/known-issues.md`
 for every finding (NS2-n).
 
@@ -202,10 +206,7 @@ The core is published through
 the MiSTer *downloader*, so `update_all` installs the bitstreams and the
 `.mra`s (the zips are still yours to supply).
 
-## To Do
-
-- **The board:** load the Steel Gunner, Suzuka and Lucky & Wild alternates
-  on hardware; test play with real controls.
+## Limitations
 
 The C139 serial link between cabinets is not emulated (nor is it in MAME):
 each cabinet plays alone.
