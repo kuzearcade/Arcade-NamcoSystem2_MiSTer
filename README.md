@@ -85,8 +85,9 @@ alternates), and the parents on the other four bitstreams.
 
 - **Pause** (OSD: Pause, and Pause when OSD is open): every CPU and both
   sound chips stop; the picture holds.
-- Under direct video the OSD hides Aspect ratio, Scandoubler Fx and
-  Orientation: the scaler paths they set do not exist there.
+- **Direct video tweaks:** under direct video the OSD hides Aspect ratio,
+  Scandoubler Fx and Orientation: the scaler paths they set do not exist
+  there.
 - **Autofire** (OSD): Button 1, Button 2 or both, at 15, 10, 7.5 or 30 Hz,
   both players. The options are hidden unless the `.mra` turns them on:
   the files in `releases/` do not, and `tools/ns2_autofire_mra.py` writes
@@ -98,15 +99,16 @@ alternates), and the parents on the other four bitstreams.
   table addresses, from `tools/ns2_extras.py`), saved with the EEPROM in the
   set's `.nvm` (OSD: High Scores & Cheats, on by default). The games that
   keep their own tables in the EEPROM need nothing more.
-- **Cheats** from Pugsy's MAME cheat database: ten fixed slots (Infinite
-  Time, Infinite Credits, P1/P2 Invincibility, P1/P2 Infinite Lives, P1/P2
-  Infinite Energy, Maximum Speed, P1 Infinite Weapons), each shown only for
-  the sets that have it (55 sets have at least one).
-- High scores and cheats reach the master 68000's work RAM and the C123's
+
+  High scores and cheats reach the master 68000's work RAM and the C123's
   RAM through a back door while the CPUs are held a few hundred clocks; on
   the Suzuka 8 Hours and Lucky & Wild bitstreams, whose work RAM is in the
   SDRAM, through its cache (NS2-33). Lucky & Wild has its high scores, and
   all four Suzuka and Lucky & Wild sets their Infinite Time.
+- **Cheats** from Pugsy's MAME cheat database: ten fixed slots (Infinite
+  Time, Infinite Credits, P1/P2 Invincibility, P1/P2 Infinite Lives, P1/P2
+  Infinite Energy, Maximum Speed, P1 Infinite Weapons), each shown only for
+  the sets that have it (55 sets have at least one).
 - **Savestates** on every bitstream (Right Alt+F1-F4 save, F1-F4 load, or the
   OSD's Savestates page): four slots a game, kept on the SD card
   (`savestates/Arcade/<game>_<n>.ss`). The whole board is saved, every CPU
