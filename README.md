@@ -3,7 +3,9 @@
 A MiSTer FPGA core for **Namco System 2** (1987-1993): 61 sets, 28 games and
 their alternates, on five bitstreams.
 
-**In development.** Every set boots and runs its attract mode on a DE10-Nano.
+**Released.** The bitstreams and `.mra`s are in `releases/` (see
+[Bitstreams](#bitstreams)) and in the [kuzecores](https://github.com/kuzearcade/kuzecores)
+downloader database. Every set boots and runs its attract mode on a DE10-Nano.
 The joystick games use MAME's default ports (one joystick, three buttons,
 Start, Coin, Service). The driving games' wheel and pedals, the light guns
 and Metal Hawk's stick are mapped onto the MCU's analog channels, and
