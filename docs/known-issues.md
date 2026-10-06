@@ -2113,3 +2113,47 @@ start and end bytes are checked before it is written.
   (the test changes another byte); Golly! Ghost! rewrites its table's last
   byte (0x103270) when a coin goes in, as MAME does (the test inserts none
   for it).
+
+## NS2-37 — No sync on analog or direct video while the ROM loads (closed, measured)
+
+The core's raster is held at 0 by the game reset, which covers the ROM
+download (an 18.9 MB image, about 11 s), its settling tail and the wait for
+the `<switches>`. `video_retime`'s read side, which makes the sync for
+analog and direct video, only started at the first frame edge from that
+raster, so on a fresh load there was no sync until the game ran: a CRT or a
+direct-video converter lost the picture, the menu's loading screen with it.
+HDMI was unaffected (the scaler makes its own timing). Arcade-
+GingaNin_MiSTer's GN-14 found it; the same fix here.
+
+- `video_retime` (marked MODIFIED): the read side runs from configuration
+  (its counters initialised, `running` set), so sync is there from the
+  moment the FPGA is loaded. The first frame edge from the core's raster
+  re-places it once, as it always did at the first frame: that is the one
+  timing jump left, at the game's start.
+- The picture is black while the raster is stopped: the read side counts
+  its own frames since the last write-side frame start, and two without one
+  blank it (the two-line buffer then holds stale lines). No reset wiring, so
+  the file is the same in every core that has it.
+- Not done: running the raster through the reset, which would remove the
+  jump; it changes the frame phase the CPUs start in.
+
+On the board, direct video on (the capture card cannot decode the 15 kHz
+picture, but shows one only when there is a signal), the largest set loaded
+through its `.mra`, seconds from the load to the first signal:
+
+| Bitstream (set) | release (20261006) | this change |
+|---|---|---|
+| STD (Super World Stadium '92) | 16.0 s | 4.0 s |
+| MH (Metal Hawk) | 16.5 s | 4.0 s |
+| SG (Steel Gunner 2) | 16.0 s | 4.5 s |
+| SZ (Suzuka 8 Hours) | 15.0 s | 4.5 s |
+| LW (Lucky & Wild) | 16.0 s | 4.0 s |
+
+With direct video off, HDMI is as before (the game boots the same way); the
+menu's "Sending" screen is now on black, where it showed whatever the
+stopped core was putting out.
+
+Seeds: STD 704 (703 missed hold on clk_sys by 0.272 ns; setup +0.295 ns,
+hold +0.247 ns), LW 728 (722 missed setup by 0.140 ns, 727 and 729 too;
++0.280 / +0.234 ns); MH 613, SG 713, SZ 620 as before (+0.173 / +0.245,
++0.100 / +0.250, +0.295 / +0.164 ns).
