@@ -29,7 +29,7 @@
 
   <buttons names="Button 1,Button 2,Button 3,Start,Coin,Service,-,-" default="A,B,X,Start,R,L,Y,Select"/>
 
-  <rom index="0" zip="burnforco.zip|burnforc.zip|namcoc65.zip" md5="none">
+  <rom index="0" zip="burnforco.zip|burnforc.zip|namcoc65.zip" md5="none" address="0x30000000">
     <!-- maincpu: 0x40000 bytes at image 0x0000000 -->
     <interleave output="16">
       <part crc="096b73e2" name="bu1_mpr0.bin" length="0x20000" map="01"/>

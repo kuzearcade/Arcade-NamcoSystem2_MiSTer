@@ -29,7 +29,7 @@
 
   <buttons names="Accelerator,Brake,Gear Shift,Start,Coin,Service,-,-" default="A,B,X,Start,R,L,Y,Select"/>
 
-  <rom index="0" zip="finallapc.zip|finallap.zip|namcoc65.zip" md5="none">
+  <rom index="0" zip="finallapc.zip|finallap.zip|namcoc65.zip" md5="none" address="0x30000000">
     <!-- maincpu: 0x40000 bytes at image 0x0000000 -->
     <interleave output="16">
       <part crc="f667f2c9" name="fl2-mp0c" length="0x10000" map="01"/>

@@ -14,6 +14,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/savestate/*` | Arcade-GingaNin_MiSTer | ss_m68k_park with GN-10's `stall`, ss_m6809_park new there. Changed here (NS2-32, marked MODIFIED): savestate.sv no longer raises `ss_resume` as it enters its release state (only at the VBLANK), and has `ddr_pending` for the port's other client; ss_m68k_park has `in_win` (the overlay's addresses, for a local decode) |
 | `rtl/sdram.sv`, `sdram_arb.sv`, `sdram_req.sv`, `crt_chain.sv` | Arcade-GingaNin_MiSTer | verbatim |
 | `rtl/video_retime.sv` | Arcade-GingaNin_MiSTer | changed here (NS2-37, marked MODIFIED; GingaNin's GN-14 by another route): the read side runs from configuration, black while the raster is stopped |
+| `rtl/ddr_rom_load.sv` | Arcade-GingaNin_MiSTer (GN-15) | verbatim (NS2-38) |
 | `rtl/cheats.sv` | Arcade-GingaNin_MiSTer | changed here (marked NS2): a `paused` input (the walk waits for the back door, NS2-30), the table in a block RAM read a byte at a time, a `stall` input (NS2-33) |
 | `sim/models/sdram_model.sv` | Arcade-GingaNin_MiSTer (from Arcade-NMKBP964_MiSTer) | verbatim |
 | `rtl/third_party/jt680x/jt6805*.v`, `jt65c02*.v`, `6805.yaml`, `65c02.yaml` | jotego/jtcores `modules/jt680x` @ 3eb8fec | GPL-3.0-or-later, verbatim: the C65 (HD63705) and C68 (M37450) bases, extended in M2 |

@@ -192,6 +192,12 @@ wire         ioctl_upload, ioctl_upload_req;
 wire  [15:0] ioctl_din;
 wire  [21:0] vm_gamma_bus;
 
+// hps_io's own download signals; ioctl_* are ddr_rom_load's (NS2-38)
+wire        hio_download, hio_wr, hio_wait;
+wire [26:0] hio_addr;
+wire [15:0] hio_dout;
+wire [15:0] hio_index;
+
 hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 (
 	.clk_sys(clk_sys),
@@ -222,12 +228,12 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.joystick_r_analog_1(rstick_1),
 	.ps2_mouse(ps2_mouse),
 
-	.ioctl_download(ioctl_download),
-	.ioctl_wr(ioctl_wr),
-	.ioctl_addr(ioctl_addr_full),
-	.ioctl_dout(ioctl_dout),
-	.ioctl_wait(ioctl_wait),
-	.ioctl_index(ioctl_index),
+	.ioctl_download(hio_download),
+	.ioctl_wr(hio_wr),
+	.ioctl_addr(hio_addr),
+	.ioctl_dout(hio_dout),
+	.ioctl_wait(hio_wait),
+	.ioctl_index(hio_index),
 	.ioctl_upload(ioctl_upload),
 	.ioctl_upload_req(ioctl_upload_req),
 	.ioctl_upload_index(8'd4),
@@ -856,7 +862,7 @@ ns2_flipbuf flipbuf (
 	.clk(clk_sd), .enable(flip_180 & no_rotate),
 	.ce_in(rt_ce), .rgb_in(rt_rgb), .hs_in(rt_hs), .vs_in(rt_vs), .hb_in(rt_hb), .vb_in(rt_vb), .vb_hs_in(rt_vb_hs),
 	.ce_out(fl_ce), .rgb_out(fl_rgb), .hs_out(fl_hs), .vs_out(fl_vs), .hb_out(fl_hb), .vb_out(fl_vb), .vb_hs_out(fl_vb_hs),
-	.owns(fl_owns), .ext_busy(eng_pending), .idle(fl_idle), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(fl_burstcnt), .DDRAM_ADDR(fl_addr),
+	.owns(fl_owns), .ext_busy(eng_pending || ld_pending), .idle(fl_idle), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(fl_burstcnt), .DDRAM_ADDR(fl_addr),
 	.DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(fl_rd),
 	.DDRAM_DIN(fl_din), .DDRAM_BE(fl_be), .DDRAM_WE(fl_we)
 );
@@ -922,17 +928,36 @@ screen_rotate screen_rotate (
 	.DDRAM_CLK(DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(sr_burstcnt), .DDRAM_ADDR(sr_addr),
 	.DDRAM_DIN(sr_din), .DDRAM_BE(sr_be), .DDRAM_WE(sr_we), .DDRAM_RD(sr_rd)
 );
+// DDR3 ROM loading (NS2-38): with `address="0x30000000"` on the .mra's
+// <rom index="0">, Main_MiSTer writes the image into DDR3 and only frames it
+// with a download; ddr_rom_load reads it back and replays it to the loaders
+// above as that download (rtl/ddr_rom_load.sv). Its reads go as the savestate
+// engine's do (that engine is idle during a download): only while
+// screen_rotate is not writing and the flip buffer is between transfers, and
+// the flip buffer starts none while one is outstanding. A streamed download
+// passes through.
+wire        ld_active, ld_rd, ld_pending;
+wire [28:0] ld_addr;
+ddr_rom_load #(.DW(16)) ddr_rom_load (
+	.clk(clk_sys),
+	.h_download(hio_download), .h_index(hio_index), .h_wr(hio_wr), .h_addr(hio_addr), .h_dout(hio_dout), .h_wait(hio_wait),
+	.c_download(ioctl_download), .c_index(ioctl_index), .c_wr(ioctl_wr), .c_addr(ioctl_addr_full), .c_dout(ioctl_dout),
+	.c_wait(ioctl_wait), .active(ld_active),
+	.clk_ddr(CLK_VIDEO), .ddr_busy(DDRAM_BUSY), .hold(sr_we || (fl_owns && !fl_idle)), .ddr_rd(ld_rd), .ddr_pending(ld_pending),
+	.ddr_addr(ld_addr), .ddr_dout(DDRAM_DOUT), .ddr_dout_ready(DDRAM_DOUT_READY)
+);
 // the DDR port: the savestate engine's for a word (it goes only while
 // screen_rotate is not writing and the flip buffer is between transfers,
-// which start nothing while it waits), else the flip buffer's while it has a
-// frame or a transfer, screen_rotate's otherwise (never wanted together)
+// which start nothing while it waits), or the ROM replay's read the same way,
+// else the flip buffer's while it has a frame or a transfer, screen_rotate's
+// otherwise (never wanted together)
 wire eng_go = eng_we || eng_rd;
-assign DDRAM_BURSTCNT = eng_go ? 8'd1    : fl_owns ? fl_burstcnt : sr_burstcnt;
-assign DDRAM_ADDR     = eng_go ? eng_addr : fl_owns ? fl_addr    : sr_addr;
+assign DDRAM_BURSTCNT = (eng_go || ld_rd) ? 8'd1 : fl_owns ? fl_burstcnt : sr_burstcnt;
+assign DDRAM_ADDR     = eng_go ? eng_addr : ld_rd ? ld_addr : fl_owns ? fl_addr : sr_addr;
 assign DDRAM_DIN      = eng_go ? eng_din : fl_owns ? fl_din      : sr_din;
-assign DDRAM_BE       = eng_go ? 8'hff   : fl_owns ? fl_be       : sr_be;
-assign DDRAM_WE       = eng_go ? eng_we  : fl_owns ? fl_we       : sr_we;
-assign DDRAM_RD       = eng_go ? eng_rd  : fl_owns ? fl_rd       : sr_rd;
+assign DDRAM_BE       = (eng_go || ld_rd) ? 8'hff : fl_owns ? fl_be : sr_be;
+assign DDRAM_WE       = eng_go ? eng_we  : ld_rd ? 1'b0 : fl_owns ? fl_we : sr_we;
+assign DDRAM_RD       = eng_go ? eng_rd  : ld_rd ? 1'b1 : fl_owns ? fl_rd : sr_rd;
 assign FB_FORCE_BLANK = 1'b0;
 
 reg [26:0] act_cnt;

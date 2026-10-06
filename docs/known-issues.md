@@ -2157,3 +2157,54 @@ Seeds: STD 704 (703 missed hold on clk_sys by 0.272 ns; setup +0.295 ns,
 hold +0.247 ns), LW 728 (722 missed setup by 0.140 ns, 727 and 729 too;
 +0.280 / +0.234 ns); MH 613, SG 713, SZ 620 as before (+0.173 / +0.245,
 +0.100 / +0.250, +0.295 / +0.164 ns).
+
+## NS2-38 — DDR3 ROM loading (closed, measured)
+
+With `address="0x30000000"` on an `.mra`'s `<rom index="0">`, Main_MiSTer
+assembles the ROM image straight into DDR3 and only frames it with a
+download (ioctl_addr carrying the length, no writes); streamed, the image
+crosses the HPS bridge at about 1 MB/s (about 2 MB/s on this 16-bit hps_io).
+`rtl/ddr_rom_load.sv` sits between hps_io and the core:
+
+- a streamed download passes straight through (an `.mra` without `address=`
+  still loads, checked on the board);
+- a download on index 0 that ends with no write is a DDR3 load: the image
+  is read back from DDR3 (one 64-bit read at a time, one word prefetched)
+  and replayed to the core's loaders as the download it replaces, one write
+  at a time, at least 8 clocks apart and never while the core holds
+  ioctl_wait. The core sees one download from the first rise to the last
+  replayed byte, so its reset and settling span the replay;
+- hps_io's later downloads (the `<switches>`, the hiscore config, the
+  `.nvm`) wait on ioctl_wait until the replay is done.
+
+The reads take the savestate engine's place on the DDRAM port (that engine
+is idle during a download) and give way to screen_rotate's writes, and go
+only while the flip buffer is between transfers (which then start none while
+a read is outstanding). The `.mra` generators write `address=`, and every
+`.mra` in `releases/` has it. A unit test (both widths, unrelated clocks, a
+random DDR3 latency, busy and rotation cycles, a random ioctl_wait) checks
+every byte and address, the `<switches>` download started during a replay,
+and a streamed download after it.
+
+On the board, the largest set loaded through its `.mra`, how much earlier
+the game runs than on the release (the two HDMI recordings aligned on the
+game's own frames):
+
+| Bitstream (set) | Image | Earlier |
+|---|---|---|
+| STD (Super World Stadium '92) | 18.9 MB | 7.2 s |
+| MH (Metal Hawk) | 18.9 MB | 6.7 s |
+| SG (Steel Gunner 2) | 18.9 MB | 7.4 s |
+| SZ (Suzuka 8 Hours) | 18.9 MB | 7.2 s |
+| LW (Lucky & Wild) | 18.9 MB | 7.2 s |
+
+Super World Stadium '92 sits on a still screen, so its figure is from the
+first frame of that screen in each recording. The replay runs at about 3
+MB/s: each image word becomes one or more SDRAM writes through the prog
+handshake (`ns2_mem`), the core's own limit; it is still faster than the
+16-bit hps_io's 2 MB/s plus the HPS side. The old `.mra` (no `address=`)
+loads the same as on the release on all five. Seeds as before (STD 704, MH
+613, SG 713, SZ 620, LW 728), timing met: setup / hold +0.096 / +0.242,
++0.180 / +0.245, +0.093 / +0.205, +0.119 / +0.246, +0.278 / +0.231 ns. Lucky
+& Wild's fit reports 41,248 ALMs (98%), up from 38,262: the fitter's
+packing, as the replayer adds about 300 elsewhere.

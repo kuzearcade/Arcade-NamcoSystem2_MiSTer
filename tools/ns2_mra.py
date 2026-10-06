@@ -217,7 +217,7 @@ def mra_text(name, sets, gm):
         L.append(f'    <dip bits="{bits}" name="{x(nm)}" ids="{x(",".join(ids))}"/>')
     L += ['  </switches>', '',
           f'  <buttons names="{buttons(name, g)}" default="A,B,X,Start,R,L,Y,Select"/>', '',
-          f'  <rom index="0" zip="{zips}" md5="none">']
+          f'  <rom index="0" zip="{zips}" md5="none" address="0x30000000">']
     for p in parts:
         if p[0] == 'comment':
             L.append(f'    <!-- {p[1]} -->')

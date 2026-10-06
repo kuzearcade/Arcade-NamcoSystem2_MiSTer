@@ -28,7 +28,7 @@
 
   <buttons names="Fire,Sticks Apart,Turn Left,Start,Coin,Service,Turn Right,Sticks Together,Right Up,Right Down,Right Left,Right Right" default="A,B,X,Start,R,L,Y,Select"/>
 
-  <rom index="0" zip="assault.zip|namcoc65.zip" md5="none">
+  <rom index="0" zip="assault.zip|namcoc65.zip" md5="none" address="0x30000000">
     <!-- maincpu: 0x40000 bytes at image 0x0000000 -->
     <interleave output="16">
       <part crc="801f71c5" name="at2mp0b.bin" length="0x10000" map="01"/>
