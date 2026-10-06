@@ -1861,10 +1861,10 @@ MiSTer hiscore module (`rtl/third_party/hiscore`) restores and saves them:
   Phelios, with an 8 KB EEPROM `.nvm`, saved 8,282 bytes (scores 50000-7650,
   the start and end checks as hiscore.dat's), and with its first entry
   edited to "TEST 99920" the attract's ranking shows it after a reload. (An
-  edit that breaks an entry's first or last byte discards the dump, by
-  NMK16's validation in hiscore.v.) Steel Gunner 2, its first entry edited
-  from "GORO" to "TEST", shows "1 TEST 10000" in "TODAY'S BEST GUYS" with
-  ACCESS_PAUSEPAD 16.
+  edit that broke an entry's first or last byte discarded the dump, by
+  NMK16's validation in hiscore.v; removed in NS2-36.) Steel Gunner 2, its
+  first entry edited from "GORO" to "TEST", shows "1 TEST 10000" in "TODAY'S
+  BEST GUYS" with ACCESS_PAUSEPAD 16.
 
 **Cheats** (Pugsy's MAME cheat database, `rtl/cheats.sv` from the author's
 other cores): ten fixed slots, each the set's first cheat named in its list
@@ -2066,3 +2066,50 @@ again (NS2-33's and NS2-34's removals undone). On the board (LW seed 601,
 before the last two were back): Scandoubler Fx lists HQ2x again, and a
 save and load in play replays the run after the save, the sound with no
 drop-out.
+
+## NS2-36 — High scores lost after a new record: the dump validation removed (closed, measured)
+
+hiscore.v carried Arcade-NMK16_MiSTer's dump validation (NMK-33 there):
+before a restore, each entry's first and last byte in the `.nvm` were
+compared with hiscore.dat's start/end values and the dump was discarded on
+a mismatch. Those values are hiscore.dat's checks of the game's RAM against
+its default table, and in most of these games they are part of the table (a
+score digit, a name's last letter, a rank byte): a new record that changed
+one made the next load throw the saved table away, and the next OSD open
+saved the default table over it. NMK16 removed it (NMK-37); so does this.
+The restore is upstream's again: the file is not inspected, only the RAM's
+start and end bytes are checked before it is written.
+
+- On the release (20261004), with one byte of the largest entry changed in
+  the `.nvm`: a byte inside it was restored in all ten sets tried; the
+  entry's last byte was reverted in all ten (Assault, Bubble Trouble,
+  Burning Force, Cosmo Gang, Dragon Saber, Final Lap 2 and 3, Finest Hour,
+  Golly! Ghost!, Lucky & Wild).
+- **CHECK_WAIT** (`tools/ns2_extras.py`'s header, every `.mra` with a
+  table): 0xffff, 1.3 ms between the start/end checks, was 0xff (5 us).
+  Each check pauses the CPU through the back door; with the validation gone
+  a failed check came round again every 255 clocks, and on the Lucky & Wild
+  bitstream (the work RAM behind its cache in the SDRAM, NS2-33) Lucky &
+  Wild (Japan) stayed on its "NOTICE" screen whenever a `.nvm` was present,
+  the table it waits for never built (the same file boots on the release;
+  the hang followed the logic across seeds 722, 724, 725 and 726, and the
+  release's hiscore.v at seed 722 boots). At 0xffff it boots and restores.
+  The Valkyrie translation's `.mra` (not generated) is edited to match.
+- Seeds: the standard bitstream 703 (setup +0.188 ns), Steel Gunner 713
+  (+0.169), Lucky & Wild 722 (+0.082); at the release seeds these three
+  missed the HDMI PLL's setup. Metal Hawk (613) and Suzuka 8 Hours (620)
+  met timing at theirs.
+- On the board, every set with a table (36 `.mra`s, the five bitstreams):
+  with no `.nvm`, a coin, a start and 15 s of play, the OSD's save is
+  MAME's RAM at the same point, byte for byte (18 sets build their tables
+  only when a game starts: Assault, Burning Force, Cosmo Gang, Dragon Saber,
+  Finest Hour, Marvel Land, Mirai Ninja, Phelios, Rolling Thunder 2 and
+  their clones); then a byte inside the largest entry, and separately its
+  last byte, changed in the `.nvm`, the core reloaded: a savestate taken
+  after the reload holds the changed entry and not the saved one, and the
+  next OSD save keeps it. All 36 pass both. Two of the test's cases, not
+  the core's: Burning Force's table holds a second, one-byte entry
+  (0x100175), restored after the first, so a change there is written back
+  (the test changes another byte); Golly! Ghost! rewrites its table's last
+  byte (0x103270) when a coin goes in, as MAME does (the test inserts none
+  for it).

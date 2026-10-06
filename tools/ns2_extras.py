@@ -30,7 +30,9 @@ EEPROM_BYTES = 8192
 # the boards' work RAM tests (a restore during one fails it), then the start
 # and end bytes checked every CHECK_WAIT
 HDR = [0x1D, 0x4C, 0x00, 0x00,  # START_WAIT
-       0x00, 0xFF,              # CHECK_WAIT
+       0xFF, 0xFF,              # CHECK_WAIT: 1.3 ms (NS2-36: at 0xff, 5 us, the
+                                #   checks' pauses held Lucky & Wild (Japan) on its
+                                #   notice until its table appeared, which it never did)
        0x00, 0x02,              # CHECK_HOLD
        0x00, 0x02,              # WRITE_HOLD
        0x00, 0x01,              # WRITE_REPEATCOUNT

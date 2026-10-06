@@ -150,7 +150,7 @@
        the EEPROM in the .nvm, 104 bytes -->
   <rom index="3" md5="none">
     <part>
-      1D 4C 00 00 00 FF 00 02 00 02 00 01 00 FF 10 00
+      1D 4C 00 00 FF FF 00 02 00 02 00 01 00 FF 10 00
       00 10 6A FE 00 64 00 5A
       00 10 00 2A 00 04 00 00
     </part>
