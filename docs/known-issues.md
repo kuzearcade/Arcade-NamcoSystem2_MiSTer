@@ -2247,3 +2247,47 @@ Stadium '92 by the first frame of its still screen): STD 0.4 s, MH 0.9 s, SG
 total is 7.7 s. Seeds: MH 631 (613 missed hold on clk_sys by 0.319 ns; setup
 +0.113 ns, hold +0.244 ns), SG 733 (713 missed hold by 0.443 ns, 731 setup;
 +0.092 / +0.247 ns); STD 704, SZ 620, LW 728 as before.
+
+## NS2-40 — No re-lock after a load or a reset (closed, measured)
+
+NS2-37 gave analog and direct video a sync from the moment the core is
+loaded, but when the core's reset ended its raster started wherever that
+moment fell, and `video_retime` re-placed its read side to it: the sync
+jumped once, and a CRT or a direct-video converter had to lock again, after
+every load and every reset.
+
+- The top ends the reset on `video_retime`'s `rel_tog`, which flips once a
+  frame where the read side wants the core's raster to begin (a quarter of a
+  line after its frame start, less the lines from the reset to the core's
+  frame start: `rel_lead`, 40: ns2_video leaves reset at line 224 of 264).
+  The reset is held for at most a frame more (`reset`).
+- After the raster has been stopped (two frames without a frame start, or
+  the reset) the first frame start that comes within an eighth of a line
+  before to three quarters of a line after the read side's own is taken as
+  it is: no move of the read side, so no jump. The two-line buffer has room
+  for that much (the write side up to a line ahead of the read, and less
+  than any core's blanking behind it). Any other frame start places the read
+  side as before.
+- The phase tests are constant compares on registered counters (the frame
+  position, and the position against the expected start), a clock ahead: the
+  first version, with a wrap-around subtraction, missed timing at 96 MHz.
+- The picture is black from the reset to the core's first frame start after
+  it (that is its vertical blank), and from the clock the reset is seen (the
+  two-frame stall test alone left a short reset showing stale lines).
+
+A Verilator test (`video_retime` with a raster model held in reset and
+released on rel_tog, a download-length reset and a half-frame one, raster
+start latencies up to 900 clk_r, the geometries of GingaNin, NMK16,
+SandScrp, NS2 and MS1) checks that the hsync interval never changes, the
+read side is never re-placed, and every pixel shown is its line's and
+column's.
+
+On the board, direct video on, an OSD Reset 25 s into the game (the capture
+card shows a signal only while there is one): on the release (v2026-10-06.3)
+the card lost the picture after the reset on all five bitstreams; with this
+change the signal runs through it (Super World Stadium '92, Metal Hawk,
+Steel Gunner 2, Suzuka 8 Hours, Lucky & Wild). HDMI is as before.
+
+Timing met on all five (worst setup +0.122 ns, LW's clk_sd; worst hold
++0.172 ns), at seeds 704 (STD), 631 (MH), 735 (SG, was 733), 621 (SZ, was
+620) and 743 (LW, was 728).

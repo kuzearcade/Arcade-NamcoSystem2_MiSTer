@@ -335,7 +335,20 @@ wire [31:0]  cfg_dials  = {cfg[32], cfg[31], cfg[30], cfg[29]};
 wire [135:0] cfg_ktable = {cfg[20], cfg[19], cfg[18], cfg[17], cfg[16], cfg[15], cfg[14], cfg[13], cfg[12],
                            cfg[11], cfg[10], cfg[9], cfg[8], cfg[7], cfg[6], cfg[5], cfg[4]};
 
-wire reset = RESET | status[0] | buttons[1] | dl_hold | dl_settling | wait_switches | ~pll_locked | ~cfg_ok;
+wire reset_req = RESET | status[0] | buttons[1] | dl_hold | dl_settling | wait_switches | ~pll_locked | ~cfg_ok;
+// (NS2-40) The reset ends on video_retime's rel_tog, once a frame where its
+// read side expects the core's raster to begin: the raster then restarts in
+// phase with the sync that ran through the reset, so a CRT does not have to
+// re-lock when the game starts (a frame's delay at most).
+wire        vr_rel_tog;
+reg   [2:0] vr_rel_s = 3'b000;
+reg         vr_hold = 1'b1;
+always @(posedge clk_sys) begin
+	vr_rel_s <= {vr_rel_s[1:0], vr_rel_tog};
+	if (reset_req) vr_hold <= 1'b1;
+	else if (vr_rel_s[2] ^ vr_rel_s[1]) vr_hold <= 1'b0;
+end
+wire reset = reset_req | vr_hold;
 // Pause (OSD): every CPU stops (ns2_board's lockstep hold) and the sound
 // chips' clocks with them; the video keeps showing the frozen RAM
 wire core_pause = status[19] | (status[20] & OSD_STATUS);
@@ -848,7 +861,7 @@ video_retime #(
 	.mode1(1'b0), .tall240(1'b0),
 	.clk_r(clk_sd),
 	.ce_r(rt_ce), .rgb_r(rt_rgb), .hs_r(rt_hs), .vs_r(rt_vs), .de_r(),
-	.hb_r(rt_hb), .vb_r(rt_vb), .vb_hs_r(rt_vb_hs)
+	.hb_r(rt_hb), .vb_r(rt_vb), .vb_hs_r(rt_vb_hs), .rel_tog(vr_rel_tog), .rel_lead(10'd40)
 );
 
 // the in-core flip: every frame through DDR, shown turned a frame later
