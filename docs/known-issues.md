@@ -2208,3 +2208,42 @@ loads the same as on the release on all five. Seeds as before (STD 704, MH
 +0.180 / +0.245, +0.093 / +0.205, +0.119 / +0.246, +0.278 / +0.231 ns. Lucky
 & Wild's fit reports 41,248 ALMs (98%), up from 38,262: the fitter's
 packing, as the replayer adds about 300 elsewhere.
+
+## NS2-39 — A faster ROM download: ns2_mem's writes back to back (closed, measured)
+
+After NS2-38 a DDR3 load spent about 2.4 s in Main_MiSTer (the image
+assembled into DDR3) and about 2.0 s in the replay, 10.6 clocks an image
+word: the SDRAM's programming port took about 5 of them, the rest went to
+ns2_mem waiting a clock after each acknowledgement before the next write,
+and to each word waiting for its last write's acknowledgement before the
+next word was taken (`sim/rtl/ns2_ldperf`, which reproduces the board's 2.0
+s).
+
+- `ns2_mem` (marked MODIFIED): the next write goes on the clock the last is
+  acknowledged, and the next image word is taken as soon as this one's last
+  write has gone out, so its writes are worked out while that one
+  completes. No new storage (Lucky & Wild is at 98% of the ALMs).
+- `ddr_rom_load`'s gap between writes is 2 clocks here (GAP 2, was 8):
+  every source of ns2_mem's dl_wait rises the clock after the word it
+  takes, before the next write could come.
+- What is left is the programming port itself, about 12 clk_sd a write
+  (activate, write, precharge, and the acknowledgement's round trip); a
+  queue in ns2_sdram could take 2-3 of them, not done.
+
+`sim/rtl/ns2_ldperf`, the full 18.9 MB image, clocks per word and the SDRAM
+afterwards, before and after: the hash is the same for each wiring (the
+writes are the same, in the same order) and the model sees no timing
+violation.
+
+| Wiring | Before | After | Replay |
+|---|---|---|---|
+| standard, Lucky & Wild, Suzuka | 10.65 | 7.44 | 2.04 s to 1.43 s |
+| Metal Hawk (up to 8 writes a word) | 15.38 | 11.51 | 2.95 s to 2.21 s |
+
+On the board, the largest set's game runs sooner after a DDR3 load than on
+v2026-10-06.2 (HDMI recordings aligned on the game's frames; Super World
+Stadium '92 by the first frame of its still screen): STD 0.4 s, MH 0.9 s, SG
+0.7 s, SZ 0.5 s, LW 0.6 s; against the streamed load before NS2-38, STD's
+total is 7.7 s. Seeds: MH 631 (613 missed hold on clk_sys by 0.319 ns; setup
++0.113 ns, hold +0.244 ns), SG 733 (713 missed hold by 0.443 ns, 731 setup;
++0.092 / +0.247 ns); STD 704, SZ 620, LW 728 as before.

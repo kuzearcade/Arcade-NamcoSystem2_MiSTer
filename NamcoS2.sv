@@ -938,7 +938,7 @@ screen_rotate screen_rotate (
 // passes through.
 wire        ld_active, ld_rd, ld_pending;
 wire [28:0] ld_addr;
-ddr_rom_load #(.DW(16)) ddr_rom_load (
+ddr_rom_load #(.DW(16), .GAP(2)) ddr_rom_load (
 	.clk(clk_sys),
 	.h_download(hio_download), .h_index(hio_index), .h_wr(hio_wr), .h_addr(hio_addr), .h_dout(hio_dout), .h_wait(hio_wait),
 	.c_download(ioctl_download), .c_index(ioctl_index), .c_wr(ioctl_wr), .c_addr(ioctl_addr_full), .c_dout(ioctl_dout),

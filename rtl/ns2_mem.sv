@@ -157,8 +157,22 @@ module ns2_mem #(parameter WRAM_SD = 0) (
 				if (zf_a == 17'h17fff) zf_busy <= 1'b0;
 			end
 		end
-		else if (!busy && !hi_clut && !hi_nv) begin
-			if (dl && dl_wr) begin
+		else begin
+			// MODIFIED (NS2-39): the writes go out back to back -- the next
+			// one on the clock the last is acknowledged -- and the next image
+			// word is taken as soon as this one's last write has gone out
+			// (busy: writes not yet issued; wait_ack: one in the SDRAM), so
+			// its writes are worked out while that one completes. Before, each
+			// write waited a clock after its acknowledgement and each word
+			// after its last one: about 10.6 clocks a word, now about 5.
+			if (wait_ack && prog_ack_t == prog_req_t) wait_ack <= 1'b0;
+			if (busy && (!wait_ack || prog_ack_t == prog_req_t)) begin
+				prog_addr <= w_addr[w_i]; prog_ba <= w_ba[w_i]; prog_din <= w_din[w_i]; prog_dsn <= w_dsn[w_i];
+				prog_req_t <= ~prog_req_t; wait_ack <= 1'b1;
+				if (w_i + 1'd1 == w_n) busy <= 1'b0;
+				w_i <= w_i + 1'd1;
+			end
+			if (!busy && !hi_clut && !hi_nv && dl && dl_wr) begin
 				a = dl_addr;
 				n = 0;
 				// the plain regions: one write to one bank (offsets in words)
@@ -229,18 +243,6 @@ module ns2_mem #(parameter WRAM_SD = 0) (
 				end
 				w_n <= n; w_i <= 0;
 				busy <= n != 0;
-			end
-		end else if (busy) begin
-			// the writes, one at a time through the programming port (only
-			// while busy: the clock a CLUT or NVRAM word takes for its second
-			// byte must not issue one, with the last write's address)
-			if (!wait_ack) begin
-				prog_addr <= w_addr[w_i]; prog_ba <= w_ba[w_i]; prog_din <= w_din[w_i]; prog_dsn <= w_dsn[w_i];
-				prog_req_t <= ~prog_req_t; wait_ack <= 1'b1;
-			end else if (prog_ack_t == prog_req_t) begin
-				wait_ack <= 1'b0;
-				if (w_i + 1'd1 == w_n) busy <= 1'b0;
-				w_i <= w_i + 1'd1;
 			end
 		end
 	end

@@ -52,6 +52,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/ns2_c68.sv` | the C68: MAME's `namco68.cpp` map and `m3745x.cpp` peripherals |
 | `sim/rtl/c68/` | the C68 against MAME's cycle trace of it (NS2-9) |
 | `rtl/ns2_sdram.sv`, `sim/rtl/ns2_sdram/` | M3: the SDRAM front end (request FIFOs, burst assembly, the download's writes) and its check against the burst model (NS2-11) |
+| `sim/rtl/ns2_ldperf/` | NS2-39: the ROM download from DDR3 end to end (ddr_rom_load, ns2_mem, ns2_sdram, the burst model): clocks a word and the SDRAM it leaves |
 | `rtl/ns2_mem.sv`, `rtl/ns2_bank_arb.sv` | M3: the download into the four banks (the board wiring, the ROZ copies, the tile class table) and each bank's clients (NS2-12) |
 | `rtl/ns2_tile_filter.sv` | M3: the C123's streams through the tile class table and the tile-row and mask caches (NS2-12) |
 | `rtl/ns2_rom_cache.sv` | M3: a CPU ROM's cache over the SDRAM (after MS1BCD's `rom_cache_n`) |
