@@ -2291,3 +2291,43 @@ Steel Gunner 2, Suzuka 8 Hours, Lucky & Wild). HDMI is as before.
 Timing met on all five (worst setup +0.122 ns, LW's clk_sd; worst hold
 +0.172 ns), at seeds 704 (STD), 631 (MH), 735 (SG, was 733), 621 (SZ, was
 620) and 743 (LW, was 728).
+
+## NS2-41 — jt51 on upstream 2ca6601: the YM2151's measured envelope, timers and stereo windows (closed, measured)
+
+Upstream jt51 985a573 -> 2ca6601, unmodified (taken from jotego/jt51 itself
+now, not through Arcade-JalecoMS1BCD_MiSTer; NMK16 and MS1BCD take the same
+pin). From upstream's silicon captures: D1L=15 at the envelope's bottom (93
+dB, as ymfm) instead of 48 dB; decay rates 2-3 progress; attack rates 62/63
+hold their level; a timer's flag is set only while its IRQ is enabled; CSM
+key-on at a Timer-A start; noise silent at full attenuation; an 18-bit
+wrapping channel sum; left and right summed over the chip's own 16-slot
+windows.
+
+**Measured, jt51 alone** (NS2-29's method): NS2-26's logs of MAME's YM2151
+writes replayed through `ns2_ym_fifo` and jt51 (`sim/rtl/ns2_ym`) at both
+pins, against ymfm (`tools/ym_ref`) given the same writes as the FIFO passes
+them. Level against ymfm, old -> new: Rolling Thunder 2 -0.31 -> -0.41 dB,
+Golly! Ghost! -0.22 -> -0.22, Dirt Fox -0.32 -> -0.40, Finest Hour -0.43
+-> -0.11, Steel Gunner 2 -0.35 -> -0.30, Mirai Ninja -0.02 -> -0.32, Super
+World Stadium -0.30 -> -0.36, Burning Force -0.54 -> -0.22, Marvel Land
++0.48 -> +0.28, Phelios -0.85 -> -1.46 (the last as a mono sum, below);
+20 ms envelope correlation 0.999-1.000 on both. Per channel, octave by
+octave, the new pin is as close or closer in every set checked (Phelios
+-1.2 -> -0.7 dB at 500 Hz, -1.1 -> -0.9 dB at 16 kHz; Rolling Thunder 2
+-0.8 -> -0.3 dB at 125 Hz). The core keeps the YM2151's left and right
+apart; the stereo windows' half-sample offset shows only in a mono sum
+(about -7 dB at 16 kHz against ymfm).
+
+**On the board** (the attract against NS2-26's MAME recording,
+`tools/ns2_audio_audit.py`): Phelios, v2026-10-07 -> this build: 16 of 16
+windows matched both, correlation 0.994 -> 0.991, level -0.17 -> -0.19 dB,
+YM2151 solo gain 0.89 -> 0.91, C140 solo 0.99 -> 0.98, HF excess +0.27 ->
++0.35 dB. Steel Gunner (SG), Metal Hawk (MH), Lucky & Wild (LW) and Suzuka 8
+Hours (SZ) boot to their attract on the new bitstreams, Steel Gunner's and
+Metal Hawk's with sound. (Marvel Land and Mirai Ninja start at "33 TIP"
+without an `.nvm`, as MAME from a cold boot, and their demos are then silent:
+not measured on the board this time.)
+
+The new accumulator is smaller: LW 41,053 -> 38,498 ALMs. Seeds STD 704, MH
+632 (631 missed HDMI by 0.031 ns), SG 735, SZ 623 (621 missed clk_sd by
+0.027 ns), LW 744 (743 missed HDMI by 0.155 ns); every clock met.

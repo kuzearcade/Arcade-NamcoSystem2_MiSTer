@@ -10,7 +10,7 @@ Where every file came from. Third-party files keep their own licence notices.
 | `rtl/third_party/fx68k`, `crt_adjust` | Arcade-GingaNin_MiSTer (its pins) | verbatim |
 | `rtl/third_party/hiscore/hiscore.v` | Arcade-GingaNin_MiSTer (its pin; Arcade-NMK16_MiSTer's changes) | NMK16's (marked MODIFIED): `dpram_hs` in Intel's true dual port template (its dump validation pass removed again, as NMK16 did: NS2-36); here (NS2-33): a `stall` input that holds its game RAM side while the back door is not ready |
 | `rtl/third_party/mc6809/mc6809is.v` | Arcade-GingaNin_MiSTer | as there: GN-4's power-up latch values |
-| `rtl/third_party/jt51/` | Arcade-JalecoMS1BCD_MiSTer (jotego/jt51 @ 985a573) | verbatim, GPL-3.0-or-later |
+| `rtl/third_party/jt51/` | jotego/jt51 @ 2ca6601 (NS2-41; was Arcade-JalecoMS1BCD_MiSTer's 985a573) | verbatim, GPL-3.0-or-later |
 | `rtl/savestate/*` | Arcade-GingaNin_MiSTer | ss_m68k_park with GN-10's `stall`, ss_m6809_park new there. Changed here (NS2-32, marked MODIFIED): savestate.sv no longer raises `ss_resume` as it enters its release state (only at the VBLANK), and has `ddr_pending` for the port's other client; ss_m68k_park has `in_win` (the overlay's addresses, for a local decode) |
 | `rtl/sdram.sv`, `sdram_arb.sv`, `sdram_req.sv`, `crt_chain.sv` | Arcade-GingaNin_MiSTer | verbatim |
 | `rtl/video_retime.sv` | Arcade-GingaNin_MiSTer | changed here (NS2-37, marked MODIFIED; GingaNin's GN-14 by another route): the read side runs from configuration, black while the raster is stopped |
