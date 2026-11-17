@@ -19,7 +19,7 @@ static uint16_t stick(int x, int y) { return (uint16_t)(((y & 0xff) << 8) | (x &
 static void reset(unsigned mode, unsigned ib = 0xff, unsigned ih = 0xff) {
 	t->mode = mode; t->idle_b = ib; t->idle_h = ih; t->flip = 0; t->an_default = 0x8080808080ffffffULL;
 	t->p1 = t->p2 = 0; t->rp1 = t->rp2 = 0; t->start1 = t->start2 = t->coin1 = t->coin2 = t->svc1 = t->svc2 = 0;
-	t->stick1 = t->stick2 = t->rstick1 = t->rstick2 = 0; t->mouse = 0; t->dial_default = 0xffffff0f;
+	t->stick1 = t->stick2 = t->rstick1 = t->rstick2 = 0; t->mouse = 0; t->dial_default = 0xffffff0f; t->aim_r = 0;
 	t->reset = 1; clk(); clk(); t->reset = 0; clk();
 }
 static void mouse(int dx, int dy, int btn) {
@@ -102,6 +102,23 @@ int main(int argc, char **argv) {
 	t->p1 = 0x10; clk(); expect("lw fire", t->mcuh & 0x20, 0x00);
 	t->p1 = 0x20; frames(10); expect("lw accel B2", an(7), 0x80); expect("lw B2 presses no bit", t->mcuh & 0x08, 0x08);
 	t->p1 = 0x40; frames(10); expect("lw brake B3", an(6), 0x40);
+	// "P1 aim: Right stick" (issue 9): the right stick aims, the left only
+	// steers, the right stick no longer works the pedals
+	reset(0x2a); t->aim_r = 1;
+	t->rstick1 = stick(127, -128); clk(); frames(1);
+	expect("lw R aim AN4 X1", an(4), 0xff); expect("lw R aim AN2 Y1", an(2), 0x00);
+	expect("lw R aim: wheel centred", an(5), 0x80); expect("lw R aim: no accel", an(7), 0x00); expect("lw R aim: no brake", an(6), 0x00);
+	t->rstick1 = stick(0, 127); frames(1); expect("lw R aim: down aims", an(2), 0xff); expect("lw R aim: down, no brake", an(6), 0x00);
+	t->stick1 = stick(-128, 0); clk(); frames(1);
+	expect("lw R aim: left stick steers", an(5), 0x01); expect("lw R aim: left stick does not aim X", an(4), 0x80); expect("lw R aim: Y kept", an(2), 0xff);
+	t->stick1 = 0; t->p1 = 0x20; frames(10); expect("lw R aim: accel B2", an(7), 0x80);
+	t->p1 = 0x40; frames(10); expect("lw R aim: brake B3", an(6), 0x40);
+	t->p1 = 0; t->rstick1 = 0; clk(); for (int i = 0; i < 3; i++) mouse(40, 0, 0); expect("lw R aim: mouse takes over", an(4), 0xf8);
+	t->rstick1 = stick(-128, 0); clk(); clk(); expect("lw R aim: right stick takes back", an(4), 0x00);
+	// the option does nothing outside Lucky & Wild: Steel Gunner aims with the left stick
+	reset(0x12); t->aim_r = 1;
+	t->rstick1 = stick(127, 0); clk(); clk(); expect("sg ignores P1 aim", an(4), 0x80);
+	t->stick1 = stick(127, 0); clk(); clk(); expect("sg left stick aims", an(4), 0xff);
 
 	// the d-pad aims (8 a frame, it stays): Lucky & Wild's player 2 (AN3 X2,
 	// AN1 Y2), its player 1's d-pad still the wheel

@@ -144,7 +144,10 @@ against the same run without it.
   (player 2: the second pad's), whichever moved last; the d-pad moves the
   sight and leaves it there. In Lucky & Wild player 1's d-pad steers, so
   player 1 aims with a gun, the stick or the mouse, and player 2 with
-  anything. The mouse aims for player 1, with its left button the
+  anything. Lucky & Wild's OSD "P1 aim" (shown only for it) chooses player
+  1's aiming stick: Left stick (the default; it also steers) or Right
+  stick (the left stick then only steers, and the pedals are Button 2 and
+  Button 3 alone; the pad's mapping must mark the right stick analog). The mouse aims for player 1, with its left button the
   trigger and its right button Steel Gunner's missile. Button 1 is the
   trigger, and Button 2 the missile. The aim matches the game's own sight,
   flipped for the ROT180 sets. The OSD's "Gun crosshair" (shown only for
@@ -179,7 +182,7 @@ to the game.
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
 `PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
-2026-11-17: tag `v2026-11-17.2`; STD, SG and SZ unchanged since 2026-10-28), from Quartus 17.0 Lite on the
+2026-11-17: tag `v2026-11-17.3`; STD, SG and SZ unchanged since 2026-10-28), from Quartus 17.0 Lite on the
 DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI / SDRAM pins | Seed |
@@ -188,7 +191,7 @@ DE10-Nano's 5CSEBA6U23I7:
 | `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,987 (91%) | 50,901 | 517 / 553 (93%) | 68 | +1.771 / +0.235 / +0.011 / +0.673 ns | 636 |
 | `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 38,027 (91%) | 50,705 | 497 / 553 (90%) | 73 | +0.834 / +0.252 / +0.101 / +0.665 ns | 735 |
 | `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 37,817 (90%) | 51,935 | 491 / 553 (89%) | 74 | +1.602 / +0.323 / +0.128 / +0.668 ns | 623 |
-| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 41,140 (98%) | 54,167 | 551 / 553 (100%) | 78 | +0.855 / +0.171 / +0.344 / +0.685 ns | 744 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 41,187 (98%) | 54,215 | 551 / 553 (100%) | 78 | +1.057 / +0.411 / +0.037 / +0.684 ns | 744 |
 
 Every clock meets timing, setup and hold, at every corner on all five,
 with the SDRAM interface constrained (NS2-19). clk_sys is 49.152

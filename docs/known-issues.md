@@ -2441,3 +2441,43 @@ MAME does.
   the high-score screen; Lucky & Wild's attract as before.
 
 Released as v2026-11-17.2 (MH and LW; STD, SG and SZ unchanged).
+
+## NS2-43 — Lucky & Wild: player 1 aims with the right stick (closed)
+
+**Requested** (GitHub issue 9): steer with the left stick and aim the gun
+with the right. Player 1's left stick both steered and aimed (the sight
+followed the wheel), and the right stick's up / down worked the pedals.
+
+**The option** (`NamcoS2.sv`, OSD "P1 aim", status bit 26; shown only for
+Lucky & Wild, menumask 14 from its control mode's bit 3): Left stick (the
+default, the behaviour so far) or Right stick. With Right stick
+(`ns2_controls`), player 1's gun aims from the right stick wherever it
+aimed from the left (a pushed stick takes over from the mouse, as before);
+the left stick and the d-pad only steer; the right stick no longer works
+the pedals (Button 2 accelerates, Button 3 brakes). The option does nothing
+on the other sets: every other mode's aim is unchanged.
+- `sim/rtl/ns2_controls`: 156 of 156 checks, 16 new for the option
+  (AN4 / AN2 from the right stick, the wheel from the left alone, no
+  pedal from the right stick, the buttons' pedals, the mouse and back,
+  Steel Gunner unchanged with it set).
+- On the board (192.168.1.138, `NamcoS2_LW` seed 744: every clock met,
+  HDMI +0.037 ns): the OSD shows "P1 aim" for Lucky & Wild and not on the
+  release's core. The game's switch test (Service Mode), a virtual Xbox
+  360 pad (`vpad2.py`, uinput), each stick at 94% for 4 s:
+  - Left stick (the default): the left stick right steers (HANDLE 76
+    RIGHT OK) and aims (1P GUN X F7), up aims (Y 09); the right stick up
+    accelerates (ACCEL 77 OK), down brakes (BRAKE 3B), left does nothing;
+    B fires.
+  - Right stick: the left stick right steers (HANDLE 76) and no longer
+    aims (X 80), up does nothing; the right stick left aims X 09, up Y 09,
+    down Y F7, with no pedal (ACCEL and BRAKE 00); B fires; the crosshair
+    follows the right stick. The keyboard still steers and fires after.
+  - MiSTer gives a new pad a player only at its first button press and
+    drops its axes until then: the pad's sticks did nothing until it
+    pressed a button first (the runs now tap B before the sticks).
+  - Once, before a reboot, the switch test stopped updating during a pad
+    run (the crosshair still moved); not seen again in two pad runs and a
+    keyboard run after it. MAME's switch test, the accelerator full then
+    released, keeps updating (MAME 0.289, the fields set from Lua).
+
+Released as v2026-11-17.3 (LW only; STD, MH, SG and SZ unchanged).

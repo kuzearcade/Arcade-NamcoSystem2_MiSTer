@@ -100,6 +100,9 @@ localparam CONF_STR = {
 	"O[17],Flip screen,Off,On;",
 	// shown for the light gun sets only (their .mra's control mode: menumask 13)
 	"hDO[18],Gun crosshair,On,Off;",
+	// Lucky & Wild only (menumask 14): player 1 aims with the left stick
+	// (which also steers) or the right (the pedals then on Buttons 2 / 3)
+	"hEO[26],P1 aim,Left stick,Right stick;",
 	"-;",
 	"O[19],Pause,Off,On;",
 	"O[20],Pause when OSD is open,Off,On;",
@@ -171,6 +174,7 @@ wire  [8:0]  hcnt, vcnt;          // the board's raster (below)
 wire  [9:0]  ch_avail;            // the cheat slots the .mra has (below)
 wire         af_unlock;           // the .mra shows the Autofire options (below)
 wire         guns_on;             // the set has light guns (ns2_controls)
+wire         lw_ctl;              // Lucky & Wild's controls (its OSD "P1 aim")
 wire  [1:0]  ss_slot;             // the savestates (below)
 wire  [7:0]  ss_info;
 wire         ss_info_req, ss_status_update;
@@ -217,8 +221,9 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	// [11] hides Aspect ratio and Scandoubler Fx under direct video;
 	// [0] hides Orientation under direct video
 	// [12], [10:2] the cheat slots the .mra has; [11] and [0] direct video;
-	// [1] the .mra unlocks Autofire; [13] the set has light guns (Gun crosshair)
-	.status_menumask({2'd0, guns_on, ch_avail[9], direct_video, ch_avail[8:0], af_unlock, direct_video}),
+	// [1] the .mra unlocks Autofire; [13] the set has light guns (Gun crosshair);
+	// [14] Lucky & Wild (P1 aim)
+	.status_menumask({1'b0, lw_ctl, guns_on, ch_avail[9], direct_video, ch_avail[8:0], af_unlock, direct_video}),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
@@ -314,6 +319,7 @@ reg [7:0]  cfg [0:63];
 reg        cfg_ok = 1'b0;
 integer    ci;
 initial for (ci = 0; ci < 64; ci = ci + 1) cfg[ci] = 8'h00;
+assign lw_ctl = cfg[33][3];
 always @(posedge clk_sys) begin
 	if (dl_rom && ioctl_wr && ioctl_addr[24:6] == 19'h03580) begin
 		cfg[{ioctl_addr[5:1], 1'b0}] <= ioctl_dout[7:0];
@@ -827,7 +833,7 @@ wire [8:0] p2 = p2_raw & ~af_mask;
 ns2_controls controls (.clk(clk_sys), .reset(reset), .vblank(vcnt >= 9'd224), .mode(cfg[33]), .flip(flip_180),
 	.an_default(cfg_analog), .idle_b(cfg[34]), .idle_h(cfg[35]), .p1(p1), .p2(p2), .rp1(rp1), .rp2(rp2), .start1(p1_start), .start2(p2_start),
 	.coin1(p1_coin), .coin2(p2_coin), .svc1(p1_svc), .svc2(p2_svc),
-	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .rstick2(rstick_1), .dial_default(cfg_dials), .dials(in_dials), .mouse(ps2_mouse),
+	.stick1(stick_0), .stick2(stick_1), .rstick1(rstick_0), .rstick2(rstick_1), .aim_r(status[26]), .dial_default(cfg_dials), .dials(in_dials), .mouse(ps2_mouse),
 	.mcub(in_mcub), .mcuc(in_mcuc), .mcuh(in_mcuh), .analog(in_analog),
 	.guns(guns_on), .g2_on(gun2_on), .g1_x(gun1_x), .g2_x(gun2_x), .g1_y(gun1_y), .g2_y(gun2_y));
 
