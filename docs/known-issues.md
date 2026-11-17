@@ -2340,8 +2340,9 @@ attract demo and over the whole high-score screen (the game is turned: they
 are lost lines).
 
 **The logo's copies: the no-wrap bit.** The logo is C169 layer 1, word [1]
-= `0x0a5f`: bit 11 set, size 2048. MAME ignores the bit
-(`namco_c169roz.cpp`: "Wraparound disable isn't implemented") and wraps
+= `0x0a5f`: bit 11 set, size 2048. MAME then ignored the bit
+(`namco_c169roz.cpp`: "Wraparound disable isn't implemented"; implemented
+since, see below) and wrapped
 every layer in its size, and the core did as MAME: both draw the copies.
 Which copy is the real one, from MAME's own coordinates (`metlhawk_attract`
 frames 1019, 1044, 1069, 1100, 1140): taking the 12-bit position, the
@@ -2417,3 +2418,26 @@ ALMs, 551 of 553 RAM blocks, every clock met (HDMI +0.114 ns, `clk_sd`
 +0.370 ns, `clk_sys` +1.327 ns); on the board it boots through its RAM
 test to the attract (the C169 badge intro, the drive, the ranking).
 Released as v2026-11-17 (MH and LW; STD, SG and SZ unchanged).
+
+**MAME's fix** (upstream `51864eb6632`, PR #16136): MAME now implements the
+bit. With it set, the pixel is taken from the 4096 x 4096 map at the 12-bit
+position itself (`(x >> 16) & 0xfff`) and drawn only in `[left, left +
+size) x [top, top + size)`; the core took the position wrapped in the size
+and placed at `left, top`. The two agree whenever `left` and `top` are
+multiples of the size, as in every layer Metal Hawk and Lucky & Wild set
+the bit on (the window is the same either way). `ns2_c169` now samples as
+MAME does.
+- M3: Metal Hawk to 1,300 and Lucky & Wild to 600, every picture identical
+  to the previous RTL's (1,098 of 1,300 and 255 of 600 exact against MAME,
+  as before; busiest lines 2,239 and 2,441, no overruns).
+- Build: `NamcoS2_MH`, seed 636 (633 missed HDMI by 0.083 ns, 634 by
+  0.063, 635 by 0.327): 37,987 ALMs, 50,901 registers, 517 of 553 RAM
+  blocks, 68 DSP; `clk_sys` +1.771 / `clk_sd` +0.235 / HDMI +0.011 / SDRAM
+  pins +0.673 ns. `NamcoS2_LW`, seed 744: 41,140 ALMs, 54,167 registers,
+  551 of 553 RAM blocks, 78 DSP; +0.855 / +0.171 / +0.344 / +0.685 ns.
+- On the board (192.168.1.138, 110 s of Metal Hawk and 60 s of Lucky &
+  Wild attract): one logo through the zoom, frame for frame as the
+  v2026-11-17 test build; no one-frame line changes in the clouds or on
+  the high-score screen; Lucky & Wild's attract as before.
+
+Released as v2026-11-17.2 (MH and LW; STD, SG and SZ unchanged).

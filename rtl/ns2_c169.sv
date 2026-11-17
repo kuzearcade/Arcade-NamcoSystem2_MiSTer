@@ -6,13 +6,14 @@
 // A layer's parameters are its 8 control words, or for layer 1 when control
 // word 0 is 0x8000, 8 words of video RAM at 0x7040 + (y >> 3) * 0x80 +
 // (y & 7) * 8 (the per-line mode):
-//   [1] bit 15 off, bit 11 no wrap (below; MAME ignores it), 9-8 size 512 << n,
+//   [1] bit 15 off, bit 11 no wrap (below), 9-8 size 512 << n,
 //       7-4 priority (0..15), 3-0 colour (x 256)
 //   [2..5] incxx, incxy, incyx, incyy: 12 bits and a sign in bit 15;
 //       [2], [3] bits 14-12 also give left, top (x 512)
 //   [6], [7] startx, starty: start = (s16 << 4) + 36 * incx? + 3 * incy?
 // Pixel x of line y reads the 4096 x 4096 map at
 //   xpos = (((startx + x*incxx + y*incyx) >> 16) & (size-1)) + left, & 0xfff
+// (with no wrap: ((startx + x*incxx + y*incyx) >> 16) & 0xfff)
 // (y likewise): map word ((col & 0x80) << 8) | (row << 7) | (col & 0x7f) of
 // 16 x 16 tiles, & 0x3fff, the board's tile callback (Metal Hawk: bitswap13,
 // Lucky & Wild: the mangle), then the tile's pixel (gfx_16x16x8_raw) where its
@@ -106,12 +107,14 @@ module ns2_c169 #(parameter MCACHE = 0) (
 	wire signed [31:0] startx = ($signed({{16{src[6][15]}}, src[6]}) <<< 4) + 36 * incxx + 3 * incyx;
 	wire signed [31:0] starty = ($signed({{16{src[7][15]}}, src[7]}) <<< 4) + 36 * incxy + 3 * incyy;
 
-	wire [11:0] xpos = ((ax[27:16] & size_m) + left) & 12'hfff;
-	wire [11:0] ypos = ((ay[27:16] & size_m) + top) & 12'hfff;
-	// no wrap (word [1] bit 11; MAME leaves it out, NS2-42): only the layer's
-	// own window of the 4096 x 4096 map, [left, left + size) x [top, top +
-	// size) of the 12-bit position, is drawn; a pixel outside it is
-	// transparent and is not fetched
+	// no wrap (word [1] bit 11, NS2-42, as MAME's namco_c169roz.cpp since
+	// 51864eb6632): the 12-bit position is the map position itself, and only
+	// the layer's window of the 4096 x 4096 map, [left, left + size) x
+	// [top, top + size), is drawn; a pixel outside it is transparent and is
+	// not fetched. With wrap, the position wraps in the size and is placed
+	// at left, top.
+	wire [11:0] xpos = nowrap ? ax[27:16] : ((ax[27:16] & size_m) + left) & 12'hfff;
+	wire [11:0] ypos = nowrap ? ay[27:16] : ((ay[27:16] & size_m) + top) & 12'hfff;
 	wire [11:0] relx = ax[27:16] - left, rely = ay[27:16] - top;
 	wire        inwin = !nowrap || ((relx & ~size_m) == 12'd0 && (rely & ~size_m) == 12'd0);
 	wire [7:0]  mcol = xpos[11:4], mrow = ypos[11:4];
