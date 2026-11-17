@@ -179,16 +179,16 @@ to the game.
 The graphics boards cannot all fit one Cyclone V together, so the core
 builds five bitstreams from one source tree (`NamcoS2*.qsf`; the build is
 `PROJ=<project> ./build.sh <log>`). Current release (`releases/`,
-2026-10-28: tag `v2026-10-28`), from Quartus 17.0 Lite on the
+2026-11-17: tag `v2026-11-17`; STD, SG and SZ unchanged since 2026-10-28), from Quartus 17.0 Lite on the
 DE10-Nano's 5CSEBA6U23I7:
 
 | Bitstream | Boards | Sets | ALMs | Registers | M10K | DSP | Worst setup slack: clk_sys / clk_sd / HDMI / SDRAM pins | Seed |
 |---|---|---|---|---|---|---|---|---|
 | `NamcoS2_STD` | standard: sprites + ROZ; Final Lap / Four Trax: sprites + C45 road | 49 | 37,748 (90%) | 50,347 | 547 / 553 (99%) | 71 | +1.591 / +0.523 / +0.265 / +0.670 ns | 704 |
-| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,870 (90%) | 50,940 | 507 / 553 (92%) | 68 | +1.955 / +0.091 / +0.232 / +0.649 ns | 632 |
+| `NamcoS2_MH` | Metal Hawk: sprites + C169 ROZ | 2 | 37,906 (90%) | 51,011 | 517 / 553 (93%) | 68 | +1.495 / +0.416 / +0.112 / +0.685 ns | 633 |
 | `NamcoS2_SG` | Steel Gunner: C355 sprites | 4 | 38,027 (91%) | 50,705 | 497 / 553 (90%) | 73 | +0.834 / +0.252 / +0.101 / +0.665 ns | 735 |
 | `NamcoS2_SZ` | Suzuka 8 Hours: C355 + C45 road; work RAMs in SDRAM | 4 | 37,817 (90%) | 51,935 | 491 / 553 (89%) | 74 | +1.602 / +0.323 / +0.128 / +0.668 ns | 623 |
-| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 38,498 (92%) | 54,135 | 551 / 553 (100%) | 78 | +0.078 / +0.216 / +0.085 / +0.684 ns | 744 |
+| `NamcoS2_LW` | Lucky & Wild: C355 + C45 road + C169 ROZ; work RAMs in SDRAM | 2 | 38,542 (92%) | 54,201 | 551 / 553 (100%) | 78 | +1.327 / +0.370 / +0.114 / +0.684 ns | 744 |
 
 Every clock meets timing, setup and hold, at every corner on all five,
 with the SDRAM interface constrained (NS2-19). clk_sys is 49.152

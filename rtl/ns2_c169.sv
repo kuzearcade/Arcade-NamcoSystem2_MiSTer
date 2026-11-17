@@ -6,7 +6,7 @@
 // A layer's parameters are its 8 control words, or for layer 1 when control
 // word 0 is 0x8000, 8 words of video RAM at 0x7040 + (y >> 3) * 0x80 +
 // (y & 7) * 8 (the per-line mode):
-//   [1] bit 15 off, bit 11 no wrap (unused), 9-8 size 512 << n,
+//   [1] bit 15 off, bit 11 no wrap (below; MAME ignores it), 9-8 size 512 << n,
 //       7-4 priority (0..15), 3-0 colour (x 256)
 //   [2..5] incxx, incxy, incyx, incyy: 12 bits and a sign in bit 15;
 //       [2], [3] bits 14-12 also give left, top (x 512)
@@ -29,6 +29,13 @@
 // first burst marks the entry pending and its last marks it filled; reset
 // clears the tags. The fills run on through a reset (the memory system does
 // not reset with the video, and their bursts still come back).
+//
+// The tiles (NS2-42), with MCACHE too. A transparent pixel (its mask bit off)
+// asks for no burst. The bursts that come back are kept in a 1024-entry
+// direct-mapped cache by {code, row, half}'s low 10 bits, the whole key as
+// tag: the next line, a pixel or so over, mostly reads the same bursts. The
+// head of FIFO A is looked up as for the mask; a hit goes into FIFO B with its
+// pixel, and is drawn in order with the rest. Reset clears the tags.
 module ns2_c169 #(parameter MCACHE = 0) (
 	input             clk,
 	input             reset,
@@ -86,6 +93,7 @@ module ns2_c169 #(parameter MCACHE = 0) (
 	reg [31:0] ax, ay, dxx, dxy;
 	reg [11:0] size_m;
 	reg [11:0] left, top;
+	reg        nowrap;
 	reg [3:0]  pri;
 	reg [3:0]  colour;
 	reg [8:0]  x;
@@ -100,6 +108,12 @@ module ns2_c169 #(parameter MCACHE = 0) (
 
 	wire [11:0] xpos = ((ax[27:16] & size_m) + left) & 12'hfff;
 	wire [11:0] ypos = ((ay[27:16] & size_m) + top) & 12'hfff;
+	// no wrap (word [1] bit 11; MAME leaves it out, NS2-42): only the layer's
+	// own window of the 4096 x 4096 map, [left, left + size) x [top, top +
+	// size) of the 12-bit position, is drawn; a pixel outside it is
+	// transparent and is not fetched
+	wire [11:0] relx = ax[27:16] - left, rely = ay[27:16] - top;
+	wire        inwin = !nowrap || ((relx & ~size_m) == 12'd0 && (rely & ~size_m) == 12'd0);
 	wire [7:0]  mcol = xpos[11:4], mrow = ypos[11:4];
 
 	// the pipeline (as ns2_roz): p1 issues the map read, p2 waits, FIFO A
@@ -118,6 +132,9 @@ module ns2_c169 #(parameter MCACHE = 0) (
 	reg [8:0]  bx_q [0:15];
 	reg [3:0]  bpx_q [0:15];
 	reg        bm_q [0:15];                 // with the cache: the pixel's mask bit
+	reg        bh_q [0:15];                 // the pixel came from the burst cache,
+	reg [7:0]  bp_q [0:15];                 //   with this pen
+	reg [18:0] rk_q [0:15];                 // each request's key, for the fill
 	reg [3:0]  bw, br_r;
 	reg [4:0]  bcnt;
 	reg [63:0] rq [0:15];
@@ -206,8 +223,36 @@ module ns2_c169 #(parameter MCACHE = 0) (
 	end
 
 	wire        pop_a = acnt != 0 && !t_pend && (mc ? head_hit : !m_pend) && bcnt < 5'd14;
+	wire        skip_t = mc && !hd_bit;     // a transparent pixel: nothing to fetch
+
+	// ------------------------------------------------------------ the burst cache
+	localparam BCB = 10;
+	localparam BE = MCACHE != 0 ? (1 << BCB) - 1 : 0;
+	reg [63:0] bc_d [0:BE];
+	reg [19:0] bc_t [0:BE];                 // {valid, key}
+	reg [BCB:0] bclr;                       // reset: the tags cleared, entry by entry
+	reg [63:0] hb_d;                        // the head's entry, read a clock ago
+	reg [19:0] hb_t;
+	reg        hb_w;                        // ... while that entry was written
+	wire [BCB-1:0] hb_idx = key[BCB-1:0];
+	wire [18:0] fill_key = rk_q[rwp[3:0]];
+	wire        bc_fill = mc && bclr[BCB] && r_valid;
+	wire        bc_we = mc && (!bclr[BCB] || bc_fill);
+	wire [BCB-1:0] bc_wa = bclr[BCB] ? fill_key[BCB-1:0] : bclr[BCB-1:0];
+	wire        bc_hit = hd_cur && !hb_w && bclr[BCB] && hb_t == {1'b1, key};
+	wire [7:0]  bc_pen = hb_d[8 * apx_q[ar][2:0] +: 8];
+	always @(posedge clk) begin
+		if (bc_we) begin
+			bc_d[bc_wa] <= r_data;
+			bc_t[bc_wa] <= bclr[BCB] ? {1'b1, fill_key} : 20'd0;
+		end
+		hb_d <= bc_d[hb_idx];
+		hb_t <= bc_t[hb_idx];
+		hb_w <= bc_we && bc_wa == hb_idx;
+	end
 	// the oldest pixel's burst is in (and without the cache, its mask byte)
-	wire        both  = bcnt != 0 && r_got != 5'd0 && r_got <= 5'd16 && (mc || (m_got != 5'd0 && m_got <= 5'd16));
+	// (or it came from the burst cache)
+	wire        both  = bcnt != 0 && (bh_q[br_r] || (r_got != 5'd0 && r_got <= 5'd16 && (mc || (m_got != 5'd0 && m_got <= 5'd16))));
 
 	// the fills: four bursts a tile, at most four tiles in flight; not reset
 	// (ff_q takes an allocation, in the block below)
@@ -240,8 +285,10 @@ module ns2_c169 #(parameter MCACHE = 0) (
 			p1_v <= 1'b0; p2_v <= 1'b0; aw <= 0; ar <= 0; acnt <= 0; bw <= 0; br_r <= 0; bcnt <= 0; rwp <= 0; mwp <= 0;
 			ic <= 0; last_v <= 1'b0;
 			clr <= 0; p3_v <= 1'b0; p4_v <= 1'b0; hd_ok <= 1'b0; last_alloc <= 14'h3fff;
+			bclr <= 0;
 		end else begin
 			if (!clr[9]) clr <= clr + 1'd1;
+			if (!bclr[BCB]) bclr <= bclr + 1'd1;
 			case (st)
 				S_IDLE: if (start) begin yl <= y; w <= 1'b1; busy <= 1'b1; st <= S_LAYER; end
 				S_LAYER: begin
@@ -269,6 +316,7 @@ module ns2_c169 #(parameter MCACHE = 0) (
 						ay <= starty * 256 + $signed({1'b0, yl}) * (incyy * 256);
 						dxx <= incxx * 256; dxy <= incxy * 256;
 						size_m <= (12'd512 << src[1][9:8]) - 1'd1;
+						nowrap <= src[1][11];
 						left <= {src[2][14:12], 9'd0}; top <= {src[3][14:12], 9'd0};
 						pri <= src[1][7:4]; colour <= src[1][3:0];
 						x <= 0;
@@ -283,7 +331,7 @@ module ns2_c169 #(parameter MCACHE = 0) (
 				default: st <= S_IDLE;
 			endcase
 			// p1: the map read
-			p1_v <= issue;
+			p1_v <= issue && inwin;
 			if (issue) begin
 				p1_x <= x; p1_px <= xpos[3:0]; p1_py <= ypos[3:0];
 				vr_addr <= {mrow, mcol[6:0]};        // ((col & 0x80) << 8) | (row << 7) | (col & 0x7f), & 0x7fff
@@ -303,9 +351,16 @@ module ns2_c169 #(parameter MCACHE = 0) (
 			hd_w <= md_we && md_wa[10:2] == hd_idx;
 			if (alloc) last_alloc <= alloc_code;
 			// the fetch side: a burst per pixel (a mask byte too, without the cache)
-			if (pop_a) begin
+			if (pop_a && skip_t) begin
+				// with the cache, a pixel whose mask bit is off is not drawn:
+				// its tile burst is not asked for (NS2-42)
+				ar <= ar + 1'd1;
+			end else if (pop_a) begin
+				bh_q[bw] <= 1'b0; bp_q[bw] <= bc_pen;
 				if (reuse) bb_q[bw] <= ic - 1'd1;
+				else if (mc && bc_hit) bh_q[bw] <= 1'b1;
 				else begin
+					rk_q[ic[3:0]] <= key;
 					r_req <= 1'b1; r_addr <= {tile, apy_q[ar], apx_q[ar][3]};
 					t_pend <= 1'b1;
 					if (!mc) begin
@@ -328,10 +383,10 @@ module ns2_c169 #(parameter MCACHE = 0) (
 			if (both) begin
 				lb_we <= mc ? bm_q[br_r] : mq[bb[3:0]][3'd7 - bpx_q[br_r][2:0]];
 				lb_layer <= w; lb_x <= bx_q[br_r];
-				lb_d <= {1'b1, pri, colour, rq[bb[3:0]][8 * bpx_q[br_r][2:0] +: 8]};
+				lb_d <= {1'b1, pri, colour, bh_q[br_r] ? bp_q[br_r] : rq[bb[3:0]][8 * bpx_q[br_r][2:0] +: 8]};
 				br_r <= br_r + 1'd1;
 			end
-			bcnt <= bcnt + {4'd0, pop_a} - {4'd0, both};
+			bcnt <= bcnt + {4'd0, pop_a && !skip_t} - {4'd0, both};
 			if (st == S_SETUP) begin rwp <= 0; mwp <= 0; br_r <= 0; bw <= 0; aw <= 0; ar <= 0; ic <= 0; last_v <= 1'b0; end
 		end
 	end

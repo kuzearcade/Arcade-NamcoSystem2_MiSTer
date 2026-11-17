@@ -2331,3 +2331,89 @@ not measured on the board this time.)
 The new accumulator is smaller: LW 41,053 -> 38,498 ALMs. Seeds STD 704, MH
 632 (631 missed HDMI by 0.031 ns), SG 735, SZ 623 (621 missed clk_sd by
 0.027 ns), LW 744 (743 missed HDMI by 0.155 ns); every clock met.
+
+## NS2-42 — Metal Hawk: the title logo's copies (the C169's no-wrap bit) and striped lines on the high-score screen and in the demo (closed)
+
+**Reported** (GitHub issue 8, v2026-10-07): the title logo repeats while it
+zooms and turns (not in the Arcade Archives ports); vertical stripes in the
+attract demo and over the whole high-score screen (the game is turned: they
+are lost lines).
+
+**The logo's copies: the no-wrap bit.** The logo is C169 layer 1, word [1]
+= `0x0a5f`: bit 11 set, size 2048. MAME ignores the bit
+(`namco_c169roz.cpp`: "Wraparound disable isn't implemented") and wraps
+every layer in its size, and the core did as MAME: both draw the copies.
+Which copy is the real one, from MAME's own coordinates (`metlhawk_attract`
+frames 1019, 1044, 1069, 1100, 1140): taking the 12-bit position, the
+centred copy is always in `[left, left + size) x [top, top + size)` (here x
+in [0, 2048), y in [2048, 4096)) and every other copy is outside it. A clip
+to `[0, size)` of the unmasked position is wrong: it removes the whole logo
+at rest, which straddles 2048. `ns2_c169` now issues no pixel outside that
+window when bit 11 is set (not drawn, not fetched).
+- The rule in the model (a local patch, not committed: the model stays
+  MAME's): title frames show one logo; `metlhawk_play` changes in one frame
+  (1050, 94 pixels, the game start's logo); Lucky & Wild, whose layers also
+  set the bit (`0x080e`, `0x084e`), changes in none of 60 attract frames.
+- M3 (`BOARD=2`, the attract to 1,300): the core drew MAME's copies (frames
+  1020-1045); now one logo, the logo at rest unchanged. 1,098 of 1,300
+  pictures exact before and after; the frames that differ from MAME are the
+  zoom (MAME's copies, and the logo a frame apart) and palette fades.
+
+**The stripes: the C169 overruns.** A 150 s MAME capture
+(`metlhawk_long`, every 30th frame) has the high-score screen at frames
+4,050-4,350. There both C169 layers stay on with the demo's last
+parameters, turned and zoomed out (layer 0 about 4x): the worst case of
+NS2-21, a burst per pixel, 568 a line. The screen is black: layer 1 is
+transparent everywhere, layer 0 opaque but under the C123's planes. M3 to
+frame 4,400: the C169 overran 75-80 lines a frame on the high-score screen
+(busiest line 3,070 of 3,072; overrun sources C169 and C123), and up to 5
+lines a frame in the demo's clouds (frames 3,007-3,063). The core's
+pictures show the reported stripes.
+
+**The fix** (`ns2_c169.sv`, with the mask cache, Metal Hawk's bitstream): the
+pixel's mask bit is known when it leaves FIFO A, so a transparent pixel no
+longer asks for its tile burst (it was never drawn). Layer 1 is 0-1%
+opaque in play and the high-score screen, 26-30% in the clouds.
+- M3 to 1,300: 1,098 of 1,300 exact, as before; busiest line 2,640 ->
+  2,341. 39 frames move by 867 pixels in all (fades, the CPUs' timing),
+  536 of them now as MAME's against 155.
+- M3 to 4,400: no overruns on the high-score screen; its pictures (4,080 to
+  4,320, every 60th) exact against MAME (5,000-6,000 pixels each before).
+  62 of 146 exact (52 before; the demo itself runs apart from MAME's from
+  about frame 1,980, as before).
+
+**The demo's clouds: a tile burst cache.** With the skip, the clouds
+(frames 3,011-3,063) still overran 1-3 lines a frame (78 in all, C169
+only): layer 1 is truly opaque there in places. The model, MAME's state at
+frame 3,030: 509 bursts a line -> 286 misses with a 1,024-entry cache.
+`ns2_c169` (with `MCACHE` only) now keeps the last 1,024 tile bursts
+(64 bits each, direct-mapped on the burst's key, 8 KB; cleared at reset).
+A popped pixel whose burst is cached takes its pen from the cache and asks
+for nothing; a miss fills the entry when its burst returns.
+- M3 to 1,300: 1,098 of 1,300 exact, as before; no overruns; busiest line
+  2,341 -> 2,239. 39 fade frames move by 1,208 pixels in all (timing).
+- M3 to 4,400: no overruns at all (78 before); busiest line 3,070 ->
+  2,984; the high-score screen still exact; 62 of 146 exact, as with the
+  skip alone.
+- Lucky & Wild (`ns2_c169` without `MCACHE`, M3 to 600): 255 exact before
+  and after; 46 frames move by 1-25 pixels (fades, timing; 54 of the
+  pixels now as MAME's against 47); busiest line 2,488 -> 2,441.
+
+**Build** (`NamcoS2_MH`, seed 633: 632 missed the HDMI clock by 0.062 ns):
+37,906 ALMs, 517 of 553 RAM blocks, every clock met (HDMI +0.112 ns,
+`clk_sd` +0.416 ns, `clk_sys` +1.495 ns).
+
+**On the board** (192.168.1.138, HDMI captured at 1080p60, 110 s of attract
+from the load, release 20261028 against this build): the release draws the
+logo's copies during the zoom (about 21-22 s) and stripes every line group
+of the high-score screen (70-75 s); this build draws one logo through the
+whole zoom and a clean high-score screen. The clouds (66-69 s) show no lost
+line in either recording (a frame-to-frame search for one-frame line
+changes finds none), so the burst cache's effect there is measured only in
+M3.
+
+`NamcoS2_LW` rebuilt for the no-wrap bit (seed 744 as before): 38,542
+ALMs, 551 of 553 RAM blocks, every clock met (HDMI +0.114 ns, `clk_sd`
++0.370 ns, `clk_sys` +1.327 ns); on the board it boots through its RAM
+test to the attract (the C169 badge intro, the drive, the ranking).
+Released as v2026-11-17 (MH and LW; STD, SG and SZ unchanged).
